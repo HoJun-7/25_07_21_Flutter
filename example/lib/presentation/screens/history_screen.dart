@@ -17,6 +17,18 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  String _searchQuery = '';
+  final List<String> _hospitals = [
+    '서울 치과 병원',
+    '강남 종합 치과',
+    '부산 중앙 치과',
+    '대구 사랑 치과',
+    '인천 미소 치과',
+    '광주 건강 치과',
+    '대전 행복 치과',
+    '울산 치과 센터',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +44,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final authViewModel = context.watch<AuthViewModel>();
     final currentUser = authViewModel.currentUser;
 
+    // 검색어에 따라 병원 리스트 필터링
+    final filteredHospitals = _hospitals
+        .where((hospital) => hospital.contains(_searchQuery))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('이전 진단 기록'),
@@ -46,13 +63,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ? Center(child: Text('오류: ${viewModel.error}'))
               : currentUser == null
                   ? const Center(child: Text('로그인이 필요합니다.'))
-                  : _buildListView(
-                      viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              _buildRecordList(
+                                viewModel.records
+                                    .where(
+                                        (r) => r.userId == currentUser.registerId)
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 20),
+                              // 병원 검색창
+                              TextField(
+                                decoration: InputDecoration(
+                                  labelText: '병원 검색',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.search),
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _searchQuery = value;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              // 병원 리스트 표시
+                              _buildHospitalList(filteredHospitals),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
     );
   }
 
-  Widget _buildListView(List<ConsultationRecord> records) {
+  Widget _buildRecordList(List<ConsultationRecord> records) {
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
     final List<ConsultationRecord> sortedRecords = List.from(records)
@@ -63,7 +113,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: sortedRecords.length,
       itemBuilder: (context, index) {
         final record = sortedRecords[index];
@@ -85,7 +136,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             title: Text(
               '[$listIndex] $formattedTime',
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -122,6 +174,41 @@ class _HistoryScreenState extends State<HistoryScreen> {
               );
             },
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHospitalList(List<String> hospitals) {
+    if (hospitals.isEmpty) {
+      return const Center(child: Text('검색 결과가 없습니다.'));
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: hospitals.length,
+      separatorBuilder: (_, __) => const Divider(),
+      itemBuilder: (context, index) {
+        final hospital = hospitals[index];
+        return ListTile(
+          leading: const Icon(Icons.local_hospital, color: Color(0xFF3869A8)),
+          title: Text(hospital),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('병원 선택'),
+                content: Text('$hospital 을(를) 선택했습니다.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
