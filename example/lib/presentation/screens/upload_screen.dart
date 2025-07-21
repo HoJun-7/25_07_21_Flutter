@@ -125,25 +125,29 @@ class _UploadScreenState extends State<UploadScreen> {
         final responseData = json.decode(responseBody);
         final userId = registerId;
         final inferenceResultId = responseData['inference_result_id'] ?? 'UNKNOWN';
-        final processedPath = responseData['image_url'];
-        final inferenceData = responseData['inference_data'];
         final originalPath = responseData['original_image_path'];
+        final processedPath = responseData['model1_image_path'];
+        final inferenceData = responseData['model1_inference_result'];
 
         if (processedPath != null && inferenceData != null && originalPath != null) {
           final baseStaticUrl = widget.baseUrl.replaceFirst('/api', '');
           final originalImageUrl = '$baseStaticUrl$originalPath';
-          final processedImageUrl = '$baseStaticUrl$processedPath';
+          final processedImageUrls = {
+            1: '$baseStaticUrl${responseData['model1_image_path']}',
+            2: '$baseStaticUrl${responseData['model2_image_path']}',
+            3: '$baseStaticUrl${responseData['model3_image_path']}',
+          };
 
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => ResultDetailScreen(
                 originalImageUrl: originalImageUrl,
-                processedImageUrls: {
-                  1: processedImageUrl,
-                },
+                processedImageUrls: processedImageUrls,
                 modelInfos: {
-                  1: inferenceData,
+                  1: responseData['model1_inference_result'],
+                  2: responseData['model2_inference_result'],
+                  3: responseData['model3_inference_result'],
                 },
                 userId: userId,
                 inferenceResultId: inferenceResultId,
@@ -152,7 +156,7 @@ class _UploadScreenState extends State<UploadScreen> {
             ),
           );
         } else {
-          throw Exception('image_url 또는 inference_data 없음');
+          throw Exception('model1_image_path 또는 model1_inference_result 없음');
         }
       } else {
         print('서버 오류: ${response.statusCode}');
