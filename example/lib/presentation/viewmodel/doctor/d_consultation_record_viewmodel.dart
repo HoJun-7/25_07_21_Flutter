@@ -40,13 +40,14 @@ class ConsultationRecordViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> fetchRecords() async {
+  Future<void> fetchRecords(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final res = await http.get(Uri.parse('$baseUrl/inference-results'));
+      final url = Uri.parse('$baseUrl/inference-results?role=P&user_id=$userId');
+      final res = await http.get(url);
 
       if (res.statusCode == 200) {
         final List data = json.decode(res.body);

@@ -34,7 +34,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.initState();
     final viewModel = context.read<ConsultationRecordViewModel>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      viewModel.fetchRecords();
+      final userId = context.read<AuthViewModel>().currentUser?.registerId;
+      if (userId != null) {
+        viewModel.fetchRecords(userId);
+      }
     });
   }
 
@@ -128,6 +131,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           formattedTime = '시간 파싱 오류';
         }
 
+        // "processed_" 제거한 파일명 추출
+        final modelFilename = getModelFilename(record.originalImagePath);
+
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -147,7 +153,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               children: [
                 const SizedBox(height: 6),
                 Text('사용자 ID: ${record.userId}'),
-                Text('파일명: ${record.originalImageFilename}'),
+                Text('파일명: $modelFilename'),
               ],
             ),
             onTap: () {
@@ -157,14 +163,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   builder: (_) => ResultDetailScreen(
                     originalImageUrl: '$imageBaseUrl${record.originalImagePath}',
                     processedImageUrls: {
-                      1: '$imageBaseUrl${record.processedImagePath}',
+                      1: '$imageBaseUrl/images/model1/$modelFilename',
+                      2: '$imageBaseUrl/images/model2/$modelFilename',
+                      3: '$imageBaseUrl/images/model3/$modelFilename',
                     },
+                    // ✅ 이 부분이 수정되었습니다. ConsultationRecord의 새 필드를 사용합니다.
                     modelInfos: {
-                      1: {
-                        'model_used': record.modelUsed,
-                        'confidence': record.confidence ?? 0.0,
-                        'lesion_points': record.lesionPoints ?? [],
-                      },
+                      1: record.model1InferenceResult ?? {},
+                      2: record.model2InferenceResult ?? {},
+                      3: record.model3InferenceResult ?? {},
                     },
                     userId: record.userId,
                     inferenceResultId: record.id,
@@ -226,5 +233,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final min = timePart.substring(10, 12);
     final sec = timePart.substring(12, 14);
     return DateTime.parse('$y-$m-$d' 'T' '$h:$min:$sec');
+  }
+
+  // "processed_" 제거 함수
+  String getModelFilename(String path) {
+    final filename = path.split('/').last;
+    return filename.replaceFirst('processed_', '');
   }
 }

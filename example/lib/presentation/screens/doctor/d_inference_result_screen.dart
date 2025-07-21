@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-
+import '/presentation/viewmodel/auth_viewmodel.dart';  // ✅ 이 줄 추가!
 import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
 import '/presentation/model/doctor/d_consultation_record.dart';
 import 'd_result_detail_screen.dart';
@@ -20,8 +20,11 @@ class _DInferenceResultScreenState extends State<DInferenceResultScreen> {
   void initState() {
     super.initState();
     final viewModel = context.read<ConsultationRecordViewModel>();
+    final userId = context.read<AuthViewModel>().currentUser?.registerId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      viewModel.fetchRecords();
+      if (userId != null) {
+        viewModel.fetchRecords(userId);  // ✅ 인자 전달
+      }
     });
   }
 
