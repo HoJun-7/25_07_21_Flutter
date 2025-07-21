@@ -40,7 +40,9 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
     final confidence = modelInfo?['confidence'] ?? 0.0;
     final className = modelInfo?['class_name'] ?? 'Dental Issue';
     final imageUrl = widget.originalImageUrl;
-    final processedUrl = widget.processedImageUrls[1];
+    final overlay1 = widget.processedImageUrls[1];
+    final overlay2 = widget.processedImageUrls[2];
+    final overlay3 = widget.processedImageUrls[3];
 
     const Color cardBorder = Color(0xFF3869A8);
     const Color toggleBackground = Color(0xFFEAEAEA);
@@ -61,11 +63,10 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
           children: [
             _buildToggleCard(toggleBackground),
             const SizedBox(height: 16),
-            _buildFixedImageCard(imageUrl, processedUrl),
+            _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
             const SizedBox(height: 16),
             _buildSummaryCard(modelName, confidence, className, textTheme),
             const SizedBox(height: 24),
-
             if (currentUser?.role == 'P') ...[
               _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
               const SizedBox(height: 12),
@@ -130,7 +131,7 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
     );
   }
 
-  Widget _buildFixedImageCard(String imageUrl, String? overlayUrl) => Container(
+  Widget _buildFixedImageCard(String imageUrl, String? overlay1, String? overlay2, String? overlay3) => Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(16),
@@ -159,12 +160,12 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
                         fit: BoxFit.fill,
                         errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image)),
                       ),
-                      if (_showDisease && overlayUrl != null)
-                        Image.network(
-                          overlayUrl,
-                          fit: BoxFit.fill,
-                          opacity: const AlwaysStoppedAnimation(0.5),
-                        ),
+                      if (_showDisease && overlay1 != null)
+                        Image.network(overlay1, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                      if (_showHygiene && overlay2 != null)
+                        Image.network(overlay2, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                      if (_showToothNumber && overlay3 != null)
+                        Image.network(overlay3, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
                     ],
                   ),
                 ),
