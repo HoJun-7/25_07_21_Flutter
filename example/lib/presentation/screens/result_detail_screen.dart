@@ -35,10 +35,22 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
-    final modelInfo = widget.modelInfos[1];
-    final modelName = modelInfo?['model_used'] ?? 'N/A';
-    final confidence = modelInfo?['confidence'] ?? 0.0;
-    final className = modelInfo?['class_name'] ?? 'Dental Issue';
+    // model1 (질병) 정보 추출 (기존과 동일)
+    final model1Info = widget.modelInfos[1];
+    final model1Name = model1Info?['used_model'] ?? 'N/A'; // 백엔드에서 'used_model'로 보냄
+    final model1Confidence = model1Info?['confidence'] ?? 0.0;
+    final model1Label = model1Info?['label'] ?? '감지되지 않음'; // 백엔드에서 'label'로 보냄
+
+    // model2 (위생) 정보 추출
+    final model2Info = widget.modelInfos[2];
+    final model2Confidence = model2Info?['confidence'] ?? 0.0;
+    final model2Label = model2Info?['label'] ?? '감지되지 않음';
+
+    // model3 (치아번호) 정보 추출
+    final model3Info = widget.modelInfos[3];
+    final model3Confidence = model3Info?['confidence'] ?? 0.0;
+    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown'; // 치아번호는 숫자로 올 수 있으므로 toString()
+
     final imageUrl = widget.originalImageUrl;
     final overlay1 = widget.processedImageUrls[1];
     final overlay2 = widget.processedImageUrls[2];
@@ -65,7 +77,16 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
             const SizedBox(height: 16),
             _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
             const SizedBox(height: 16),
-            _buildSummaryCard(modelName, confidence, className, textTheme),
+            // 변경된 _buildSummaryCard 호출
+            _buildSummaryCard(
+              model1Label: model1Label,
+              model1Confidence: model1Confidence,
+              model2Label: model2Label,
+              model2Confidence: model2Confidence,
+              model3ToothNumber: model3ToothNumber,
+              model3Confidence: model3Confidence,
+              textTheme: textTheme,
+            ),
             const SizedBox(height: 24),
             if (currentUser?.role == 'P') ...[
               _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
@@ -79,9 +100,9 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
                   'userId': widget.userId,
                   'inferenceResultId': widget.inferenceResultId,
                   'baseUrl': widget.baseUrl,
-                  'className': className,
-                  'confidence': confidence,
-                  'modelUsed': modelName,
+                  'className': model1Label, // 질병 모델의 라벨 사용
+                  'confidence': model1Confidence, // 질병 모델의 확신도 사용
+                  'modelUsed': model1Name, // 질병 모델 이름 사용
                   'name': currentUser.name ?? '',
                   'phone': currentUser.phone ?? '',
                   'birth': currentUser.birth ?? '',
@@ -175,7 +196,15 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
         ),
       );
 
-  Widget _buildSummaryCard(String model, double conf, String cls, TextTheme theme) => Container(
+  Widget _buildSummaryCard({
+    required String model1Label,
+    required double model1Confidence,
+    required String model2Label,
+    required double model2Confidence,
+    required String model3ToothNumber, // 치아번호는 label 대신 tooth_number_fdi를 사용
+    required double model3Confidence,
+    required TextTheme textTheme,
+  }) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -187,9 +216,9 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text("모델: $model", style: theme.bodyMedium),
-            Text("확신도: ${(conf * 100).toStringAsFixed(1)}%", style: theme.bodyMedium),
-            Text("클래스: $cls", style: theme.bodyMedium),
+            Text("모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
           ],
         ),
       );

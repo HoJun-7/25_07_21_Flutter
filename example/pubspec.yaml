@@ -17,7 +17,6 @@ dependencies:
   archive: ^4.0.7
   http: ^1.2.1
   go_router: ^16.0.0
-  provider: ^6.1.1         # ✅ 추가된 부분
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
   location: ^5.0.3 # 또는 사용 중인 버전에 맞게
@@ -31,6 +30,7 @@ dependencies:
     path: ../
 
   cupertino_icons: ^1.0.8
+  provider: ^6.1.5
 
 dev_dependencies:
   integration_test:
