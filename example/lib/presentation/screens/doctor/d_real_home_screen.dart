@@ -1,91 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
 
-//--------------------------------------------------------------
-//  DoctorDrawer
-//--------------------------------------------------------------
-class DoctorDrawer extends StatelessWidget {
-  final String baseUrl;
-  const DoctorDrawer({super.key, required this.baseUrl});
+import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
+import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
 
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _buildHeader(context),
-          _drawerItem(context, Icons.home, '홈', '/d_home'),
-          _drawerItem(context, Icons.personal_injury, '비대면 진료 신청 현황', '/d_dashboard'),
-          _drawerItem(context, Icons.assignment, '비대면 진료 결과', '/d_inference_result'),
-          _drawerItem(context, Icons.event, '예약 캘린더', '/d_calendar'),
-          _drawerItem(context, Icons.people, '환자 방문 기록', '/d_patients'),
-          const Divider(),
-          _drawerItem(context, Icons.settings, '설정', '/d_settings'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      height: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Colors.blue,
-        borderRadius: BorderRadius.only(bottomRight: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('TOOTH AI 닥터 메뉴',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    )),
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              tooltip: '로그아웃',
-              onPressed: () => context.go('/login'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _drawerItem(BuildContext context, IconData icon, String title, String route) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blueGrey[700]),
-      title: Text(title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.blueGrey[800],
-              )),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      hoverColor: Colors.blue.withOpacity(.1),
-      onTap: () {
-        Navigator.pop(context);
-
-        if (route == '/d_dashboard') {
-          context.push(route, extra: {
-            'baseUrl': baseUrl,
-            'initialTab': 0,
-          });
-        } else {
-          context.push(route, extra: baseUrl);
-        }
-      },
-    );
-  }
-}
-
-//--------------------------------------------------------------
-//  DRealHomeScreen  (Dashboard Home)
-//--------------------------------------------------------------
+// -------------------------
+// DRealHomeScreen (Dashboard Home)
+// -------------------------
 class DRealHomeScreen extends StatefulWidget {
   final String baseUrl;
   const DRealHomeScreen({super.key, required this.baseUrl});
@@ -103,7 +26,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     });
   }
 
-  // ✅ 뒤로가기 시 앱 종료 팝업
+  // 뒤로가기 시 앱 종료 팝업
   Future<bool> _onWillPop() async {
     final shouldExit = await showDialog<bool>(
       context: context,
@@ -125,184 +48,280 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     return shouldExit ?? false;
   }
 
+  // 범례를 그리는 위젯
+  Widget _buildCategoryLegend(DoctorDashboardViewModel vm) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start, // 범례 항목 내부의 정렬은 시작점에 유지
+      children: vm.categoryRatio.entries.mapIndexed((index, entry) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min, // Row의 크기를 내용물에 맞춤
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: vm.getCategoryColor(index), // ViewModel에서 색상 가져오기
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${entry.key} (${((entry.value / vm.categoryRatio.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(1)}%)',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<DoctorDashboardViewModel>();
-    final int pending = (vm.requestsToday - vm.answeredToday).clamp(0, 1 << 31);
-
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: const Color(0xFFaed2ff),
-        appBar: AppBar(
-          title: const Text('의사 대시보드 홈'),
-          backgroundColor: Colors.blueAccent,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-          ),
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () => context.go('/d_notifications'),
-            ),
-          ],
-        ),
         drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 인사 + 캐릭터
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        appBar: AppBar(
+          title: Consumer<DoctorDashboardViewModel>(
+            builder: (_, vm, __) => Text('${vm.doctorName} 대시보드'),
+          ),
+          actions: [
+            Consumer<DoctorDashboardViewModel>(
+              builder: (_, vm, __) => Stack(
                 children: [
-                  Flexible(
-                    child: Text(
-                      '환영합니다, 의사 선생님!',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey[800],
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
+                      // TODO: 알림 화면 이동 처리
+                    },
+                    tooltip: '알림',
+                  ),
+                  if (vm.unreadNotifications > 0)
+                    Positioned(
+                      right: 11,
+                      top: 11,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '${vm.unreadNotifications}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
                           ),
-                      overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Image.asset(
-                    'assets/icon/cdss-icon_500.png',
-                    height: 60,
-                  ),
                 ],
               ),
-              const SizedBox(height: 30),
-              // 오늘의 진료 현황
-              _todayStatsCard(
-                context,
-                requests: vm.requestsToday,
-                answered: vm.answeredToday,
-                pending: pending,
+            )
+          ],
+        ),
+        body: Consumer<DoctorDashboardViewModel>(
+          builder: (context, vm, child) {
+            return RefreshIndicator(
+              onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, // 전체 컬럼은 시작점 정렬 유지
+                  children: [
+                    Text(
+                      '안녕하세요, ${vm.doctorName}님',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummaryCards(vm),
+                    const SizedBox(height: 24),
+                    Text(
+                      '최근 7일 신청 건수',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 200, child: _LineChartWidget()),
+                    const SizedBox(height: 24),
+                    Text(
+                      '진료 카테고리 비율',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 200, child: _PieChartWidget()),
+                    const SizedBox(height: 16), // 파이 차트와 범례 사이 간격
+                    // 범례를 Center 위젯으로 감싸서 가운데 정렬
+                    Center( // <--- 이 부분 추가
+                      child: _buildCategoryLegend(vm),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 25),
-              // 추가 통계 카드
-              Expanded(child: _additionalStatsSection(context)),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCards(DoctorDashboardViewModel vm) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _SummaryCard(
+          title: '오늘의 요청',
+          count: vm.requestsToday,
+          icon: Icons.request_page,
+          color: Colors.blue,
+        ),
+        _SummaryCard(
+          title: '오늘의 응답',
+          count: vm.answeredToday,
+          icon: Icons.done_all,
+          color: Colors.green,
+        ),
+        _SummaryCard(
+          title: '읽지 않은 알림',
+          count: vm.unreadNotifications,
+          icon: Icons.notifications_active,
+          color: Colors.red,
+        ),
+      ],
+    );
+  }
+}
+
+// -------------------------
+// Summary Card Widget
+// -------------------------
+class _SummaryCard extends StatelessWidget {
+  final String title;
+  final int count;
+  final IconData icon;
+  final Color color;
+
+  const _SummaryCard({
+    Key? key,
+    required this.title,
+    required this.count,
+    required this.icon,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Card(
+        elevation: 3,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Column(
+            children: [
+              Icon(icon, size: 36, color: color),
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 14),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _todayStatsCard(BuildContext context,
-      {required int requests, required int answered, required int pending}) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('오늘의 진료 현황',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF9681EB),
-                    )),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _statTile(
-                  context,
-                  title: '신청 건수',
-                  value: requests,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 0,
-                  }),
-                ),
-                _statTile(
-                  context,
-                  title: '미답변',
-                  value: pending,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 1,
-                  }),
-                ),
-                _statTile(
-                  context,
-                  title: '답변 완료',
-                  value: answered,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 2,
-                  }),
-                ),
-              ],
+// -------------------------
+// Line Chart Widget
+// -------------------------
+class _LineChartWidget extends StatelessWidget {
+  const _LineChartWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = Provider.of<DoctorDashboardViewModel>(context);
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: LineChart(
+        LineChartData(
+          lineBarsData: vm.chartData,
+          titlesData: FlTitlesData(
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  final labels = ['6일전', '5일전', '4일전', '3일전', '2일전', '어제', '오늘'];
+                  final index = value.toInt();
+                  if (index < 0 || index >= labels.length) return const SizedBox.shrink();
+                  // 텍스트를 회전시켜 겹침 방지
+                  return SideTitleWidget(
+                    axisSide: meta.axisSide,
+                    space: 8.0, // 라벨과 차트 사이 간격
+                    child: Transform.rotate(
+                      angle: -0.785, // 약 -45도 (radians)
+                      child: Text(
+                        labels[index],
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ],
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: true, interval: 2),
+            ),
+          ),
+          gridData: FlGridData(show: true),
+          borderData: FlBorderData(show: true),
+          minX: 0,
+          maxX: 6,
+          minY: 0,
+          maxY: 20,
         ),
       ),
     );
   }
+}
 
-  Widget _statTile(BuildContext context,
-      {required String title, required int value, required VoidCallback onTap}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            Text('$value',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    )),
-            const SizedBox(height: 5),
-            Text(title,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: const Color(0xFF9681EB),
-                    )),
-          ],
+// -------------------------
+// Pie Chart Widget
+// -------------------------
+class _PieChartWidget extends StatelessWidget {
+  const _PieChartWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = Provider.of<DoctorDashboardViewModel>(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: PieChart(
+        PieChartData(
+          sections: vm.pieChartSections,
+          centerSpaceRadius: 40,
+          sectionsSpace: 4,
+          borderData: FlBorderData(show: false),
         ),
       ),
-    );
-  }
-
-  Widget _additionalStatsSection(BuildContext context) {
-    return ListView(
-      children: [
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: SizedBox(
-            height: 180,
-            child: Center(
-              child: Text(
-                '📈 최근 7일 신청/답변 추이 (그래프 자리)',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: SizedBox(
-            height: 180,
-            child: Center(
-              child: Text(
-                '🧩 진료 유형 비율 (파이 차트 자리)',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
