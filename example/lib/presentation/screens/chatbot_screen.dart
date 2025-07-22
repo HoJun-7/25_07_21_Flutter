@@ -39,10 +39,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.0.19:5000/api/chat'),
+        Uri.parse('http://192.168.0.19:5000/api/chatbot'), 
+        //Uri.parse('http://192.168.0.19:5000/api/chat-medgemma'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'user_id': currentUserId ?? 'guest',
+          'patient_id': currentUserId ?? 'guest', // 'user_id'를 'patient_id'로 변경
           'message': message,
         }),
       );
