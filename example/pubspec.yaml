@@ -31,6 +31,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   provider: ^6.1.5
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   integration_test:
