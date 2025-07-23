@@ -1,0 +1,65 @@
+name: ultralytics_yolo_example
+description: "Demonstrates how to use the ultralytics_yolo plugin."
+publish_to: "none"
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=3.32.1"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.4
+  flutter_animate: ^4.3.0             # ✅ 추가: 애니메이션
+  fl_chart: ^0.64.0                   # ✅ 추가: 차트
+  image_picker: ^1.1.2
+  path_provider: ^2.0.0
+  archive: ^4.0.7
+  http: ^1.2.1
+  go_router: ^16.0.0
+  provider: ^6.1.1
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  location: ^5.0.3
+  cached_network_image: ^3.3.1
+  permission_handler: ^11.0.0
+  image_gallery_saver:
+    path: packages/image_gallery_saver
+  table_calendar: ^3.0.9
+  ultralytics_yolo:
+    path: ../
+  cupertino_icons: ^1.0.8
+  badges: ^3.1.2
+
+dev_dependencies:
+  integration_test:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/models/
+    - assets/icon/cdss-icon_500.png
+    - assets/icon/app_icon_1024.png
+    - assets/logo.png
+    - assets/images/
+    - assets/applogo.png
+    - assets/splash.png
+    - assets/models/dental_best_float32.tflite
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon_1024.png"
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/splash.png
+  android: true
+  ios: true

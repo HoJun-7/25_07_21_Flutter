@@ -1,0 +1,56 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // Flutter Gradle Plugin은 Android와 Kotlin 플러그인 다음에 적용해야 합니다
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.ultralytics.yolo_example"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    defaultConfig {
+        applicationId "com.ultralytics.yolo_example"
+        minSdk flutter.minSdkVersion
+        targetSdk flutter.targetSdkVersion
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    // Java Toolchain 명시 (Gradle 7 이상)
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    buildTypes {
+        release {
+            // ⚠️ 아래 두 줄 반드시 있어야 함
+            minifyEnabled false
+            shrinkResources false
+
+            // 임시로 디버그 키로 서명 설정 (실제 배포시 교체 필요)
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+    }
+}
+
+flutter {
+    source '../..'
+}
