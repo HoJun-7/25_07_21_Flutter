@@ -24,8 +24,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Future<void> _sendMessage(String message) async {
     if (message.isEmpty) return;
 
-    final userId =
-        Provider.of<AuthViewModel>(context, listen: false).currentUser?.registerId ?? 'guest';
+    final userId = Provider.of<AuthViewModel>(context, listen: false)
+            .currentUser
+            ?.registerId ??
+        'guest';
 
     await Provider.of<ChatbotViewModel>(context, listen: false)
         .sendMessage(message, userId);
@@ -76,7 +78,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 itemBuilder: (context, index) {
                   final message = messages[index];
                   final isUser = message.role == 'user';
-                  final imageUrl = message.imageUrl;
+                  final imageUrls = message.imageUrls;
+
+                  // ✅ 키 → 한글 라벨 맵
+                  const labelMap = {
+                    "model1": "충치/치주염/치은염",
+                    "model2": "치석/보철물",
+                    "model3": "치아번호",
+                    "original": "원본"
+                  };
 
                   return Align(
                     alignment:
@@ -102,28 +112,56 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                               ),
                             ),
                           ),
-                          if (imageUrl != null && imageUrl.isNotEmpty)
+                          if (imageUrls != null && imageUrls.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: Image.network(
-                                imageUrl,
-                                width: 200,
-                                height: 200,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value: progress.expectedTotalBytes != null
-                                          ? progress.cumulativeBytesLoaded /
-                                              progress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Text('이미지를 불러올 수 없습니다.');
-                                },
+                              child: Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: imageUrls.entries
+                                    .map((entry) => Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              labelMap[entry.key] ??
+                                                  entry.key,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12),
+                                            ),
+                                            Image.network(
+                                              entry.value,
+                                              width: 150,
+                                              height: 150,
+                                              fit: BoxFit.cover,
+                                              loadingBuilder:
+                                                  (context, child, progress) {
+                                                if (progress == null)
+                                                  return child;
+                                                return Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    value: progress
+                                                                .expectedTotalBytes !=
+                                                            null
+                                                        ? progress
+                                                                .cumulativeBytesLoaded /
+                                                            progress
+                                                                .expectedTotalBytes!
+                                                        : null,
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return const Text(
+                                                    '이미지를 불러올 수 없습니다.');
+                                              },
+                                            ),
+                                          ],
+                                        ))
+                                    .toList(),
                               ),
                             ),
                         ],
