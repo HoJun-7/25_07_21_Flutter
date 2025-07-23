@@ -109,12 +109,16 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
                   'birth': currentUser.birth ?? '',
                 });
               }),
+              const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
+                final uri = Uri.parse('${widget.baseUrl}/api/multimodal_gemini');
+
                 final response = await http.post(
-                  Uri.parse('${widget.baseUrl}/api/multimodal_gemini'),  // ✅ 수정됨
+                  uri,
                   headers: {"Content-Type": "application/json"},
                   body: jsonEncode({
                     "image_url": widget.originalImageUrl,
+                    "inference_result_id": widget.inferenceResultId,
                     "model1Label": model1Label,
                     "model1Confidence": model1Confidence,
                     "model2Label": model2Label,
@@ -127,7 +131,6 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
                 if (response.statusCode == 200) {
                   final result = jsonDecode(response.body);
                   final message = result['message'] ?? 'AI 응답이 없습니다.';
-                  // Chat 화면으로 전송
                   context.push('/chat-response', extra: {"responseText": message});
                 } else {
                   print("AI 요청 실패: ${response.body}");
