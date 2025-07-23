@@ -14,6 +14,7 @@ import '/presentation/screens/home_screen.dart';
 import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/telemedicine_apply_screen.dart';
+import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart'; // ✅ 사용자 로그인 정보 접근
 
 // 하단 탭 바 화면들
@@ -219,6 +220,15 @@ GoRouter createRouter(String baseUrl) {
                 baseUrl: data['baseUrl'] ?? '',
                 userId: data['userId'] ?? 'guest',
               );
+            },
+          ),
+          GoRoute(
+            path: '/chat-response',
+            name: 'chat-response',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final responseText = extra?['responseText'] ?? 'AI 응답을 가져오지 못했습니다.';
+              return MultimodalResponseScreen(responseText: responseText);
             },
           ),
         ],
