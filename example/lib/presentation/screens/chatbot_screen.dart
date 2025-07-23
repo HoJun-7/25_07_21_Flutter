@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+<<<<<<< HEAD
+import 'package:provider/provider.dart'; // Provider 임포트
+import '/presentation/viewmodel/auth_viewmodel.dart'; // AuthViewModel 임포트 경로 확인
+=======
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -13,8 +18,12 @@ class ChatbotScreen extends StatefulWidget {
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
+<<<<<<< HEAD
+  final List<Map<String, String>> _messages = [];
+=======
   final List<Map<String, String?>> _messages = []; // Map<String, String> -> Map<String, String?>
 
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -31,7 +40,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         Provider.of<AuthViewModel>(context, listen: false).currentUser?.registerId;
 
     setState(() {
+<<<<<<< HEAD
+      _messages.add({'role': 'user', 'message': message});
+=======
       _messages.add({'role': 'user', 'message': message, 'image_url': null}); // 사용자 메시지는 이미지 없음
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
     });
 
     _controller.clear();
@@ -39,11 +52,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
     try {
       final response = await http.post(
+<<<<<<< HEAD
+        Uri.parse('http://192.168.0.19:5000/api/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId ?? 'guest',
+=======
         Uri.parse('http://192.168.0.19:5000/api/chatbot'), 
         //Uri.parse('http://192.168.0.19:5000/api/chat-medgemma'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'patient_id': currentUserId ?? 'guest', // 'user_id'를 'patient_id'로 변경
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
           'message': message,
         }),
       );
@@ -51,6 +71,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       if (response.statusCode == 200) {
         final responseData = json.decode(utf8.decode(response.bodyBytes));
         final botMessage = responseData['response'] ?? '응답이 없습니다.';
+<<<<<<< HEAD
+
+        setState(() {
+          _messages.add({'role': 'bot', 'message': botMessage});
+=======
         final imageUrl = responseData['image_url']; // 백엔드에서 받은 image_url
 
         setState(() {
@@ -59,23 +84,31 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             'message': botMessage,
             'image_url': imageUrl as String?, // 이미지 URL 추가
           });
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
         });
       } else {
         setState(() {
           _messages.add({
             'role': 'bot',
             'message': '챗봇 서버 오류 (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
+<<<<<<< HEAD
+=======
             'image_url': null,
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
           });
         });
       }
     } catch (e) {
       setState(() {
+<<<<<<< HEAD
+        _messages.add({'role': 'bot', 'message': '네트워크 오류: 챗봇 서버에 연결할 수 없습니다. ($e)'});
+=======
         _messages.add({
           'role': 'bot',
           'message': '네트워크 오류: 챗봇 서버에 연결할 수 없습니다. ($e)',
           'image_url': null,
         });
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
       });
     } finally {
       _scrollToBottom();
@@ -99,8 +132,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("챗봇"),
+<<<<<<< HEAD
+=======
         backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
       ),
       body: Padding(
         padding: const EdgeInsets.all(10.0),
@@ -113,12 +149,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 itemBuilder: (context, index) {
                   final message = _messages[index];
                   final isUser = message['role'] == 'user';
+<<<<<<< HEAD
+=======
                   final imageUrl = message['image_url']; // 이미지 URL 가져오기
 
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
                   return Align(
                     alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+<<<<<<< HEAD
+                      child: Material(
+                        borderRadius: BorderRadius.circular(8.0),
+                        color: isUser ? Colors.green[200] : Colors.blue[200],
+                        elevation: 2.0,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+                          child: Text(
+                            message['message'] ?? '',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+=======
                       child: Column( // 이미지를 추가하기 위해 Column 사용
                         crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
@@ -158,6 +210,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                               ),
                             ),
                         ],
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
                       ),
                     ),
                   );
@@ -194,3 +247,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 }
+<<<<<<< HEAD
+
+=======
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4

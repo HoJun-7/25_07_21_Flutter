@@ -1,39 +1,37 @@
 import 'package:flutter/material.dart';
-import 'd_real_home_screen.dart'; // DoctorDrawer 위치에 따라 경로 수정
 import 'package:go_router/go_router.dart';
+import 'doctor_drawer.dart'; // 같은 폴더 또는 경로에 맞게 수정
 
 class DTelemedicineApplicationScreen extends StatefulWidget {
   final String baseUrl;
-  final int initialTab; // ✅ 추가
+  final int initialTab;
 
   const DTelemedicineApplicationScreen({
     super.key,
     required this.baseUrl,
-    this.initialTab = 0, // ✅ 기본값도 설정
+    this.initialTab = 0,
   });
 
   @override
-  State<DTelemedicineApplicationScreen> createState() =>
-      _DTelemedicineApplicationScreenState();
+  State<DTelemedicineApplicationScreen> createState() => _DTelemedicineApplicationScreenState();
 }
 
-class _DTelemedicineApplicationScreenState
-    extends State<DTelemedicineApplicationScreen> {
+class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicationScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> _patients = [
-    {'name': '김철수', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '09 - 00 - 00'},
-    {'name': '이영희', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '09 - 10 - 00'},
-    {'name': '박민수', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '09 - 20 - 00'},
-    {'name': '최지우', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '09 - 30 - 00'},
-    {'name': '장하늘', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '09 - 40 - 00'},
-    {'name': '한가람', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '09 - 50 - 00'},
-    {'name': '서유리', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '10 - 00 - 00'},
-    {'name': '오하늘', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '10 - 10 - 00'},
-    {'name': '강도현', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '10 - 20 - 00'},
-    {'name': '이수민', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '10 - 30 - 00'},
-    {'name': '문정우', 'status': '진단 대기', 'date': '2025 - 07 - 17', 'time': '10 - 40 - 00'},
-    {'name': '배지훈', 'status': '진단 완료', 'date': '2025 - 07 - 17', 'time': '10 - 50 - 00'},
+    {'name': '김철수', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:00'},
+    {'name': '이영희', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:10'},
+    {'name': '박민수', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:20'},
+    {'name': '최지우', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:30'},
+    {'name': '장하늘', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:40'},
+    {'name': '한가람', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:50'},
+    {'name': '서유리', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:00'},
+    {'name': '오하늘', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:10'},
+    {'name': '강도현', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:20'},
+    {'name': '이수민', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:30'},
+    {'name': '문정우', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:40'},
+    {'name': '배지훈', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:50'},
   ];
 
   final List<String> statuses = ['ALL', '진단 대기', '진단 완료'];
@@ -45,7 +43,7 @@ class _DTelemedicineApplicationScreenState
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialTab; // ✅ 초기 탭 적용
+    _selectedIndex = widget.initialTab;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final extra = GoRouterState.of(context).extra;
       if (extra is Map && extra.containsKey('initialTab')) {
@@ -65,7 +63,7 @@ class _DTelemedicineApplicationScreenState
     String selectedStatus = statuses[_selectedIndex];
     return _patients.where((patient) {
       final matchesFilter = selectedStatus == 'ALL' || patient['status'] == selectedStatus;
-      final matchesSearch = keyword.isEmpty || patient['name'].toString().contains(keyword);
+      final matchesSearch = keyword.isEmpty || patient['name'].contains(keyword);
       return matchesFilter && matchesSearch;
     }).toList();
   }
@@ -73,7 +71,8 @@ class _DTelemedicineApplicationScreenState
   List<Map<String, dynamic>> get _paginatedPatients {
     final start = _currentPage * _itemsPerPage;
     final end = (_currentPage + 1) * _itemsPerPage;
-    return _filteredPatients.sublist(start, end > _filteredPatients.length ? _filteredPatients.length : end);
+    final list = _filteredPatients;
+    return list.sublist(start, end > list.length ? list.length : end);
   }
 
   int get _totalPages => (_filteredPatients.length / _itemsPerPage).ceil();
@@ -140,7 +139,7 @@ class _DTelemedicineApplicationScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+        boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -246,7 +245,7 @@ class _DTelemedicineApplicationScreenState
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
                 ),
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                 child: filtered.isEmpty
@@ -255,8 +254,7 @@ class _DTelemedicineApplicationScreenState
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: paginated.length,
-                        separatorBuilder: (_, __) =>
-                            Divider(color: Colors.grey[300], thickness: 1),
+                        separatorBuilder: (_, __) => Divider(color: Colors.grey[300], thickness: 1),
                         itemBuilder: (context, i) {
                           final patient = paginated[i];
                           return Padding(
