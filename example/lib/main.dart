@@ -9,6 +9,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_patient_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ✅ 유지
+import '/presentation/viewmodel/chatbot_viewmodel.dart'; // ✅ 추가
 
 import 'core/theme/app_theme.dart';
 
@@ -36,6 +37,9 @@ void main() {
         ),
         ChangeNotifierProvider(
           create: (_) => DoctorDashboardViewModel(), // ✅ 단 하나만 등록
+        ),
+        ChangeNotifierProvider( // ✅ ChatbotViewModel 등록
+          create: (_) => ChatbotViewModel(baseUrl: globalBaseUrl),
         ),
       ],
       child: YOLOExampleApp(baseUrl: globalBaseUrl),
