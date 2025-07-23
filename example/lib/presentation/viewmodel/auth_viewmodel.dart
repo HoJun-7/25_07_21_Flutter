@@ -1,13 +1,13 @@
-// lib/presentation/viewmodel/auth_viewmodel.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '/presentation/model/user.dart'; // ✅ d_user.dart 대신 user.dart 모델 임포트
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // ✅ 추가
 
 class AuthViewModel with ChangeNotifier {
   final String _baseUrl;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(); // ✅ 토큰 저장용
   String? _errorMessage;
   String? duplicateCheckErrorMessage;
   bool isCheckingUserId = false;
@@ -110,35 +110,31 @@ class AuthViewModel with ChangeNotifier {
       );
 
       if (res.statusCode == 200) {
-        final dynamic decodedBody = jsonDecode(res.body);
-        if (decodedBody is Map && decodedBody.containsKey('user') && decodedBody['user'] is Map) {
-          _currentUser = User.fromJson(decodedBody['user'] as Map<String, dynamic>);
+        final decodedBody = jsonDecode(res.body);
+
+        // ✅ access_token 저장
+        final token = decodedBody['access_token'];
+        if (token != null) {
+          await _secureStorage.write(key: 'access_token', value: token);
+        }
+
+        if (decodedBody.containsKey('user')) {
+          _currentUser = User.fromJson(decodedBody['user']);
           notifyListeners();
           return _currentUser;
         } else {
-          _errorMessage = '로그인 실패: 서버 응답 형식이 올바르지 않습니다.';
+          _errorMessage = '로그인 실패: 서버 응답 형식 오류';
           notifyListeners();
           return null;
         }
       } else {
-        String message = '로그인 실패 (Status: ${res.statusCode})';
-        try {
-          final decodedBody = json.decode(res.body);
-          if (decodedBody is Map && decodedBody.containsKey('message')) {
-            message = decodedBody['message'] as String;
-          }
-        } catch (e) {
-          // Body was not valid JSON
-        }
-        _errorMessage = '로그인 실패: $message';
+        _errorMessage = json.decode(res.body)['message'] ?? '로그인 실패';
         notifyListeners();
         return null;
       }
     } catch (e) {
       _errorMessage = '네트워크 오류: ${e.toString()}';
-      if (kDebugMode) {
-        print('로그인 중 네트워크 오류: $e');
-      }
+      if (kDebugMode) print('로그인 오류: $e');
       notifyListeners();
       return null;
     }
@@ -180,8 +176,9 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  void logout() {
+  void logout() async {
     _currentUser = null;
+    await _secureStorage.delete(key: 'access_token'); // ✅ 저장된 토큰 삭제
     notifyListeners();
   }
 }
