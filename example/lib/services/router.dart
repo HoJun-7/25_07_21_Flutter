@@ -39,8 +39,12 @@ GoRouter createRouter(String baseUrl) {
       ),
       GoRoute(
         path: '/register',
+<<<<<<< HEAD
         // baseUrl 매개변수를 RegisterScreen에 전달합니다.
         builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
+=======
+        builder: (context, state) => const RegisterScreen(),
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
       ),
       GoRoute(
         path: '/web',
@@ -110,7 +114,10 @@ GoRouter createRouter(String baseUrl) {
               return Scaffold(
                 appBar: AppBar(title: const Text('진료 캘린더')),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
+<<<<<<< HEAD
                 // DCalendarScreen은 baseUrl 매개변수가 필요 없으므로 제거
+=======
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
                 body: const DCalendarScreen(),
               );
             },

@@ -48,7 +48,10 @@ flutter:
     - assets/icon/cdss-icon_500.png
     - assets/icon/app_icon_1024.png
     - assets/logo.png
+<<<<<<< HEAD
     - assets/images/
+=======
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
     - assets/applogo.png
     - assets/splash.png
     - assets/models/dental_best_float32.tflite
@@ -62,4 +65,8 @@ flutter_native_splash:
   color: "#ffffff"
   image: assets/splash.png
   android: true
+<<<<<<< HEAD
   ios: true
+=======
+  ios: true
+>>>>>>> 7b514fcc087e571e7fa829d1f915eb26c90561d4
