@@ -110,7 +110,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFAAD0F8),
       appBar: AppBar(
-        title: const Text('비대면 진료 신청 현황'),
+        title: const Text('비대면 진료 현황'),
         backgroundColor: const Color(0xFF4386DB),
         leading: Builder(
           builder: (context) => IconButton(
