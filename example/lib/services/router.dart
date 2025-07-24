@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+// Screens
 import '/presentation/screens/doctor/d_inference_result_screen.dart';
 import '/presentation/screens/doctor/d_real_home_screen.dart';
 import '/presentation/screens/doctor/d_telemedicine_application_screen.dart';
 import '/presentation/screens/doctor/d_calendar_screen.dart';
+import '/presentation/screens/doctor/doctor_drawer.dart';
 import '/presentation/screens/main_scaffold.dart';
 import '/presentation/screens/login_screen.dart';
 import '/presentation/screens/register_screen.dart';
@@ -15,8 +17,6 @@ import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/telemedicine_apply_screen.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
-import '/presentation/viewmodel/auth_viewmodel.dart';
-
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
 import '/presentation/screens/reauth_screen.dart';
@@ -25,9 +25,13 @@ import '/presentation/screens/edit_profile_result_screen.dart';
 import '/presentation/screens/upload_screen.dart';
 import '/presentation/screens/history_screen.dart';
 import '/presentation/screens/clinics_screen.dart';
+import '/presentation/screens/find_id_screen.dart';
+import '/presentation/screens/find_password_screen.dart';
 
-import '/presentation/screens/doctor/doctor_drawer.dart';
+// ViewModels
+import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import '/presentation/viewmodel/find_id_viewmodel.dart';
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -39,13 +43,25 @@ GoRouter createRouter(String baseUrl) {
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/find_id',
+        builder: (context, state) => ChangeNotifierProvider(
+          create: (_) => FindIdViewModel(baseUrl: baseUrl),
+          child: FindIdScreen(baseUrl: baseUrl),
+        ),
+      ),
+      GoRoute(
+        path: '/find_password',
+        builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/web',
         builder: (context, state) => const WebPlaceholderScreen(),
       ),
 
+      // Doctor Shell
       ShellRoute(
         builder: (context, state, child) => child,
         routes: [
@@ -118,16 +134,14 @@ GoRouter createRouter(String baseUrl) {
         ],
       ),
 
+      // User Shell
       ShellRoute(
         builder: (context, state, child) => MainScaffold(
           child: child,
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(
-            path: '/chatbot',
-            builder: (context, state) => const ChatbotScreen(),
-          ),
+          GoRoute(path: '/chatbot', builder: (context, state) => const ChatbotScreen()),
           GoRoute(
             path: '/home',
             builder: (context, state) {
@@ -136,18 +150,9 @@ GoRouter createRouter(String baseUrl) {
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
           ),
-          GoRoute(
-            path: '/mypage',
-            builder: (context, state) => const MyPageScreen(),
-          ),
-          GoRoute(
-            path: '/reauth',
-            builder: (context, state) => const ReauthScreen(),
-          ),
-          GoRoute(
-            path: '/edit-profile',
-            builder: (context, state) => const EditProfileScreen(),
-          ),
+          GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen()),
+          GoRoute(path: '/reauth', builder: (context, state) => const ReauthScreen()),
+          GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
           GoRoute(
             path: '/edit_profile_result',
             builder: (context, state) {
@@ -190,7 +195,6 @@ GoRouter createRouter(String baseUrl) {
             path: '/consult',
             builder: (context, state) {
               final args = state.extra as Map<String, dynamic>? ?? {};
-
               return TelemedicineApplyScreen(
                 userId: args['userId'],
                 registerId: args['registerId'],
@@ -207,10 +211,7 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-          GoRoute(
-            path: '/clinics',
-            builder: (context, state) => const ClinicsScreen(),
-          ),
+          GoRoute(path: '/clinics', builder: (context, state) => const ClinicsScreen()),
           GoRoute(
             path: '/camera',
             builder: (context, state) {

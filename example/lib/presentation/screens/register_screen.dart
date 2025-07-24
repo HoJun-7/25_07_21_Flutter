@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String baseUrl; // ✅ baseUrl 필드 추가
+
+  const RegisterScreen({super.key, required this.baseUrl}); // ✅ baseUrl 받도록 수정
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -273,7 +275,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-// 생년월일 자동 포맷
 class _DateFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
@@ -291,7 +292,6 @@ class _DateFormatter extends TextInputFormatter {
   }
 }
 
-// 전화번호 자동 포맷
 class _PhoneNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {

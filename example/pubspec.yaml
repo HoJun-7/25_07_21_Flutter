@@ -10,27 +10,27 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
-  flutter_animate: ^4.3.0           # ✅ 애니메이션
-  fl_chart: ^0.64.0                 # ✅ 차트
-  badges: ^3.1.2                    # ✅ UI 뱃지
+  flutter_animate: ^4.3.0
+  fl_chart: ^0.64.0
+  badges: ^3.1.2
   image_picker: ^1.1.2
   path_provider: ^2.0.0
   archive: ^4.0.7
   http: ^1.2.1
   go_router: ^16.0.0
-  provider: ^6.1.5                 # ✅ 최신 버전 유지
+  provider: ^6.1.5
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
   location: ^5.0.3
   cached_network_image: ^3.3.1
   permission_handler: ^11.0.0
-  flutter_secure_storage: ^9.0.0   # ✅ 토큰 저장
-  image_gallery_saver:
-    path: packages/image_gallery_saver
+  flutter_secure_storage: ^9.0.0
   table_calendar: ^3.0.9
   ultralytics_yolo:
     path: ../
   cupertino_icons: ^1.0.8
+  image_gallery_saver:
+    path: packages/image_gallery_saver
 
 dev_dependencies:
   integration_test:
@@ -46,11 +46,12 @@ flutter:
   assets:
     - assets/
     - assets/models/
+    - assets/images/
     - assets/icon/cdss-icon_500.png
-    - assets/icon/app_icon_1024.png     # ✅ 앱 아이콘도 명시
+    - assets/icon/app_icon_1024.png
     - assets/logo.png
     - assets/applogo.png
-    - assets/splash.png                 # ✅ 스플래시 이미지
+    - assets/splash.png
     - assets/models/dental_best_float32.tflite
 
 flutter_launcher_icons:
