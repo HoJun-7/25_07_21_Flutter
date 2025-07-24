@@ -18,9 +18,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _infoBoxText = '어떤 진료를 원하시나요?';
+  String _infoBoxText = '어떤 분석을을 원하시나요?';
 
-  static const String _defaultInfoText = '어떤 진료를 원하시나요?';
+  static const String _defaultInfoText = '어떤 분석을 원하시나요?';
 
   final Map<String, double> _cardScales = {
     'photoPredict': 1.0,
@@ -29,35 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   };
 
   TextStyle get _juaTextStyle => GoogleFonts.jua(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      );
-
-  final Map<String, String>? _latestRecordData = {
-    'date': '2024.07.22',
-    'resultSummary': '우측 어금니 충치 의심',
-    'detailPath': '/history',
-  };
-
-  late ScrollController _scrollController;
-  final GlobalKey _photoPredictCardKey = GlobalKey();
-  final GlobalKey _realtimePredictCardKey = GlobalKey();
-  final GlobalKey _historyCardKey = GlobalKey();
-  final GlobalKey _latestRecordCardKey = GlobalKey();
-
-  // _cardInfoTexts는 현재 직접 사용되지 않지만, 정보 아이콘 탭 콜백에 문자열 리터럴로 전달되므로
-  // 경고가 뜨는 것이 맞습니다. 이 맵을 제거하거나, 스크롤 감지를 다시 활성화하여 사용해야 합니다.
-  // 여기서는 일단 남겨두겠습니다. (경고 무시 가능)
-  late final Map<GlobalKey, String> _cardInfoTexts;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-
-    _cardInfoTexts = {
-      _latestRecordCardKey: '가장 최근의 진단 결과를 확인합니다.',
+   석 결과를 확인합니다.',
       _photoPredictCardKey: '분석하기위한 아픈 치아 사진을 준비해주세요.',
       _realtimePredictCardKey: '카메라로 실시간 예측을 진행합니다.',
       _historyCardKey: '분석한 모든 결과를 찾아 볼 수 있습니다.',
@@ -106,52 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: const Color(0xFFF5FAFF),
         width: double.infinity,
         child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, paddingTop, 20, 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/icon/cdss-icon_500.png',
-                  width: 150,
-                  height: 150,
-                  filterQuality: FilterQuality.high,
-                ),
-                const SizedBox(height: 15),
-
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6F3FF),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      // BoxBoxShadow -> BoxShadow 로 수정
-                      BoxShadow(
-                        color: Colors.grey.withAlpha((255 * 0.3).round()), // withOpacity 대신 withAlpha
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    _infoBoxText,
-                    textAlign: TextAlign.center,
-                    style: _juaTextStyle.copyWith(fontSize: 18, color: Colors.blueGrey[700]),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                if (_latestRecordData != null) ...[
-                  _buildLatestRecordStaticCard(
-                    context,
-                    globalKey: _latestRecordCardKey,
-                    // 불필요한 ! 제거
-                    date: _latestRecordData['date']!,
-                    resultSummary: _latestRecordData['resultSummary']!,
-                    onInfoTap: () => _updateInfoBoxText('가장 최근의 진단 결과를 확인합니다.'),
+   다.'),
                   ),
                   const SizedBox(height: 25),
                 ],
