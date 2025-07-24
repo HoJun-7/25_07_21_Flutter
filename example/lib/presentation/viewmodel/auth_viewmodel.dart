@@ -1,13 +1,14 @@
-// lib/presentation/viewmodel/auth_viewmodel.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '/presentation/model/user.dart';
 
 class AuthViewModel with ChangeNotifier {
   final String _baseUrl;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
   String? _errorMessage;
   String? duplicateCheckErrorMessage;
   bool isCheckingUserId = false;
@@ -17,6 +18,122 @@ class AuthViewModel with ChangeNotifier {
 
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
+
+  // ✅ 아이디 중복 확인
+  Future<bool?> checkUserIdDuplicate(String userId, String role) async {
+    isCheckingUserId = true;
+    duplicateCheckErrorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await http.get(Uri.parse('$_baseUrl/auth/check-username?username=$userId&role=$role'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['exists'] == true;
+      } else {
+        String message = '서버 응답 오류 (Status: ${res.statusCode})';
+        try {
+          final decodedBody = json.decode(res.body);
+          if (decodedBody is Map && decodedBody.containsKey('message')) {
+            message = decodedBody['message'] as String;
+          }
+        } catch (_) {}
+        _errorMessage = '아이디 중복검사 오류: $message';
+        notifyListeners();
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = '아이디 중복검사 네트워크 오류: ${e.toString()}';
+      notifyListeners();
+      return null;
+    } finally {
+      isCheckingUserId = false;
+      notifyListeners();
+    }
+  }
+
+  void clearDuplicateCheckErrorMessage() {
+    duplicateCheckErrorMessage = null;
+    notifyListeners();
+  }
+
+  // ✅ 회원가입
+  Future<String?> registerUser(Map<String, dynamic> userData) async {
+    _errorMessage = null;
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(userData),
+      );
+
+      if (res.statusCode == 201) {
+        notifyListeners();
+        return null;
+      } else {
+        String message = '회원가입 실패 (Status: ${res.statusCode})';
+        try {
+          final decodedBody = json.decode(res.body);
+          if (decodedBody is Map && decodedBody.containsKey('message')) {
+            message = decodedBody['message'] as String;
+          }
+        } catch (_) {}
+        _errorMessage = '회원가입 실패: $message';
+        notifyListeners();
+        return _errorMessage;
+      }
+    } catch (e) {
+      _errorMessage = '네트워크 오류: ${e.toString()}';
+      notifyListeners();
+      return _errorMessage;
+    }
+  }
+
+  // ✅ 로그인
+  Future<User?> loginUser(String registerId, String password, String role) async {
+    _errorMessage = null;
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'register_id': registerId, 'password': password, 'role': role}),
+      );
+
+      if (res.statusCode == 200) {
+        final decodedBody = jsonDecode(res.body);
+        final token = decodedBody['access_token'];
+        if (token != null) {
+          await _secureStorage.write(key: 'access_token', value: token);
+        }
+
+        if (decodedBody.containsKey('user')) {
+          _currentUser = User.fromJson(decodedBody['user']);
+          notifyListeners();
+          return _currentUser;
+        } else {
+          _errorMessage = '로그인 실패: 응답 형식 오류';
+          notifyListeners();
+          return null;
+        }
+      } else {
+        String message = '로그인 실패 (Status: ${res.statusCode})';
+        try {
+          final decodedBody = json.decode(res.body);
+          if (decodedBody is Map && decodedBody.containsKey('message')) {
+            message = decodedBody['message'];
+          }
+        } catch (_) {}
+        _errorMessage = '로그인 실패: $message';
+        notifyListeners();
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = '네트워크 오류: $e';
+      if (kDebugMode) print('로그인 오류: $e');
+      notifyListeners();
+      return null;
+    }
+  }
 
   // ✅ 비밀번호 재확인
   Future<String?> reauthenticate(String registerId, String password, String role) async {
@@ -73,113 +190,7 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  Future<bool?> checkUserIdDuplicate(String userId, String role) async {
-    isCheckingUserId = true;
-    duplicateCheckErrorMessage = null;
-    notifyListeners();
-
-    try {
-      final res = await http.get(Uri.parse('$_baseUrl/auth/check-username?username=$userId&role=$role'));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['exists'] == true;
-      } else {
-        String message = '서버 응답 오류 (Status: ${res.statusCode})';
-        try {
-          final decodedBody = json.decode(res.body);
-          if (decodedBody is Map && decodedBody.containsKey('message')) {
-            message = decodedBody['message'] as String;
-          }
-        } catch (_) {}
-        _errorMessage = '아이디 중복검사 오류: $message';
-        notifyListeners();
-        return null;
-      }
-    } catch (e) {
-      _errorMessage = '아이디 중복검사 네트워크 오류: ${e.toString()}';
-      notifyListeners();
-      return null;
-    } finally {
-      isCheckingUserId = false;
-      notifyListeners();
-    }
-  }
-
-  void clearDuplicateCheckErrorMessage() {
-    duplicateCheckErrorMessage = null;
-    notifyListeners();
-  }
-
-  Future<String?> registerUser(Map<String, dynamic> userData) async {
-    _errorMessage = null;
-    try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(userData),
-      );
-
-      if (res.statusCode == 201) {
-        notifyListeners();
-        return null;
-      } else {
-        String message = '회원가입 실패 (Status: ${res.statusCode})';
-        try {
-          final decodedBody = json.decode(res.body);
-          if (decodedBody is Map && decodedBody.containsKey('message')) {
-            message = decodedBody['message'] as String;
-          }
-        } catch (_) {}
-        _errorMessage = '회원가입 실패: $message';
-        notifyListeners();
-        return _errorMessage;
-      }
-    } catch (e) {
-      _errorMessage = '네트워크 오류: ${e.toString()}';
-      notifyListeners();
-      return _errorMessage;
-    }
-  }
-
-  Future<User?> loginUser(String registerId, String password, String role) async {
-    _errorMessage = null;
-    try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'register_id': registerId, 'password': password, 'role': role}),
-      );
-
-      if (res.statusCode == 200) {
-        final decodedBody = jsonDecode(res.body);
-        if (decodedBody is Map && decodedBody.containsKey('user')) {
-          _currentUser = User.fromJson(decodedBody['user']);
-          notifyListeners();
-          return _currentUser;
-        } else {
-          _errorMessage = '로그인 실패: 응답 형식 오류';
-          notifyListeners();
-          return null;
-        }
-      } else {
-        String message = '로그인 실패 (Status: ${res.statusCode})';
-        try {
-          final decodedBody = json.decode(res.body);
-          if (decodedBody is Map && decodedBody.containsKey('message')) {
-            message = decodedBody['message'];
-          }
-        } catch (_) {}
-        _errorMessage = '로그인 실패: $message';
-        notifyListeners();
-        return null;
-      }
-    } catch (e) {
-      _errorMessage = '네트워크 오류: $e';
-      notifyListeners();
-      return null;
-    }
-  }
-
+  // ✅ 회원 탈퇴
   Future<String?> deleteUser(String registerId, String password, String? role) async {
     _errorMessage = null;
     try {
@@ -211,8 +222,10 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  void logout() {
+  // ✅ 로그아웃
+  void logout() async {
     _currentUser = null;
+    await _secureStorage.delete(key: 'access_token');
     notifyListeners();
   }
 }
