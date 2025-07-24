@@ -14,6 +14,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http; // Import for HTTP requests
 import 'dart:convert'; // ✅ 추가
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // JWT
 
 // Alpha 값 상수화
 const int _kAlpha80Percent = 204; // 0.8 * 255
@@ -234,10 +235,13 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       final filename = 'realtime_image.png';
       final String jsonResults = jsonEncode(_serializeYOLOResults(_latestResults));
       final String serverUrl = '${widget.baseUrl}/upload_image';
+      const storage = FlutterSecureStorage(); // JWT
+      final token = await storage.read(key: 'access_token'); // JWT
 
       final request = http.MultipartRequest('POST', Uri.parse(serverUrl))
         ..fields['user_id'] = widget.userId
         ..fields['yolo_results_json'] = jsonResults
+        ..headers['Authorization'] = 'Bearer $token' // JWT
         ..files.add(http.MultipartFile.fromBytes(
           'file',
           imageData,

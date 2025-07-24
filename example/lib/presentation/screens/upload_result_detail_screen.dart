@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
+import 'dart:convert';                    // jsonEncode, jsonDecode 용
+import 'package:http/http.dart' as http;  // http.post 용
 
 class UploadResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -35,18 +37,21 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
+    // model1 (질병) 정보 추출 (기존과 동일)
     final model1Info = widget.modelInfos[1];
-    final model1Name = model1Info?['used_model'] ?? 'N/A';
+    final model1Name = model1Info?['used_model'] ?? 'N/A'; // 백엔드에서 'used_model'로 보냄
     final model1Confidence = model1Info?['confidence'] ?? 0.0;
-    final model1Label = model1Info?['label'] ?? '감지되지 않음';
+    final model1Label = model1Info?['label'] ?? '감지되지 않음'; // 백엔드에서 'label'로 보냄
 
+    // model2 (위생) 정보 추출
     final model2Info = widget.modelInfos[2];
     final model2Confidence = model2Info?['confidence'] ?? 0.0;
     final model2Label = model2Info?['label'] ?? '감지되지 않음';
 
+    // model3 (치아번호) 정보 추출
     final model3Info = widget.modelInfos[3];
     final model3Confidence = model3Info?['confidence'] ?? 0.0;
-    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown';
+    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown'; // 치아번호는 숫자로 올 수 있으므로 toString()
 
     final imageUrl = widget.originalImageUrl;
     final overlay1 = widget.processedImageUrls[1];
@@ -74,6 +79,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             const SizedBox(height: 16),
             _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
             const SizedBox(height: 16),
+            // 변경된 _buildSummaryCard 호출
             _buildSummaryCard(
               model1Label: model1Label,
               model1Confidence: model1Confidence,
@@ -106,6 +112,41 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
                   'modelInfos': widget.modelInfos,
                 });
               }),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
+                final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
+
+                final response = await http.post(
+                  uri,
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "image_url": widget.originalImageUrl,
+                    "inference_result_id": widget.inferenceResultId,
+                    "model1Label": model1Label,
+                    "model1Confidence": model1Confidence,
+                    "model2Label": model2Label,
+                    "model2Confidence": model2Confidence,
+                    "model3ToothNumber": model3ToothNumber,
+                    "model3Confidence": model3Confidence,
+                  }),
+                );
+
+                if (response.statusCode == 200) {
+                  final result = jsonDecode(response.body);
+                  final message = result['message'] ?? 'AI 응답이 없습니다.';
+                  context.push('/multimodal-ressult', extra: {"responseText": message});
+                } else {
+                  print("AI 요청 실패: ${response.body}");
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: Text("에러"),
+                      content: Text("AI 소견 요청에 실패했습니다."),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("확인"))],
+                    ),
+                  );
+                }
+              })
             ]
           ],
         ),
@@ -199,7 +240,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     required double model1Confidence,
     required String model2Label,
     required double model2Confidence,
-    required String model3ToothNumber,
+    required String model3ToothNumber, // 치아번호는 label 대신 tooth_number_fdi를 사용
     required double model3Confidence,
     required TextTheme textTheme,
   }) => Container(

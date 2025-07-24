@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
+import 'dart:convert';                    // jsonEncode, jsonDecode 용
+import 'package:http/http.dart' as http;  // http.post 용
 
 class HistoryResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -91,7 +93,6 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
                 if (currentUser == null) return;
-
                 context.push('/consult', extra: {
                   'userId': widget.userId,
                   'registerId': currentUser.registerId ?? '',
@@ -107,6 +108,41 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
                   'modelInfos': widget.modelInfos,
                 });
               }),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
+                final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
+
+                final response = await http.post(
+                  uri,
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "image_url": widget.originalImageUrl,
+                    "inference_result_id": widget.inferenceResultId,
+                    "model1Label": model1Label,
+                    "model1Confidence": model1Confidence,
+                    "model2Label": model2Label,
+                    "model2Confidence": model2Confidence,
+                    "model3ToothNumber": model3ToothNumber,
+                    "model3Confidence": model3Confidence,
+                  }),
+                );
+
+                if (response.statusCode == 200) {
+                  final result = jsonDecode(response.body);
+                  final message = result['message'] ?? 'AI 응답이 없습니다.';
+                  context.push('/multimodal-ressult', extra: {"responseText": message});
+                } else {
+                  print("AI 요청 실패: ${response.body}");
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: Text("에러"),
+                      content: Text("AI 소견 요청에 실패했습니다."),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("확인"))],
+                    ),
+                  );
+                }
+              })
             ]
           ],
         ),

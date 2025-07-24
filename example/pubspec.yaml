@@ -52,6 +52,7 @@ flutter:
     - assets/applogo.png
     - assets/splash.png                 # ✅ 스플래시 이미지
     - assets/models/dental_best_float32.tflite
+    - assets/images/meditooth_logo.png
 
 flutter_launcher_icons:
   android: true

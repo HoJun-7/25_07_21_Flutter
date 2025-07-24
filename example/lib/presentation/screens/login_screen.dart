@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress, // 이메일 타입 키보드
                     decoration: InputDecoration(
                       labelText: '아이디를 입력하세요', // placeholder 텍스트
-                      hintText: '예: user@example.com', // 힌트 텍스트 추가
+                      hintText: '', // 힌트 텍스트 추가
                       prefixIcon: const Icon(Icons.person_outline, color: primaryBlue), // 아이콘 색상 변경
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게
@@ -166,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: '비밀번호를 입력하세요',
-                      hintText: '영문, 숫자, 특수문자 포함 8자 이상',
+                      hintText: '6자 이상',
                       prefixIcon: const Icon(Icons.lock_outline, color: primaryBlue), // 아이콘 색상 변경
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게

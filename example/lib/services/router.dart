@@ -28,6 +28,7 @@ import '/presentation/screens/clinics_screen.dart';
 
 import '/presentation/screens/doctor/doctor_drawer.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import '/presentation/screens/multimodal_response_screen.dart';
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -39,7 +40,7 @@ GoRouter createRouter(String baseUrl) {
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/web',
@@ -127,6 +128,14 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/chatbot',
             builder: (context, state) => const ChatbotScreen(),
+          ),
+          GoRoute(
+            path: '/multimodal-ressult',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final responseText = extra?['responseText'] ?? '응답이 없습니다.';
+              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
+            },
           ),
           GoRoute(
             path: '/home',

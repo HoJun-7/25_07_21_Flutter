@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import 'upload_result_detail_screen.dart';
+import '/presentation/viewmodel/upload_viewmodel.dart';
+import '/data/service/http_service.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
@@ -100,80 +102,50 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
-      final uri = Uri.parse('${widget.baseUrl}/upload');
-      final request = http.MultipartRequest('POST', uri);
-      request.fields['user_id'] = registerId;
+      // ✅ UploadViewModel 생성
+      final uploadViewModel = UploadViewModel(
+        httpService: HttpService(baseUrl: widget.baseUrl),
+      );
 
-      if (_imageFile != null) {
-        final ext = path.extension(_imageFile!.path).toLowerCase(); // .jpg, .jpeg, .png
+      // ✅ ViewModel 통해 이미지 업로드
+      final responseData = await uploadViewModel.uploadImage(
+        userId: registerId,
+        imageFile: _imageFile,
+        webImage: _webImage,
+      );
+      print("✅ 서버 응답 전체: $responseData"); // ← 이 줄 추가!
 
-        String mimeType = 'image';
-        String subType = 'jpeg'; // 기본값
-        if (ext == '.png') subType = 'png';
-        else if (ext == '.jpg' || ext == '.jpeg') subType = 'jpeg';
-
-        request.files.add(await http.MultipartFile.fromPath(
-          'file',
-          _imageFile!.path,
-          filename: 'camera_upload_image.png',
-          contentType: MediaType(mimeType, subType),  // ✅ 실제 파일 형식에 맞게 설정됨
-        ));
-      } else if (_webImage != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'file',
-          _webImage!,
-          filename: 'web_image.png',
-          contentType: MediaType('image', 'png'),
-        ));
+      if (responseData == null) {
+        throw Exception('서버 응답 없음');
       }
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final inferenceResultId = responseData['inference_result_id'] ?? 'UNKNOWN';
+      final baseStaticUrl = widget.baseUrl.replaceFirst('/api', '');
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(responseBody);
-        final userId = registerId;
-        final inferenceResultId = responseData['inference_result_id'] ?? 'UNKNOWN';
-        final originalPath = responseData['original_image_path'];
-        final processedPath = responseData['model1_image_path'];
-        final inferenceData = responseData['model1_inference_result'];
+      final originalImageUrl = '$baseStaticUrl${responseData['original_image_path']}';
+      final processedImageUrls = {
+        1: '$baseStaticUrl${responseData['model1_image_path']}',
+        2: '$baseStaticUrl${responseData['model2_image_path']}',
+        3: '$baseStaticUrl${responseData['model3_image_path']}',
+      };
 
-        if (processedPath != null && inferenceData != null && originalPath != null) {
-          final baseStaticUrl = widget.baseUrl.replaceFirst('/api', '');
-          final originalImageUrl = '$baseStaticUrl$originalPath';
-          final processedImageUrls = {
-            1: '$baseStaticUrl${responseData['model1_image_path']}',
-            2: '$baseStaticUrl${responseData['model2_image_path']}',
-            3: '$baseStaticUrl${responseData['model3_image_path']}',
-          };
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UploadResultDetailScreen(
-                originalImageUrl: originalImageUrl,
-                processedImageUrls: processedImageUrls,
-                modelInfos: {
-                  1: responseData['model1_inference_result'],
-                  2: responseData['model2_inference_result'],
-                  3: responseData['model3_inference_result'],
-                },
-                userId: userId,
-                inferenceResultId: inferenceResultId,
-                baseUrl: widget.baseUrl,
-              ),
-            ),
-          );
-        } else {
-          throw Exception('model1_image_path 또는 model1_inference_result 없음');
-        }
-      } else {
-        print('서버 오류: ${response.statusCode}');
-        print('응답 본문: $responseBody');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('서버 오류 발생')),
-        );
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UploadResultDetailScreen(
+            originalImageUrl: originalImageUrl,
+            processedImageUrls: processedImageUrls,
+            modelInfos: {
+              1: responseData['model1_inference_result'],
+              2: responseData['model2_inference_result'],
+              3: responseData['model3_inference_result'],
+            },
+            userId: registerId,
+            inferenceResultId: inferenceResultId,
+            baseUrl: widget.baseUrl,
+          ),
+        ),
+      );
     } catch (e) {
       print('업로드 실패: $e');
       ScaffoldMessenger.of(context).showSnackBar(
