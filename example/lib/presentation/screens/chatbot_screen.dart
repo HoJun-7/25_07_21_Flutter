@@ -25,13 +25,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return;
 
-    _controller.clear(); // ✅ 먼저 클리어
-    _scrollToBottom();  // ✅ 사용자 경험 개선을 위해 먼저 스크롤 이동
+    _controller.clear();
+    _scrollToBottom();
 
     await Provider.of<ChatbotViewModel>(context, listen: false)
         .sendMessage(trimmed);
 
-    _scrollToBottom(); // 응답 도착 후에도 다시 한번 스크롤
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -78,12 +78,25 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           title: const Text("챗봇"),
           backgroundColor: const Color(0xFF3869A8),
           foregroundColor: Colors.white,
+
+          // 🔄 초기화 → 왼쪽으로
+          leading: IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '대화 초기화',
+            onPressed: () {
+              context.read<ChatbotViewModel>().clearMessages();
+            },
+          ),
+
+          // 🔔 알림 → 오른쪽으로
           actions: [
             IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: '대화 초기화',
+              icon: const Icon(Icons.notifications_none),
+              tooltip: '알림',
               onPressed: () {
-                context.read<ChatbotViewModel>().clearMessages();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('알림 아이콘 클릭됨')),
+                );
               },
             ),
           ],
@@ -147,39 +160,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                labelMap[entry.key] ??
-                                                    entry.key,
+                                                labelMap[entry.key] ?? entry.key,
                                                 style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
                                               ),
                                               Image.network(
                                                 entry.value,
                                                 width: 150,
                                                 height: 150,
                                                 fit: BoxFit.cover,
-                                                loadingBuilder: (context, child,
-                                                    progress) {
-                                                  if (progress == null) {
-                                                    return child;
-                                                  }
+                                                loadingBuilder: (context, child, progress) {
+                                                  if (progress == null) return child;
                                                   return Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      value: progress.expectedTotalBytes !=
-                                                              null
-                                                          ? progress
-                                                                  .cumulativeBytesLoaded /
-                                                              progress
-                                                                  .expectedTotalBytes!
+                                                    child: CircularProgressIndicator(
+                                                      value: progress.expectedTotalBytes != null
+                                                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
                                                           : null,
                                                     ),
                                                   );
                                                 },
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return const Text(
-                                                      '이미지를 불러올 수 없습니다.');
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return const Text('이미지를 불러올 수 없습니다.');
                                                 },
                                               ),
                                             ],
@@ -204,7 +207,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         hintText: "질문을 입력하세요...",
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 12.0),
+                          horizontal: 16.0,
+                          vertical: 12.0,
+                        ),
                       ),
                       onSubmitted: (text) {
                         FocusScope.of(context).unfocus();
