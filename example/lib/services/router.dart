@@ -14,6 +14,8 @@ import '/presentation/screens/home_screen.dart';
 import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/telemedicine_apply_screen.dart';
+
+// ViewModel 및 화면 임포트
 import '/presentation/viewmodel/auth_viewmodel.dart'; // 사용자 로그인 정보 접근
 
 // 하단 탭 바 화면들
@@ -29,6 +31,13 @@ import '/presentation/screens/doctor/doctor_drawer.dart';
 // DoctorDashboardViewModel은 이 경로에서만 임포트합니다.
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel의 정식 경로
 
+// 아이디/비밀번호 찾기 화면 임포트
+import '/presentation/screens/find_id_screen.dart'; // 아이디 찾기 화면 임포트
+import '/presentation/screens/find_password_screen.dart'; // 비밀번호 찾기 화면 임포트
+
+// FindIdViewModel import 추가 (필수)
+import '/presentation/viewmodel/find_id_viewmodel.dart';
+
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
     initialLocation: '/login',
@@ -39,8 +48,20 @@ GoRouter createRouter(String baseUrl) {
       ),
       GoRoute(
         path: '/register',
-        // baseUrl 매개변수를 RegisterScreen에 전달합니다.
         builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/find_id',
+        builder: (context, state) {
+          return ChangeNotifierProvider(
+            create: (_) => FindIdViewModel(baseUrl: baseUrl),
+            child: FindIdScreen(baseUrl: baseUrl),  // ★ baseUrl 꼭 전달
+          );
+        },
+      ),
+      GoRoute(
+        path: '/find_password',
+        builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/web',
@@ -50,8 +71,6 @@ GoRouter createRouter(String baseUrl) {
       // 의사 전용 ShellRoute: Drawer 유지
       ShellRoute(
         builder: (context, state, child) {
-          // DRealHomeScreen, DTelemedicineApplicationScreen 등 각 화면에서 Scaffold 및 DoctorDrawer를 직접 처리합니다.
-          // 여기서 ShellRoute의 builder는 단순히 child를 반환하여 하위 라우트에서 Scaffold를 구성할 수 있도록 합니다.
           return child;
         },
         routes: [
@@ -110,7 +129,6 @@ GoRouter createRouter(String baseUrl) {
               return Scaffold(
                 appBar: AppBar(title: const Text('진료 캘린더')),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
-                // DCalendarScreen은 baseUrl 매개변수가 필요 없으므로 제거
                 body: const DCalendarScreen(),
               );
             },
@@ -219,3 +237,4 @@ GoRouter createRouter(String baseUrl) {
     ],
   );
 }
+

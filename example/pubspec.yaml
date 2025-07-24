@@ -52,6 +52,7 @@ flutter:
     - assets/applogo.png
     - assets/splash.png
     - assets/models/dental_best_float32.tflite
+    - assets/images/tooth_character.png
 
 flutter_launcher_icons:
   android: true
