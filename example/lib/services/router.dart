@@ -26,7 +26,9 @@ import '/presentation/screens/upload_screen.dart';
 import '/presentation/screens/history_screen.dart';
 import '/presentation/screens/clinics_screen.dart';
 import '/presentation/screens/find_id_screen.dart';
+import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
+import '/presentation/screens/find_password_result.dart';
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -53,8 +55,19 @@ GoRouter createRouter(String baseUrl) {
         ),
       ),
       GoRoute(
+        path: '/find-id-result',
+        builder: (context, state) {
+          final userId = state.extra as String;
+          return FindIdResultScreen(userId: userId);
+        },
+      ),
+      GoRoute(
         path: '/find_password',
         builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
+      ),
+            GoRoute(
+        path: '/find-password-result',
+        builder: (context, state) => const FindPasswordResultScreen(),
       ),
       GoRoute(
         path: '/web',

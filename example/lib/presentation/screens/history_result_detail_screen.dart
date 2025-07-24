@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
@@ -30,38 +32,68 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   bool _showHygiene = true;
   bool _showToothNumber = true;
 
+  Uint8List? originalImageBytes;
+  Uint8List? overlay1Bytes;
+  Uint8List? overlay2Bytes;
+  Uint8List? overlay3Bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImages();
+  }
+
+  Future<void> _loadImages() async {
+    final authViewModel = context.read<AuthViewModel>();
+    final token = await authViewModel.getAccessToken();
+    if (token == null) return;
+
+    try {
+      final original = await _loadImageWithAuth(widget.originalImageUrl, token);
+      final ov1 = await _loadImageWithAuth(widget.processedImageUrls[1], token);
+      final ov2 = await _loadImageWithAuth(widget.processedImageUrls[2], token);
+      final ov3 = await _loadImageWithAuth(widget.processedImageUrls[3], token);
+
+      setState(() {
+        originalImageBytes = original;
+        overlay1Bytes = ov1;
+        overlay2Bytes = ov2;
+        overlay3Bytes = ov3;
+      });
+    } catch (e) {
+      print('이미지 로딩 실패: $e');
+    }
+  }
+
+  Future<Uint8List?> _loadImageWithAuth(String? url, String token) async {
+    if (url == null) return null;
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      print('이미지 요청 실패: ${response.statusCode}');
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
-    final model1Info = widget.modelInfos[1];
-    final model1Name = model1Info?['used_model'] ?? 'N/A';
-    final model1Confidence = model1Info?['confidence'] ?? 0.0;
-    final model1Label = model1Info?['label'] ?? '감지되지 않음';
-
-    final model2Info = widget.modelInfos[2];
-    final model2Confidence = model2Info?['confidence'] ?? 0.0;
-    final model2Label = model2Info?['label'] ?? '감지되지 않음';
-
-    final model3Info = widget.modelInfos[3];
-    final model3Confidence = model3Info?['confidence'] ?? 0.0;
-    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown';
-
-    final imageUrl = widget.originalImageUrl;
-    final overlay1 = widget.processedImageUrls[1];
-    final overlay2 = widget.processedImageUrls[2];
-    final overlay3 = widget.processedImageUrls[3];
-
-    const Color cardBorder = Color(0xFF3869A8);
-    const Color toggleBackground = Color(0xFFEAEAEA);
-    const Color outerBackground = Color(0xFFE7F0FF);
-    const Color buttonColor = Color(0xFF3869A8);
+    final model1 = widget.modelInfos[1];
+    final model2 = widget.modelInfos[2];
+    final model3 = widget.modelInfos[3];
 
     return Scaffold(
-      backgroundColor: outerBackground,
+      backgroundColor: const Color(0xFFE7F0FF),
       appBar: AppBar(
-        backgroundColor: buttonColor,
+        backgroundColor: const Color(0xFF3869A8),
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
@@ -70,17 +102,17 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildToggleCard(toggleBackground),
+            _buildToggleCard(const Color(0xFFEAEAEA)),
             const SizedBox(height: 16),
-            _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
+            _buildImageCard(),
             const SizedBox(height: 16),
             _buildSummaryCard(
-              model1Label: model1Label,
-              model1Confidence: model1Confidence,
-              model2Label: model2Label,
-              model2Confidence: model2Confidence,
-              model3ToothNumber: model3ToothNumber,
-              model3Confidence: model3Confidence,
+              model1Label: model1?['label'] ?? '감지되지 않음',
+              model1Confidence: model1?['confidence'] ?? 0.0,
+              model2Label: model2?['label'] ?? '감지되지 않음',
+              model2Confidence: model2?['confidence'] ?? 0.0,
+              model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
+              model3Confidence: model3?['confidence'] ?? 0.0,
               textTheme: textTheme,
             ),
             const SizedBox(height: 24),
@@ -91,7 +123,6 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
                 if (currentUser == null) return;
-
                 context.push('/consult', extra: {
                   'userId': widget.userId,
                   'registerId': currentUser.registerId ?? '',
@@ -110,6 +141,51 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
             ]
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImageCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('진단 이미지', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          AspectRatio(
+            aspectRatio: 4 / 3,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (originalImageBytes != null)
+                      Image.memory(originalImageBytes!, fit: BoxFit.fill)
+                    else
+                      const Center(child: CircularProgressIndicator()),
+                    if (_showDisease && overlay1Bytes != null)
+                      Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                    if (_showHygiene && overlay2Bytes != null)
+                      Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                    if (_showToothNumber && overlay3Bytes != null)
+                      Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -136,64 +212,14 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged, Color bgColor) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 15)),
-          Switch(value: value, onChanged: onChanged),
-        ],
+        children: [Text(label, style: const TextStyle(fontSize: 15)), Switch(value: value, onChanged: onChanged)],
       ),
     );
   }
-
-  Widget _buildFixedImageCard(String imageUrl, String? overlay1, String? overlay2, String? overlay3) => Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('진단 이미지', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            AspectRatio(
-              aspectRatio: 4 / 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Color(0xFF3869A8), width: 1.5),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        imageUrl,
-                        fit: BoxFit.fill,
-                        errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image)),
-                      ),
-                      if (_showDisease && overlay1 != null)
-                        Image.network(overlay1, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                      if (_showHygiene && overlay2 != null)
-                        Image.network(overlay2, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                      if (_showToothNumber && overlay3 != null)
-                        Image.network(overlay3, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
 
   Widget _buildSummaryCard({
     required String model1Label,
