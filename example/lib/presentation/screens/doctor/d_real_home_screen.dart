@@ -1,91 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import 'package:go_router/go_router.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:collection/collection.dart'; // mapIndexed 사용을 위해 추가
 
-//--------------------------------------------------------------
-//  DoctorDrawer
-//--------------------------------------------------------------
-class DoctorDrawer extends StatelessWidget {
-  final String baseUrl;
-  const DoctorDrawer({super.key, required this.baseUrl});
+import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
+import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
 
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _buildHeader(context),
-          _drawerItem(context, Icons.home, '홈', '/d_home'),
-          _drawerItem(context, Icons.personal_injury, '비대면 진료 신청 현황', '/d_dashboard'),
-          _drawerItem(context, Icons.assignment, '비대면 진료 결과', '/d_inference_result'),
-          _drawerItem(context, Icons.event, '예약 캘린더', '/d_calendar'),
-          _drawerItem(context, Icons.people, '환자 방문 기록', '/d_patients'),
-          const Divider(),
-          _drawerItem(context, Icons.settings, '설정', '/d_settings'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      height: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Colors.blue,
-        borderRadius: BorderRadius.only(bottomRight: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('TOOTH AI 닥터 메뉴',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    )),
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              tooltip: '로그아웃',
-              onPressed: () => context.go('/login'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _drawerItem(BuildContext context, IconData icon, String title, String route) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blueGrey[700]),
-      title: Text(title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.blueGrey[800],
-              )),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      hoverColor: Colors.blue.withOpacity(.1),
-      onTap: () {
-        Navigator.pop(context);
-
-        if (route == '/d_dashboard') {
-          context.push(route, extra: {
-            'baseUrl': baseUrl,
-            'initialTab': 0,
-          });
-        } else {
-          context.push(route, extra: baseUrl);
-        }
-      },
-    );
-  }
-}
-
-//--------------------------------------------------------------
-//  DRealHomeScreen  (Dashboard Home)
-//--------------------------------------------------------------
+// -------------------------
+// DRealHomeScreen (Dashboard Home)
+// -------------------------
 class DRealHomeScreen extends StatefulWidget {
   final String baseUrl;
   const DRealHomeScreen({super.key, required this.baseUrl});
@@ -103,7 +27,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     });
   }
 
-  // ✅ 뒤로가기 시 앱 종료 팝업
+  // 뒤로가기 시 앱 종료 팝업
   Future<bool> _onWillPop() async {
     final shouldExit = await showDialog<bool>(
       context: context,
@@ -125,184 +49,407 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     return shouldExit ?? false;
   }
 
+  // 범례를 그리는 위젯
+  Widget _buildCategoryLegend(DoctorDashboardViewModel vm) {
+    // 범례를 흰색 네모 박스 안에 넣기 위해 Card 위젯 사용
+    return Card(
+      elevation: 4, // 그림자 효과
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 둥근 모서리
+      margin: const EdgeInsets.symmetric(horizontal: 0), // 좌우 마진 제거 (Center 위젯이 처리)
+      child: Padding(
+        padding: const EdgeInsets.all(16.0), // 내부 패딩
+        child: Wrap( // Wrap을 사용하여 공간이 부족할 경우 다음 줄로 넘어가도록
+          alignment: WrapAlignment.center, // 가운데 정렬
+          spacing: 16.0, // 각 항목 간 가로 간격
+          runSpacing: 8.0, // 각 줄 간 세로 간격
+          children: IterableExtension<MapEntry<String, double>>(vm.categoryRatio.entries).mapIndexed((index, entry) {
+            return Row(
+              mainAxisSize: MainAxisSize.min, // Row의 크기를 내용물에 맞춤
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: vm.getCategoryColor(index), // ViewModel에서 색상 가져오기
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${entry.key} (${((entry.value / vm.categoryRatio.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(1)}%)',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.black87, // 범례 텍스트 색상을 흰색 배경에 어울리게 변경 (이미 검은색 계열)
+                        ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<DoctorDashboardViewModel>();
-    final int pending = (vm.requestsToday - vm.answeredToday).clamp(0, 1 << 31);
+    // 요청하신 배경색 고정
+    const Color backgroundColor = Color(0xFFAAD0F8);
 
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: const Color(0xFFaed2ff),
-        appBar: AppBar(
-          title: const Text('의사 대시보드 홈'),
-          backgroundColor: Colors.blueAccent,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-          ),
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () => context.go('/d_notifications'),
-            ),
-          ],
-        ),
+        backgroundColor: backgroundColor, // ✅ 배경 색상 고정 적용
         drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 인사 + 캐릭터
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        appBar: AppBar(
+          title: Consumer<DoctorDashboardViewModel>(
+            builder: (_, vm, __) => Text(
+              '${vm.doctorName} 대시보드',
+              style: const TextStyle(color: Colors.white), // 앱바 타이틀은 흰색 유지 (배경 대비)
+            ),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white), // 햄버거 메뉴 아이콘은 흰색 유지 (배경 대비)
+          backgroundColor: Colors.transparent, // 앱바 배경 투명
+          elevation: 0, // 앱바 그림자 제거
+          actions: [
+            Consumer<DoctorDashboardViewModel>(
+              builder: (_, vm, __) => Stack(
                 children: [
-                  Flexible(
-                    child: Text(
-                      '환영합니다, 의사 선생님!',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey[800],
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
+                      // TODO: 알림 화면 이동 처리
+                    },
+                    tooltip: '알림',
+                    color: Colors.white, // 알림 아이콘은 흰색 유지 (배경 대비)
+                  ),
+                  if (vm.unreadNotifications > 0)
+                    Positioned(
+                      right: 11,
+                      top: 11,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent, // 알림 숫자 배경색 (좀 더 쨍한 빨강)
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '${vm.unreadNotifications}',
+                          style: const TextStyle(
+                            color: Colors.white, // 알림 숫자는 흰색 유지 (배경 대비)
+                            fontSize: 12,
                           ),
-                      overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Image.asset(
-                    'assets/icon/cdss-icon_500.png',
-                    height: 60,
-                  ),
                 ],
               ),
-              const SizedBox(height: 30),
-              // 오늘의 진료 현황
-              _todayStatsCard(
-                context,
-                requests: vm.requestsToday,
-                answered: vm.answeredToday,
-                pending: pending,
+            )
+          ],
+        ),
+        body: Consumer<DoctorDashboardViewModel>(
+          builder: (context, vm, child) {
+            return RefreshIndicator(
+              onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+              color: Colors.white, // 새로고침 아이콘 색상 변경 (배경에 대비되도록)
+              backgroundColor: Colors.blueAccent, // 새로고침 배경색 변경
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '안녕하세요, ${vm.doctorName}님',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.white, // 환영 메시지 텍스트는 흰색 유지 (배경 대비)
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummaryCards(vm),
+                    const SizedBox(height: 24),
+                    Text(
+                      '최근 7일 신청 건수',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 16), // 간격 조정
+                    // 라인 차트 컨테이너 배경 추가 및 패딩 조정
+                    Container(
+                      padding: const EdgeInsets.all(8), // 내부 패딩
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
+                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      height: 200,
+                      child: const _LineChartWidget(),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      '진료 카테고리 비율',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 16), // 간격 조정
+                    // 파이 차트 컨테이너 배경 추가 및 패딩 조정
+                    Container(
+                      padding: const EdgeInsets.all(8), // 내부 패딩
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
+                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      height: 200,
+                      child: const _PieChartWidget(),
+                    ),
+                    const SizedBox(height: 16), // 파이 차트와 범례 사이 간격
+                    Center(
+                      child: _buildCategoryLegend(vm), // 범례 위젯 호출
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 25),
-              // 추가 통계 카드
-              Expanded(child: _additionalStatsSection(context)),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _todayStatsCard(BuildContext context,
-      {required int requests, required int answered, required int pending}) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('오늘의 진료 현황',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF9681EB),
-                    )),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _statTile(
-                  context,
-                  title: '신청 건수',
-                  value: requests,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 0,
-                  }),
-                ),
-                _statTile(
-                  context,
-                  title: '미답변',
-                  value: pending,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 1,
-                  }),
-                ),
-                _statTile(
-                  context,
-                  title: '답변 완료',
-                  value: answered,
-                  onTap: () => context.push('/d_dashboard', extra: {
-                    'baseUrl': widget.baseUrl,
-                    'initialTab': 2,
-                  }),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statTile(BuildContext context,
-      {required String title, required int value, required VoidCallback onTap}) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            Text('$value',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    )),
-            const SizedBox(height: 5),
-            Text(title,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: const Color(0xFF9681EB),
-                    )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _additionalStatsSection(BuildContext context) {
-    return ListView(
+  Widget _buildSummaryCards(DoctorDashboardViewModel vm) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: SizedBox(
-            height: 180,
-            child: Center(
-              child: Text(
-                '📈 최근 7일 신청/답변 추이 (그래프 자리)',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
+        Expanded(
+          child: _SummaryCard(
+            title: '오늘의 요청',
+            count: vm.requestsToday,
+            icon: Icons.request_page,
+            color: Colors.blue.shade700, // 파란색 계열 색상 조정
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: SizedBox(
-            height: 180,
-            child: Center(
-              child: Text(
-                '🧩 진료 유형 비율 (파이 차트 자리)',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
+        const SizedBox(width: 12), // 카드 사이 간격
+        Expanded(
+          child: _SummaryCard(
+            title: '읽지 않은 알림', // ✅ 오늘의 응답과 위치 변경
+            count: vm.unreadNotifications, // ✅ 데이터도 변경
+            icon: Icons.notifications_active, // ✅ 아이콘도 변경
+            color: Colors.orange.shade700, // 주황색 계열 색상 조정
+          ),
+        ),
+        const SizedBox(width: 12), // 카드 사이 간격
+        Expanded(
+          child: _SummaryCard(
+            title: '오늘의 응답', // ✅ 읽지 않은 알림과 위치 변경
+            count: vm.answeredToday, // ✅ 데이터도 변경
+            icon: Icons.done_all, // ✅ 아이콘도 변경
+            color: Colors.green.shade700, // 녹색 계열 색상 조정
           ),
         ),
       ],
+    );
+  }
+}
+
+// -------------------------
+// Summary Card Widget
+// -------------------------
+class _SummaryCard extends StatelessWidget {
+  final String title;
+  final int count;
+  final IconData icon;
+  final Color color;
+
+  const _SummaryCard({
+    Key? key,
+    required this.title,
+    required this.count,
+    required this.icon,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 카드 모서리 둥글게
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Column(
+          children: [
+            Icon(icon, size: 36, color: color),
+            const SizedBox(height: 8),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color, // 아이콘 색상과 동일하게 유지 (이미 검은색 계열)
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 14, color: Colors.black87), // 텍스트 색상 명확히 (이미 검은색 계열)
+              textAlign: TextAlign.center, // 텍스트 중앙 정렬
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------------
+// Line Chart Widget
+// -------------------------
+class _LineChartWidget extends StatelessWidget {
+  const _LineChartWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = Provider.of<DoctorDashboardViewModel>(context);
+    return LineChart(
+      LineChartData(
+        lineBarsData: vm.chartData.map((lineBarData) {
+          // 라인 색상 및 두께 조정 (예시)
+          return lineBarData.copyWith(
+            color: Colors.blueAccent, // 라인 차트 색상 변경
+            barWidth: 3,
+            isCurved: true, // 곡선 형태로 변경
+            dotData: const FlDotData(show: true), // 점 표시
+          );
+        }).toList(),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 1,
+              getTitlesWidget: (value, meta) {
+                final labels = ['6일전', '5일전', '4일전', '3일전', '2일전', '어제', '오늘'];
+                final index = value.toInt();
+                if (index < 0 || index >= labels.length) return const SizedBox.shrink();
+                return SideTitleWidget(
+                  axisSide: meta.axisSide,
+                  space: 8.0,
+                  child: Transform.rotate(
+                    angle: -0.785,
+                    child: Text(
+                      labels[index],
+                      style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 2,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 상단 타이틀 제거
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 우측 타이틀 제거
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          drawHorizontalLine: true,
+          getDrawingHorizontalLine: (value) => const FlLine(
+            color: Colors.grey, // 그리드 라인 색상
+            strokeWidth: 0.5,
+          ),
+          getDrawingVerticalLine: (value) => const FlLine(
+            color: Colors.grey, // 그리드 라인 색상
+            strokeWidth: 0.5,
+          ),
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(color: Colors.grey, width: 1), // 테두리 색상
+        ),
+        minX: 0,
+        maxX: 6,
+        minY: 0,
+        maxY: 20,
+      ),
+    );
+  }
+}
+
+// -------------------------
+// Pie Chart Widget
+// -------------------------
+class _PieChartWidget extends StatelessWidget {
+  const _PieChartWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = Provider.of<DoctorDashboardViewModel>(context);
+
+    // 파이 차트 섹션의 색상 정의 (화면 배경과 어울리는 파스텔톤)
+    final List<Color> pieChartColors = [
+      Colors.lightBlue.shade300, // 연한 파랑
+      Colors.orange.shade300,    // 연한 주황
+      Colors.lightGreen.shade300, // 연한 초록
+      Colors.purple.shade300,    // 연한 보라
+      Colors.teal.shade300,      // 연한 청록 (기타 카테고리)
+    ];
+
+    return PieChart(
+      PieChartData(
+        sections: vm.pieChartSections.mapIndexed((index, section) {
+          // VM의 pieChartSections에는 이미 원본 데이터가 있으므로,
+          // 여기서는 색상만 새로 정의된 pieChartColors에서 가져와 덮어씌웁니다.
+          // 범위를 벗어나는 인덱스를 처리하기 위해 % 연산 사용.
+          final color = pieChartColors[index % pieChartColors.length];
+          return section.copyWith(
+            color: color, // 파이 차트 색상 수정 적용
+            titleStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white, // 파이 차트 섹션 내부 텍스트는 흰색 유지 (색상 대비)
+              shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+            ),
+          );
+        }).toList(),
+        centerSpaceRadius: 40,
+        sectionsSpace: 4,
+        borderData: FlBorderData(show: false),
+        // 터치 동작 추가 (선택 효과) - 필요시 구현
+        // pieTouchData: PieTouchData(touchCallback: (FlTouchEvent event, pieTouchResponse) {
+        //   // 터치 이벤트 처리 로직
+        // }),
+      ),
     );
   }
 }

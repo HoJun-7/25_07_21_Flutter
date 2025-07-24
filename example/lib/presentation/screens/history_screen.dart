@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/doctor/d_consultation_record.dart';
-import 'result_detail_screen.dart';
+import 'history_result_detail_screen.dart'; // ✅ 바뀐 상세화면 import
 
 class HistoryScreen extends StatefulWidget {
   final String baseUrl;
@@ -49,13 +49,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ? Center(child: Text('오류: ${viewModel.error}'))
               : currentUser == null
                   ? const Center(child: Text('로그인이 필요합니다.'))
-                  : _buildListView(
-                      viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              _buildRecordList(
+                                viewModel.records
+                                    .where((r) => r.userId == currentUser.registerId)
+                                    .toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
     );
   }
 
-  Widget _buildListView(List<ConsultationRecord> records) {
+  Widget _buildRecordList(List<ConsultationRecord> records) {
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
     final List<ConsultationRecord> sortedRecords = List.from(records)
@@ -66,7 +79,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: sortedRecords.length,
       itemBuilder: (context, index) {
         final record = sortedRecords[index];
@@ -80,7 +94,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           formattedTime = '시간 파싱 오류';
         }
 
-        // "processed_" 제거한 파일명 추출
         final modelFilename = getModelFilename(record.originalImagePath);
 
         return Container(
@@ -91,7 +104,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             title: Text(
               '[$listIndex] $formattedTime',
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -108,14 +122,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ResultDetailScreen(
+                  builder: (_) => HistoryResultDetailScreen(
                     originalImageUrl: '$imageBaseUrl${record.originalImagePath}',
                     processedImageUrls: {
                       1: '$imageBaseUrl/images/model1/$modelFilename',
                       2: '$imageBaseUrl/images/model2/$modelFilename',
                       3: '$imageBaseUrl/images/model3/$modelFilename',
                     },
-                    // ✅ 이 부분이 수정되었습니다. ConsultationRecord의 새 필드를 사용합니다.
                     modelInfos: {
                       1: record.model1InferenceResult ?? {},
                       2: record.model2InferenceResult ?? {},
@@ -148,7 +161,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return DateTime.parse('$y-$m-$d' 'T' '$h:$min:$sec');
   }
 
-  // "processed_" 제거 함수
   String getModelFilename(String path) {
     final filename = path.split('/').last;
     return filename.replaceFirst('processed_', '');

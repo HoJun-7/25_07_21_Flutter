@@ -43,4 +43,22 @@ class User {
 
   // ✅ Doctor 여부를 확인하는 getter
   bool get isDoctor => role == 'D';
+
+  // ✅ 사용자 정보 복사를 위한 copyWith 메서드 추가
+  User copyWith({
+    String? name,
+    String? gender,
+    String? birth,
+    String? phone,
+  }) {
+    return User(
+      id: id,
+      registerId: registerId,
+      name: name ?? this.name,
+      gender: gender ?? this.gender,
+      birth: birth ?? this.birth,
+      phone: phone ?? this.phone,
+      role: role,
+    );
+  }
 }
