@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
-class ResultDetailScreen extends StatefulWidget {
+class HistoryResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
   final Map<int, String> processedImageUrls;
   final Map<int, Map<String, dynamic>> modelInfos;
@@ -11,7 +11,7 @@ class ResultDetailScreen extends StatefulWidget {
   final String inferenceResultId;
   final String baseUrl;
 
-  const ResultDetailScreen({
+  const HistoryResultDetailScreen({
     super.key,
     required this.originalImageUrl,
     required this.processedImageUrls,
@@ -22,10 +22,10 @@ class ResultDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<ResultDetailScreen> createState() => _ResultDetailScreenState();
+  State<HistoryResultDetailScreen> createState() => _HistoryResultDetailScreenState();
 }
 
-class _ResultDetailScreenState extends State<ResultDetailScreen> {
+class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   bool _showDisease = true;
   bool _showHygiene = true;
   bool _showToothNumber = true;
@@ -35,21 +35,18 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
-    // model1 (질병) 정보 추출 (기존과 동일)
     final model1Info = widget.modelInfos[1];
-    final model1Name = model1Info?['used_model'] ?? 'N/A'; // 백엔드에서 'used_model'로 보냄
+    final model1Name = model1Info?['used_model'] ?? 'N/A';
     final model1Confidence = model1Info?['confidence'] ?? 0.0;
-    final model1Label = model1Info?['label'] ?? '감지되지 않음'; // 백엔드에서 'label'로 보냄
+    final model1Label = model1Info?['label'] ?? '감지되지 않음';
 
-    // model2 (위생) 정보 추출
     final model2Info = widget.modelInfos[2];
     final model2Confidence = model2Info?['confidence'] ?? 0.0;
     final model2Label = model2Info?['label'] ?? '감지되지 않음';
 
-    // model3 (치아번호) 정보 추출
     final model3Info = widget.modelInfos[3];
     final model3Confidence = model3Info?['confidence'] ?? 0.0;
-    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown'; // 치아번호는 숫자로 올 수 있으므로 toString()
+    final model3ToothNumber = model3Info?['tooth_number_fdi']?.toString() ?? 'Unknown';
 
     final imageUrl = widget.originalImageUrl;
     final overlay1 = widget.processedImageUrls[1];
@@ -77,7 +74,6 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
             const SizedBox(height: 16),
             _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
             const SizedBox(height: 16),
-            // 변경된 _buildSummaryCard 호출
             _buildSummaryCard(
               model1Label: model1Label,
               model1Confidence: model1Confidence,
@@ -96,16 +92,19 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
                 if (currentUser == null) return;
 
-                context.push('/apply', extra: {
+                context.push('/consult', extra: {
                   'userId': widget.userId,
-                  'inferenceResultId': widget.inferenceResultId,
-                  'baseUrl': widget.baseUrl,
-                  'className': model1Label, // 질병 모델의 라벨 사용
-                  'confidence': model1Confidence, // 질병 모델의 확신도 사용
-                  'modelUsed': model1Name, // 질병 모델 이름 사용
+                  'registerId': currentUser.registerId ?? '',
                   'name': currentUser.name ?? '',
                   'phone': currentUser.phone ?? '',
                   'birth': currentUser.birth ?? '',
+                  'gender': currentUser.gender ?? '',
+                  'role': currentUser.role ?? '',
+                  'inferenceResultId': widget.inferenceResultId,
+                  'baseUrl': widget.baseUrl,
+                  'originalImageUrl': widget.originalImageUrl,
+                  'processedImageUrls': widget.processedImageUrls,
+                  'modelInfos': widget.modelInfos,
                 });
               }),
             ]
@@ -201,10 +200,11 @@ class _ResultDetailScreenState extends State<ResultDetailScreen> {
     required double model1Confidence,
     required String model2Label,
     required double model2Confidence,
-    required String model3ToothNumber, // 치아번호는 label 대신 tooth_number_fdi를 사용
+    required String model3ToothNumber,
     required double model3Confidence,
     required TextTheme textTheme,
-  }) => Container(
+  }) =>
+      Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),

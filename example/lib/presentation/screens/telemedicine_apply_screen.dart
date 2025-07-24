@@ -1,33 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'dart:convert';
 
 class TelemedicineApplyScreen extends StatefulWidget {
   final String userId;
+  final String registerId;
+  final String name;
+  final String phone;
+  final String birth;
+  final String gender;
+  final String role;
+
   final String inferenceResultId;
   final String baseUrl;
 
-  // 진단 요약 전달
-  final String diagnosisClassName;
-  final double confidence;
-  final String modelUsed;
-
-  // 환자 정보 전달 (ex: 로그인 상태에서 ViewModel로 받아도 됨)
-  final String patientName;
-  final String patientPhone;
-  final String patientBirth;
+  final String originalImageUrl;
+  final Map<int, String> processedImageUrls;
+  final Map<int, Map<String, dynamic>> modelInfos;
 
   const TelemedicineApplyScreen({
     super.key,
     required this.userId,
+    required this.registerId,
+    required this.name,
+    required this.phone,
+    required this.birth,
+    required this.gender,
+    required this.role,
     required this.inferenceResultId,
     required this.baseUrl,
-    required this.diagnosisClassName,
-    required this.confidence,
-    required this.modelUsed,
-    required this.patientName,
-    required this.patientPhone,
-    required this.patientBirth,
+    required this.originalImageUrl,
+    required this.processedImageUrls,
+    required this.modelInfos,
   });
 
   @override
@@ -35,16 +40,20 @@ class TelemedicineApplyScreen extends StatefulWidget {
 }
 
 class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
-  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController(text: '대전 서구 계룡로 491번길 86');
   String? _selectedClinic;
+  bool _isSubmitting = false;
 
   final List<String> _clinicOptions = [
-    '서울 밝은 치과',
-    '연세 치과',
-    '예쁜 미소 치과',
+    '서울 치과 병원',
+    '강남 종합 치과',
+    '부산 중앙 치과',
+    '대구 사랑 치과',
+    '인천 미소 치과',
+    '광주 건강 치과',
+    '대전 행복 치과',
+    '울산 치과 센터',
   ];
-
-  bool _isSubmitting = false;
 
   Future<void> _submitApplication() async {
     if (_selectedClinic == null || _addressController.text.trim().isEmpty) {
@@ -56,33 +65,53 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
 
     setState(() => _isSubmitting = true);
 
+    final now = DateTime.now();
+    final formattedDatetime = DateFormat('yyyyMMddHHmmss').format(now);
+
+    final body = {
+      "user_id": widget.userId,
+      "register_id": widget.registerId,
+      "name": widget.name,
+      "phone": widget.phone,
+      "birth": widget.birth,
+      "gender": widget.gender,
+      "role": widget.role,
+      "inference_result_id": widget.inferenceResultId,
+      "request_datetime": formattedDatetime,
+      "clinic": _selectedClinic,
+      "address": _addressController.text.trim(),
+      "original_image_url": widget.originalImageUrl,
+      "processed_image_urls": widget.processedImageUrls,
+      "model_infos": widget.modelInfos,
+    };
+
     final response = await http.post(
-      Uri.parse("${widget.baseUrl}/apply"),
+      Uri.parse("${widget.baseUrl}/consult"),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        "user_id": widget.userId,
-        "inference_result_id": widget.inferenceResultId,
-        "location": _addressController.text.trim(),
-        "selected_clinic": _selectedClinic,
-      }),
+      body: jsonEncode(body),
     );
 
     setState(() => _isSubmitting = false);
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("✅ 신청이 완료되었습니다.")),
       );
       Navigator.pop(context);
     } else {
+      final error = jsonDecode(response.body)['error'] ?? '알 수 없는 오류';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ 신청 실패. 다시 시도해주세요.")),
+        SnackBar(content: Text("❌ 신청 실패: $error")),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final model1 = widget.modelInfos[1];
+    final model2 = widget.modelInfos[2];
+    final model3 = widget.modelInfos[3];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("비대면 진단 신청"),
@@ -94,34 +123,38 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
           children: [
             _buildSectionTitle("👤 환자 정보"),
             _buildInfoCard([
-              "이름: ${widget.patientName}",
-              "생년월일: ${widget.patientBirth}",
-              "전화번호: ${widget.patientPhone}",
+              "이름: ${widget.name}",
+              "성별: ${widget.gender}",
+              "생년월일: ${widget.birth}",
+              "전화번호: ${widget.phone}",
             ]),
             const SizedBox(height: 16),
 
             _buildSectionTitle("🦷 진단 결과 요약"),
             _buildInfoCard([
-              "예측 질환: ${widget.diagnosisClassName}",
-              "확신도: ${(widget.confidence * 100).toStringAsFixed(1)}%",
-              "사용 모델: ${widget.modelUsed}",
+              "모델1: ${model1?['label'] ?? 'N/A'} / ${(model1?['confidence'] ?? 0.0 * 100).toStringAsFixed(1)}%",
+              "모델2: ${model2?['label'] ?? 'N/A'} / ${(model2?['confidence'] ?? 0.0 * 100).toStringAsFixed(1)}%",
+              "모델3: 치아번호 ${model3?['tooth_number_fdi'] ?? 'N/A'} / ${(model3?['confidence'] ?? 0.0 * 100).toStringAsFixed(1)}%",
             ]),
             const SizedBox(height: 16),
 
             _buildSectionTitle("🏥 병원 선택"),
             DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.local_hospital),
+              ),
+              hint: const Text("병원을 선택하세요"),
               value: _selectedClinic,
               items: _clinicOptions.map((clinic) {
-                return DropdownMenuItem(
+                return DropdownMenuItem<String>(
                   value: clinic,
                   child: Text(clinic),
                 );
               }).toList(),
-              onChanged: (value) => setState(() => _selectedClinic = value),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: '진료 받을 병원을 선택하세요',
-              ),
+              onChanged: (value) {
+                setState(() => _selectedClinic = value);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -131,6 +164,7 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: "상세 주소를 입력하세요",
+                prefixIcon: Icon(Icons.home),
               ),
             ),
             const SizedBox(height: 24),
@@ -153,7 +187,10 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
 
   Widget _buildSectionTitle(String title) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
       );
 
   Widget _buildInfoCard(List<String> lines) => Container(

@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart'; // Provider is used for ChangeNotifierProvider
+import 'package:provider/provider.dart';
 
-// 필요한 화면들 임포트
 import '/presentation/screens/doctor/d_inference_result_screen.dart';
-import '/presentation/screens/doctor/d_real_home_screen.dart'; // 의사 첫 홈
-import '/presentation/screens/doctor/d_telemedicine_application_screen.dart'; // 새로 추가된 비대면 진료 신청 화면
+import '/presentation/screens/doctor/d_real_home_screen.dart';
+import '/presentation/screens/doctor/d_telemedicine_application_screen.dart';
 import '/presentation/screens/doctor/d_calendar_screen.dart';
-import '/presentation/screens/main_scaffold.dart'; // 일반 사용자용 스캐폴드
+import '/presentation/screens/main_scaffold.dart';
 import '/presentation/screens/login_screen.dart';
 import '/presentation/screens/register_screen.dart';
 import '/presentation/screens/home_screen.dart';
 import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/telemedicine_apply_screen.dart';
-import '/presentation/viewmodel/auth_viewmodel.dart'; // 사용자 로그인 정보 접근
+import '/presentation/screens/upload_result_detail_screen.dart';
+import '/presentation/screens/history_result_detail_screen.dart';
+import '/presentation/viewmodel/auth_viewmodel.dart';
 
-// 하단 탭 바 화면들
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
+import '/presentation/screens/reauth_screen.dart';
+import '/presentation/screens/edit_profile_screen.dart';
+import '/presentation/screens/edit_profile_result_screen.dart';
 import '/presentation/screens/upload_screen.dart';
 import '/presentation/screens/history_screen.dart';
 import '/presentation/screens/clinics_screen.dart';
 
-// DoctorDrawer는 반드시 이 경로에서만 임포트합니다.
 import '/presentation/screens/doctor/doctor_drawer.dart';
-
-// DoctorDashboardViewModel은 이 경로에서만 임포트합니다.
-import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel의 정식 경로
+import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -46,13 +46,8 @@ GoRouter createRouter(String baseUrl) {
         builder: (context, state) => const WebPlaceholderScreen(),
       ),
 
-      // 의사 전용 ShellRoute: Drawer 유지
       ShellRoute(
-        builder: (context, state, child) {
-          // DRealHomeScreen, DTelemedicineApplicationScreen 등 각 화면에서 Scaffold 및 DoctorDrawer를 직접 처리합니다.
-          // 여기서 ShellRoute의 builder는 단순히 child를 반환하여 하위 라우트에서 Scaffold를 구성할 수 있도록 합니다.
-          return child;
-        },
+        builder: (context, state, child) => child,
         routes: [
           GoRoute(
             path: '/d_home',
@@ -64,7 +59,6 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-
           GoRoute(
             path: '/d_dashboard',
             builder: (context, state) {
@@ -77,7 +71,6 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-
           GoRoute(
             path: '/d_appointments',
             builder: (context, state) {
@@ -89,7 +82,6 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-
           GoRoute(
             path: '/d_inference_result',
             builder: (context, state) {
@@ -101,7 +93,6 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-
           GoRoute(
             path: '/d_calendar',
             builder: (context, state) {
@@ -113,7 +104,6 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-
           GoRoute(
             path: '/d_patients',
             builder: (context, state) {
@@ -128,14 +118,11 @@ GoRouter createRouter(String baseUrl) {
         ],
       ),
 
-      // 일반 사용자 ShellRoute
       ShellRoute(
-        builder: (context, state, child) {
-          return MainScaffold(
-            child: child,
-            currentLocation: state.uri.toString(),
-          );
-        },
+        builder: (context, state, child) => MainScaffold(
+          child: child,
+          currentLocation: state.uri.toString(),
+        ),
         routes: [
           GoRoute(
             path: '/chatbot',
@@ -144,7 +131,7 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/home',
             builder: (context, state) {
-              final authViewModel = state.extra as Map<String, dynamic>?; // 예시
+              final authViewModel = state.extra as Map<String, dynamic>?;
               final userId = authViewModel?['userId'] ?? 'guest';
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
@@ -154,10 +141,35 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) => const MyPageScreen(),
           ),
           GoRoute(
+            path: '/reauth',
+            builder: (context, state) => const ReauthScreen(),
+          ),
+          GoRoute(
+            path: '/edit-profile',
+            builder: (context, state) => const EditProfileScreen(),
+          ),
+          GoRoute(
+            path: '/edit_profile_result',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return EditProfileResultScreen(
+                isSuccess: extra['isSuccess'] as bool,
+                message: extra['message'] as String,
+              );
+            },
+          ),
+          GoRoute(
             path: '/upload',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return UploadScreen(baseUrl: passedBaseUrl);
+            },
+          ),
+          GoRoute(
+            path: '/history',
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return HistoryScreen(baseUrl: passedBaseUrl);
             },
           ),
           GoRoute(
@@ -175,26 +187,23 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/history',
-            builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return HistoryScreen(baseUrl: passedBaseUrl);
-            },
-          ),
-          GoRoute(
-            path: '/apply',
+            path: '/consult',
             builder: (context, state) {
               final args = state.extra as Map<String, dynamic>? ?? {};
+
               return TelemedicineApplyScreen(
                 userId: args['userId'],
+                registerId: args['registerId'],
+                name: args['name'],
+                phone: args['phone'],
+                birth: args['birth'],
+                gender: args['gender'],
+                role: args['role'],
                 inferenceResultId: args['inferenceResultId'],
                 baseUrl: args['baseUrl'],
-                diagnosisClassName: args['className'],
-                confidence: args['confidence'],
-                modelUsed: args['modelUsed'],
-                patientName: args['name'],
-                patientPhone: args['phone'],
-                patientBirth: args['birth'],
+                originalImageUrl: args['originalImageUrl'],
+                processedImageUrls: Map<int, String>.from(args['processedImageUrls'] ?? {}),
+                modelInfos: Map<int, Map<String, dynamic>>.from(args['modelInfos'] ?? {}),
               );
             },
           ),
@@ -209,6 +218,36 @@ GoRouter createRouter(String baseUrl) {
               return CameraInferenceScreen(
                 baseUrl: data['baseUrl'] ?? '',
                 userId: data['userId'] ?? 'guest',
+              );
+            },
+          ),
+          GoRoute(
+            path: '/upload_result_detail',
+            name: 'uploadResultDetail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return UploadResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
+                modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/history_result_detail',
+            name: 'historyResultDetail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return HistoryResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
+                modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
               );
             },
           ),

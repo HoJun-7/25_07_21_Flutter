@@ -136,141 +136,203 @@ class MyPageScreen extends StatelessWidget {
     final userInfoViewModel = context.watch<UserInfoViewModel>();
     final user = userInfoViewModel.user;
 
+    const Color myPageBackgroundColor = Color(0xFFB4D4FF);
+
     return WillPopScope(
       onWillPop: () => _onWillPop(context),
       child: Scaffold(
-        backgroundColor: const Color(0xFF376193),
+        backgroundColor: myPageBackgroundColor,
         appBar: AppBar(
-          title: const Text('마이페이지', style: TextStyle(color: Colors.black87)),
-          centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 1,
+          leading: IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('햄버거 메뉴 클릭됨')),
+              );
+            },
+          ),
+          title: const Text(
+            '회원정보',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+              fontSize: 20,
+            ),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.black87),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('알림 아이콘 클릭됨')),
+                );
+              },
+            ),
+          ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: Offset(0, 3),
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Center(
-                  child: Text(
-                    '내 정보',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 30.0, horizontal: 20.0),
+                decoration: BoxDecoration(
+                  color: myPageBackgroundColor,
                 ),
-                const SizedBox(height: 20),
-
-                Row(
+                child: Column(
                   children: [
-                    const Icon(Icons.person_outline, color: Colors.grey, size: 20),
-                    const SizedBox(width: 10),
+                    CircleAvatar(
+                      radius: 45,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        size: 65,
+                        color: myPageBackgroundColor.withOpacity(0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
                     Text(
-                      '이름: ${user?.name ?? '로그인 필요'}',
-                      style: const TextStyle(fontSize: 17, color: Colors.black87),
+                      user?.name ?? '로그인 필요',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.95),
+                        shadows: [
+                          Shadow(
+                            blurRadius: 6.0,
+                            color: Colors.black38,
+                            offset: Offset(2.0, 2.0),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      user?.role == 'P' ? '환자' : (user?.role == 'D' ? '의사' : ''),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildInfoBox(Icons.rate_review, '예약 내역', '0', context),
+                        const SizedBox(width: 15),
+                        _buildInfoBox(Icons.chat_bubble_outline, '진료 기록', '15', context),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.email_outlined, color: Colors.grey, size: 20),
-                    const SizedBox(width: 10),
-                    Text(
-                      '아이디: ${user?.registerId ?? '로그인 필요'}',
-                      style: const TextStyle(fontSize: 17, color: Colors.black87),
+              ),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: Column(
+                      children: [
+                        _buildMenuItem(context, Icons.person_outline, '개인정보 수정', ''),
+                        _buildMenuItem(context, Icons.logout, '로그아웃', '/login', isLogout: true),
+                        _buildMenuItem(context, Icons.delete_outline, '회원 탈퇴', '', isDelete: true),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                const Divider(height: 1),
-
-                const SizedBox(height: 24),
-                const Text(
-                  '계정 설정',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                _buildFullButton(
-                  label: '개인정보 수정',
-                  icon: Icons.edit,
-                  color: Colors.blueAccent,
-                  textColor: Colors.white,
-                  onTap: () => context.go('/mypage/edit'),
-                ),
-                const SizedBox(height: 15),
-
-                _buildFullButton(
-                  label: '로그아웃',
-                  icon: Icons.logout,
-                  color: Colors.white,
-                  textColor: Colors.black87,
-                  border: BorderSide(color: Colors.grey.shade300),
-                  onTap: () {
-                    userInfoViewModel.clearUser();
-                    _showSnack(context, '로그아웃 되었습니다.');
-                    context.go('/login');
-                  },
-                ),
-                const SizedBox(height: 15),
-
-                _buildFullButton(
-                  label: '회원탈퇴',
-                  icon: Icons.delete_outline,
-                  color: Colors.white,
-                  textColor: Colors.red,
-                  border: const BorderSide(color: Colors.red, width: 1.5),
-                  onTap: () => _showDeleteConfirmationDialog(context),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFullButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color textColor,
-    VoidCallback? onTap,
-    BorderSide? border,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, color: textColor),
-        label: Text(label, style: TextStyle(fontSize: 16, color: textColor)),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: color,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          side: border ?? BorderSide.none,
+  Widget _buildInfoBox(IconData icon, String label, String count, BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          _showSnack(context, '$label 클릭됨');
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 30, color: Colors.white),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                count,
+                style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, IconData icon, String title, String route,
+      {bool isLogout = false, bool isDelete = false}) {
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
+          leading: Icon(icon, color: isDelete ? Colors.redAccent : Colors.grey[700], size: 28),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              color: isDelete ? Colors.redAccent : Colors.black87,
+            ),
+          ),
+          trailing: isLogout || isDelete ? null : const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.grey),
+          onTap: () {
+            if (title == '개인정보 수정') {
+              context.push('/reauth'); // ✅ 핵심 변경: 기능 복원
+            } else if (isLogout) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('로그아웃 되었습니다.')),
+              );
+              context.go(route);
+            } else if (isDelete) {
+              _showDeleteConfirmationDialog(context);
+            } else {
+              context.push(route);
+            }
+          },
+        ),
+        Divider(
+          height: 1,
+          indent: 25,
+          endIndent: 25,
+          color: Colors.grey[200],
+        ),
+      ],
     );
   }
 }
