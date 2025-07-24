@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'package:path/path.dart' as path;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
-import 'result_detail_screen.dart';
+import 'upload_result_detail_screen.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
@@ -104,10 +105,18 @@ class _UploadScreenState extends State<UploadScreen> {
       request.fields['user_id'] = registerId;
 
       if (_imageFile != null) {
+        final ext = path.extension(_imageFile!.path).toLowerCase(); // .jpg, .jpeg, .png
+
+        String mimeType = 'image';
+        String subType = 'jpeg'; // 기본값
+        if (ext == '.png') subType = 'png';
+        else if (ext == '.jpg' || ext == '.jpeg') subType = 'jpeg';
+
         request.files.add(await http.MultipartFile.fromPath(
           'file',
           _imageFile!.path,
-          contentType: MediaType('image', 'png'),
+          filename: 'camera_upload_image.png',
+          contentType: MediaType(mimeType, subType),  // ✅ 실제 파일 형식에 맞게 설정됨
         ));
       } else if (_webImage != null) {
         request.files.add(http.MultipartFile.fromBytes(
@@ -141,7 +150,7 @@ class _UploadScreenState extends State<UploadScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ResultDetailScreen(
+              builder: (_) => UploadResultDetailScreen(
                 originalImageUrl: originalImageUrl,
                 processedImageUrls: processedImageUrls,
                 modelInfos: {
