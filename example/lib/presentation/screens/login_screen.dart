@@ -226,8 +226,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: 아이디 찾기 화면으로 이동
-                          context.go('/find_id'); // 예시 경로 (실제 라우트 정의 필요)
+                          // 아이디 찾기 화면으로 이동
+                          context.go('/find_id');
                         },
                         child: Text(
                           '아이디 찾기',
@@ -241,8 +241,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: 비밀번호 찾기 화면으로 이동
-                          context.go('/find_password'); // 예시 경로 (실제 라우트 정의 필요)
+                          // 비밀번호 찾기 화면으로 이동
+                          context.go('/find_password');
                         },
                         child: Text(
                           '비밀번호 찾기',
