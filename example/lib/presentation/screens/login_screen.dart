@@ -199,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: () => context.go('/register'),
+                      onPressed: () => context.push('/register'),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: primaryBlue, width: 2),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -219,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
-                        onPressed: () => context.go('/find_id'),
+                        onPressed: () => context.push('/find_id'),
                         child: Text(
                           '아이디 찾기',
                           style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14),
@@ -230,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                       TextButton(
-                        onPressed: () => context.go('/find_password'),
+                        onPressed: () => context.push('/find_password'),
                         child: Text(
                           '비밀번호 찾기',
                           style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14),

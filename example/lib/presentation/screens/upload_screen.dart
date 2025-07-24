@@ -1,3 +1,4 @@
+// 생략된 import는 동일
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -100,7 +101,7 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
-      final token = await authViewModel.getAccessToken(); // ✅ 토큰 읽기
+      final token = await authViewModel.getAccessToken();
       if (token == null) {
         throw Exception('토큰이 없습니다. 로그인 상태를 확인해주세요.');
       }
@@ -108,8 +109,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final uri = Uri.parse('${widget.baseUrl}/upload');
       final request = http.MultipartRequest('POST', uri);
       request.fields['user_id'] = registerId;
-
-      request.headers['Authorization'] = 'Bearer $token'; // ✅ 토큰 추가
+      request.headers['Authorization'] = 'Bearer $token';
 
       if (_imageFile != null) {
         final ext = path.extension(_imageFile!.path).toLowerCase();
@@ -198,6 +198,17 @@ class _UploadScreenState extends State<UploadScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none),
+            tooltip: '알림',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('알림 아이콘 클릭됨')),
+              );
+            },
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFFA9CCF7),
       body: Center(

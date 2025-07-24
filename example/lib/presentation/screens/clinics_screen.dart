@@ -18,10 +18,21 @@ class ClinicsScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF3869A8), // ✅ AppBar 배경색 (첫 번째 이미지 색)
-        iconTheme: const IconThemeData(color: Colors.white), // 뒤로가기 아이콘도 흰색
+        backgroundColor: const Color(0xFF3869A8), // ✅ AppBar 배경색
+        iconTheme: const IconThemeData(color: Colors.white), // 뒤로가기 아이콘 흰색
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            tooltip: '알림',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('알림 아이콘 클릭됨')),
+              );
+            },
+          ),
+        ],
       ),
-      body: const ClinicsMapScreen(), // ✅ ClinicsMapScreen 위젯으로 교체
+      body: const ClinicsMapScreen(), // ✅ 지도 화면
     );
   }
 }

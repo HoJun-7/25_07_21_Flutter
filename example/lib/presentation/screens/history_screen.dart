@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/doctor/d_consultation_record.dart';
-import 'history_result_detail_screen.dart'; // ✅ 바뀐 상세화면 import
+import 'history_result_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String baseUrl;
@@ -41,6 +41,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none),
+            tooltip: '알림',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('알림 아이콘 클릭됨')),
+              );
+            },
+          ),
+        ],
       ),
       backgroundColor: const Color(0xFFDCE7F6),
       body: viewModel.isLoading

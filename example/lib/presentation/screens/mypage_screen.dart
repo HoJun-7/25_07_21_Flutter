@@ -145,14 +145,6 @@ class MyPageScreen extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 1,
-          leading: IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black87),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('햄버거 메뉴 클릭됨')),
-              );
-            },
-          ),
           title: const Text(
             '회원정보',
             style: TextStyle(
@@ -313,7 +305,7 @@ class MyPageScreen extends StatelessWidget {
           trailing: isLogout || isDelete ? null : const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.grey),
           onTap: () {
             if (title == '개인정보 수정') {
-              context.push('/reauth'); // ✅ 핵심 변경: 기능 복원
+              context.push('/reauth');
             } else if (isLogout) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('로그아웃 되었습니다.')),
