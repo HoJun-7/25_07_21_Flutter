@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ChatMessage {
   final String role; // 'user' or 'bot'
@@ -29,18 +30,21 @@ class ChatbotViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String message, String patientId) async {
+  Future<void> sendMessage(String message) async {
     _messages.add(ChatMessage(role: 'user', content: message));
     notifyListeners();
 
     try {
+      const storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'access_token');
+
       final response = await http.post(
         Uri.parse('$_baseUrl/chatbot'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'message': message,
-          'patient_id': patientId,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+          body: jsonEncode({'message': message}),
       );
 
       if (response.statusCode == 200) {

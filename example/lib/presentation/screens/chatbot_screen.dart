@@ -24,13 +24,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Future<void> _sendMessage(String message) async {
     if (message.isEmpty) return;
 
-    final userId = Provider.of<AuthViewModel>(context, listen: false)
-            .currentUser
-            ?.registerId ??
-        'guest';
-
     await Provider.of<ChatbotViewModel>(context, listen: false)
-        .sendMessage(message, userId);
+        .sendMessage(message);
 
     _controller.clear();
     _scrollToBottom();
