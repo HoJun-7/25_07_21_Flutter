@@ -100,23 +100,27 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
+      final token = await authViewModel.getAccessToken(); // ✅ 토큰 읽기
+      if (token == null) {
+        throw Exception('토큰이 없습니다. 로그인 상태를 확인해주세요.');
+      }
+
       final uri = Uri.parse('${widget.baseUrl}/upload');
       final request = http.MultipartRequest('POST', uri);
       request.fields['user_id'] = registerId;
 
-      if (_imageFile != null) {
-        final ext = path.extension(_imageFile!.path).toLowerCase(); // .jpg, .jpeg, .png
+      request.headers['Authorization'] = 'Bearer $token'; // ✅ 토큰 추가
 
+      if (_imageFile != null) {
+        final ext = path.extension(_imageFile!.path).toLowerCase();
         String mimeType = 'image';
-        String subType = 'jpeg'; // 기본값
-        if (ext == '.png') subType = 'png';
-        else if (ext == '.jpg' || ext == '.jpeg') subType = 'jpeg';
+        String subType = (ext == '.png') ? 'png' : 'jpeg';
 
         request.files.add(await http.MultipartFile.fromPath(
           'file',
           _imageFile!.path,
           filename: 'camera_upload_image.png',
-          contentType: MediaType(mimeType, subType),  // ✅ 실제 파일 형식에 맞게 설정됨
+          contentType: MediaType(mimeType, subType),
         ));
       } else if (_webImage != null) {
         request.files.add(http.MultipartFile.fromBytes(
@@ -177,7 +181,7 @@ class _UploadScreenState extends State<UploadScreen> {
     } catch (e) {
       print('업로드 실패: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미지 업로드 실패')),
+        SnackBar(content: Text('업로드 실패: $e')),
       );
     } finally {
       setState(() {

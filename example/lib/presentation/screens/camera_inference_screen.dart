@@ -14,6 +14,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http; // Import for HTTP requests
 import 'dart:convert'; // ✅ 추가
+import '/data/service/http_service.dart'; // ✅ HttpService 사용 위해 추가
 
 // Alpha 값 상수화
 const int _kAlpha80Percent = 204; // 0.8 * 255
@@ -174,7 +175,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       if (!_yoloController.isInitialized) {
         throw Exception('YOLO 컨트롤러가 초기화되지 않았습니다.');
       }
-      // ✅ YOLOView를 일시적으로 비활성화
+
       final viewKey = _yoloViewKey.currentState;
       viewKey?.setVisibility(false);
 
@@ -182,7 +183,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         _isModelLoading = true;
         _loadingMessage = '원본 이미지 캡처 중...';
       });
-      
+
       Uint8List? imageData;
       const maxWait = Duration(seconds: 1);
       final start = DateTime.now();
@@ -191,7 +192,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         imageData = await _yoloController.captureRawFrame();
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      // ✅ 다시 YOLOView 활성화
+
       viewKey?.setVisibility(true);
 
       if (imageData == null) {
@@ -230,21 +231,17 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         }
       }
 
-      // ✅ 서버 전송 시작
-      final filename = 'realtime_image.png';
-      final String jsonResults = jsonEncode(_serializeYOLOResults(_latestResults));
-      final String serverUrl = '${widget.baseUrl}/upload_image';
+      // ✅ HttpService 사용하여 서버 업로드
+      final String filename = 'realtime_image.png';
+      final String yoloJson = jsonEncode(_serializeYOLOResults(_latestResults));
 
-      final request = http.MultipartRequest('POST', Uri.parse(serverUrl))
-        ..fields['user_id'] = widget.userId
-        ..fields['yolo_results_json'] = jsonResults
-        ..files.add(http.MultipartFile.fromBytes(
-          'file',
-          imageData,
-          filename: filename,
-        ));
-
-      final response = await request.send();
+      final httpService = HttpService(baseUrl: widget.baseUrl);
+      final response = await httpService.uploadImageWithToken(
+        userId: widget.userId,
+        imageData: imageData,
+        filename: filename,
+        yoloResultsJson: yoloJson,
+      );
 
       if (response.statusCode == 200) {
         debugPrint('📤 $filename 업로드 성공!');
@@ -262,7 +259,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
           );
         }
       }
-      
+
     } catch (e) {
       debugPrint('❌ 오류 발생: $e');
       if (mounted) {
@@ -278,6 +275,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       });
     }
   }
+
 
   /// 새로운 캡쳐 버튼 위젯을 빌드합니다.
   Widget _buildCaptureButton() {

@@ -28,6 +28,17 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color doctorRoleColor = Color(0xFF81C784); // 의사 역할 선택 시 색상 (초록색 계열)
   static const Color unselectedCardColor = Color(0xFFE0E0E0); // 선택되지 않은 카드 배경색
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // ✅ 전달된 userId가 있을 경우 아이디 입력 필드에 자동 설정
+    final extra = GoRouterState.of(context).extra;
+    if (extra != null && extra is String) {
+      registerIdController.text = extra;
+    }
+  }
+
   Future<void> login() async {
     final authViewModel = context.read<AuthViewModel>();
     final userInfoViewModel = context.read<UserInfoViewModel>();
@@ -43,16 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      // 로그인 시도 전 로딩 인디케이터 표시 (선택 사항)
-      // showDialog(
-      //   context: context,
-      //   barrierDismissible: false,
-      //   builder: (context) => const Center(child: CircularProgressIndicator()),
-      // );
-
       final user = await authViewModel.loginUser(registerId, password, _selectedRole);
-
-      // Navigator.of(context).pop(); // 로딩 인디케이터 숨기기
 
       if (user != null) {
         userInfoViewModel.loadUser(user);
@@ -68,7 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      // Navigator.of(context).pop(); // 오류 발생 시 로딩 인디케이터 숨기기
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('로그인 처리 중 오류 발생: ${e.toString()}')),
       );
@@ -101,157 +102,143 @@ class _LoginScreenState extends State<LoginScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: lightBlueBackground, // 밝은 블루 배경
+        backgroundColor: lightBlueBackground,
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Container(
-              padding: const EdgeInsets.all(30), // 내부 패딩 증가
+              padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30), // 모서리 더 둥글게
+                borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1), // 그림자 색상 및 투명도 조정
-                    blurRadius: 20, // 그림자 흐림 정도 증가
-                    offset: const Offset(0, 10), // 그림자 위치 조정
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 로고
                   Image.asset(
-                    'assets/icon/cdss-icon_500.png', // 실제 앱 로고 경로 사용
-                    width: 120, // 로고 크기 증가
+                    'assets/icon/cdss-icon_500.png',
+                    width: 120,
                     height: 120,
                   ),
-                  const SizedBox(height: 30), // 간격 증가
+                  const SizedBox(height: 30),
 
-                  // 역할 선택 카드
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center, // 역할 선택 카드 중앙 정렬
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildRoleCard('환자', 'P', Icons.personal_injury_outlined), // 아이콘 변경
-                      const SizedBox(width: 15), // 간격 조정
-                      _buildRoleCard('의사', 'D', Icons.medical_information_outlined), // 아이콘 변경
+                      _buildRoleCard('환자', 'P', Icons.personal_injury_outlined),
+                      const SizedBox(width: 15),
+                      _buildRoleCard('의사', 'D', Icons.medical_information_outlined),
                     ],
                   ),
 
-                  const SizedBox(height: 30), // 간격 증가
+                  const SizedBox(height: 30),
 
-                  // 아이디 입력
                   TextField(
                     controller: registerIdController,
-                    keyboardType: TextInputType.emailAddress, // 이메일 타입 키보드
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: '아이디를 입력하세요', // placeholder 텍스트
-                      hintText: '예: user@example.com', // 힌트 텍스트 추가
-                      prefixIcon: const Icon(Icons.person_outline, color: primaryBlue), // 아이콘 색상 변경
+                      labelText: '아이디를 입력하세요',
+                      hintText: '예: user@example.com',
+                      prefixIcon: const Icon(Icons.person_outline, color: primaryBlue),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게
-                        borderSide: BorderSide.none, // 기본 테두리 제거
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[100], // 배경색 추가
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16), // 패딩 조정
+                      fillColor: Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                   ),
-                  const SizedBox(height: 20), // 간격 증가
+                  const SizedBox(height: 20),
 
-                  // 비밀번호 입력
                   TextField(
                     controller: passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
                       labelText: '비밀번호를 입력하세요',
                       hintText: '영문, 숫자, 특수문자 포함 8자 이상',
-                      prefixIcon: const Icon(Icons.lock_outline, color: primaryBlue), // 아이콘 색상 변경
+                      prefixIcon: const Icon(Icons.lock_outline, color: primaryBlue),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게
-                        borderSide: BorderSide.none, // 기본 테두리 제거
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[100], // 배경색 추가
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16), // 패딩 조정
+                      fillColor: Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     ),
                   ),
-                  const SizedBox(height: 30), // 간격 증가
+                  const SizedBox(height: 30),
 
-                  // 로그인 버튼
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: login,
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16), // 패딩 증가
-                        backgroundColor: primaryBlue, // 진한 블루
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: primaryBlue,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        elevation: 5, // 그림자 추가
+                        elevation: 5,
                       ),
                       child: const Text(
                         '로그인',
-                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold), // 폰트 크기 및 굵기 조정
+                        style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15), // 간격 조정
+                  const SizedBox(height: 15),
 
-                  // 회원가입 버튼 (순서 변경)
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => context.go('/register'),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: primaryBlue, width: 2), // 테두리 색상 및 굵기 조정
-                        padding: const EdgeInsets.symmetric(vertical: 16), // 패딩 증가
+                        side: const BorderSide(color: primaryBlue, width: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15), // 모서리 더 둥글게
+                          borderRadius: BorderRadius.circular(15),
                         ),
                       ),
                       child: const Text(
                         '회원가입 하기',
-                        style: TextStyle(color: primaryBlue, fontSize: 16, fontWeight: FontWeight.bold), // 폰트 크기 및 굵기 조정
+                        style: TextStyle(color: primaryBlue, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15), // 간격 조정
+                  const SizedBox(height: 15),
 
-                  // 아이디/비밀번호 찾기 섹션 (순서 변경)
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center, // 중앙 정렬
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
-                        onPressed: () {
-                          // 아이디 찾기 화면으로 이동
-                          context.go('/find_id');
-                        },
+                        onPressed: () => context.go('/find_id'),
                         child: Text(
                           '아이디 찾기',
-                          style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14), // 색상 및 크기 조정
+                          style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14),
                         ),
                       ),
-                      // 구분선
                       Text(
                         ' | ',
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                       TextButton(
-                        onPressed: () {
-                          // 비밀번호 찾기 화면으로 이동
-                          context.go('/find_password');
-                        },
+                        onPressed: () => context.go('/find_password'),
                         child: Text(
                           '비밀번호 찾기',
-                          style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14), // 색상 및 크기 조정
+                          style: TextStyle(color: primaryBlue.withOpacity(0.8), fontSize: 14),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 15), // 간격 조정
+                  const SizedBox(height: 15),
                 ],
               ),
             ),
@@ -261,33 +248,32 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 역할 선택 카드 위젯
   Widget _buildRoleCard(String label, String roleValue, IconData icon) {
     final isSelected = _selectedRole == roleValue;
 
     Color cardBackgroundColor = isSelected
         ? (roleValue == 'P' ? patientRoleColor : doctorRoleColor)
-        : unselectedCardColor; // 선택되지 않은 카드 배경색 추가
+        : unselectedCardColor;
 
-    Color iconAndTextColor = isSelected ? Colors.white : Colors.grey[700]!; // 선택 여부에 따른 아이콘/텍스트 색상
+    Color iconAndTextColor = isSelected ? Colors.white : Colors.grey[700]!;
 
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedRole = roleValue),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250), // 애니메이션 시간 조정
-          curve: Curves.easeInOut, // 애니메이션 커브 추가
-          padding: const EdgeInsets.symmetric(vertical: 20), // 패딩 증가
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
             color: cardBackgroundColor,
-            borderRadius: BorderRadius.circular(20), // 모서리 더 둥글게
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? Colors.white : Colors.transparent, // 선택 시 흰색 테두리
-              width: isSelected ? 3 : 0, // 선택 시 테두리 굵기
+              color: isSelected ? Colors.white : Colors.transparent,
+              width: isSelected ? 3 : 0,
             ),
             boxShadow: [
               BoxShadow(
-                color: isSelected ? cardBackgroundColor.withOpacity(0.6) : Colors.black.withOpacity(0.05), // 그림자 효과
+                color: isSelected ? cardBackgroundColor.withOpacity(0.6) : Colors.black.withOpacity(0.05),
                 blurRadius: isSelected ? 15 : 5,
                 offset: isSelected ? const Offset(0, 8) : const Offset(0, 2),
               ),
@@ -295,13 +281,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           child: Column(
             children: [
-              Icon(icon, size: 40, color: iconAndTextColor), // 아이콘 크기 조정
-              const SizedBox(height: 10), // 간격 조정
+              Icon(icon, size: 40, color: iconAndTextColor),
+              const SizedBox(height: 10),
               Text(
                 label,
                 style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, // 선택 시 굵기 강조
-                  fontSize: 17, // 폰트 크기 조정
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 17,
                   color: iconAndTextColor,
                 ),
               ),

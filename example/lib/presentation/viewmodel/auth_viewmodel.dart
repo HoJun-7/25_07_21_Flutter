@@ -19,6 +19,11 @@ class AuthViewModel with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
 
+  // ✅ access_token 불러오기
+  Future<String?> getAccessToken() async {
+    return await _secureStorage.read(key: 'access_token');
+  }
+
   // ✅ 아이디 중복 확인
   Future<bool?> checkUserIdDuplicate(String userId, String role) async {
     isCheckingUserId = true;

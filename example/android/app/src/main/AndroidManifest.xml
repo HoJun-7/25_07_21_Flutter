@@ -24,7 +24,8 @@
     <application
         android:label="MediTooth"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">   <!-- ✅ HTTP 허용 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
