@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:google_fonts/google_fonts.dart';
 
 class HomeScreen extends StatefulWidget {
   final String baseUrl;
@@ -18,7 +17,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _infoBoxText = '어떤 분석을을 원하시나요?';
+  final ScrollController _scrollController = ScrollController();
+
+  final GlobalKey _photoPredictCardKey = GlobalKey();
+  final GlobalKey _realtimePredictCardKey = GlobalKey();
+  final GlobalKey _historyCardKey = GlobalKey();
+
+  String _infoBoxText = '어떤 분석을 원하시나요?';
 
   static const String _defaultInfoText = '어떤 분석을 원하시나요?';
 
@@ -28,13 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
     'history': 1.0,
   };
 
-  TextStyle get _juaTextStyle => GoogleFonts.jua(
-   석 결과를 확인합니다.',
-      _photoPredictCardKey: '분석하기위한 아픈 치아 사진을 준비해주세요.',
-      _realtimePredictCardKey: '카메라로 실시간 예측을 진행합니다.',
-      _historyCardKey: '분석한 모든 결과를 찾아 볼 수 있습니다.',
-    };
-  }
+  TextStyle get _juaTextStyle => const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.black,
+      );
 
   @override
   void dispose() {
@@ -50,14 +53,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final paddingTop = screenHeight * 0.1;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'MediTooth',
-          style: GoogleFonts.jua(
+          style: TextStyle(
             color: Colors.white,
             fontSize: 28,
             fontWeight: FontWeight.w900,
@@ -78,148 +78,77 @@ class _HomeScreenState extends State<HomeScreen> {
         color: const Color(0xFFF5FAFF),
         width: double.infinity,
         child: SingleChildScrollView(
-   다.'),
-                  ),
-                  const SizedBox(height: 25),
+          controller: _scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _infoBoxText,
+                style: _juaTextStyle,
+              ),
+              const SizedBox(height: 25),
+              _buildCardWithHoverAndTapEffect(
+                context,
+                cardKey: 'photoPredict',
+                globalKey: _photoPredictCardKey,
+                title: '사진으로 예측하기',
+                subtitle: '분석하기위한 아픈 치아 사진을 준비해주세요.',
+                icon: Icons.photo_camera,
+                gradientColors: const [
+                  Color(0xFF6A9BFD),
+                  Color(0xFF8DC6FF),
                 ],
-
-                _buildCardWithHoverAndTapEffect(
-                  context,
-                  cardKey: 'photoPredict',
-                  globalKey: _photoPredictCardKey,
-                  title: '사진으로 예측하기',
-                  subtitle: '분석하기위한 아픈 치아 사진을 준비해주세요.',
-                  icon: Icons.photo_camera,
-                  gradientColors: const [
-                    Color(0xFF6A9BFD),
-                    Color(0xFF8DC6FF),
-                  ],
-                  onTap: () => context.push('/upload'),
-                  hoverText: '분석하기위한 아픈 치아 사진을 준비해주세요.',
-                  onInfoTap: () => _updateInfoBoxText('분석하기위한 아픈 치아 사진을 준비해주세요.'),
-                ),
-                const SizedBox(height: 25),
-
-                _buildCardWithHoverAndTapEffect(
-                  context,
-                  cardKey: 'realtimePredict',
-                  globalKey: _realtimePredictCardKey,
-                  title: '실시간 예측하기',
-                  subtitle: kIsWeb ? '웹에서는 이용할 수 없습니다.' : '카메라로 실시간 예측을 진행합니다.',
-                  icon: Icons.videocam,
-                  gradientColors: kIsWeb
-                      ? [Colors.grey.shade300, Colors.grey.shade200]
-                      : const [
-                          Color(0xFF63B8BD),
-                          Color(0xFF86DDE1),
-                        ],
-                  onTap: kIsWeb
-                      ? null
-                      : () => GoRouter.of(context).push(
-                            '/diagnosis/realtime',
-                            extra: {
-                              'baseUrl': widget.baseUrl,
-                              'userId': widget.userId,
-                            },
-                          ),
-                  hoverText: kIsWeb ? '웹에서는 이용할 수 없습니다.' : '카메라로 실시간 예측을 진행합니다.',
-                  onInfoTap: () => _updateInfoBoxText('카메라로 실시간 예측을 진행합니다.'),
-                ),
-                const SizedBox(height: 25),
-
-                _buildCardWithHoverAndTapEffect(
-                  context,
-                  cardKey: 'history',
-                  globalKey: _historyCardKey,
-                  title: '이전 결과 보기',
-                  subtitle: '분석한 모든 결과를 찾아 볼 수 있습니다.',
-                  icon: Icons.history,
-                  gradientColors: const [
-                    Color(0xFF879FFF),
-                    Color(0xFFB8CFFF),
-                  ],
-                  onTap: () => context.push('/history'),
-                  hoverText: '분석한 모든 결과를 찾아 볼 수 있습니다.',
-                  onInfoTap: () => _updateInfoBoxText('분석한 모든 결과를 찾아 볼 수 있습니다.'),
-                ),
-
-                const SizedBox(height: 50),
-              ],
-            ),
+                onTap: () => context.push('/upload'),
+                hoverText: '분석하기위한 아픈 치아 사진을 준비해주세요.',
+                onInfoTap: () => _updateInfoBoxText('분석하기위한 아픈 치아 사진을 준비해주세요.'),
+              ),
+              const SizedBox(height: 25),
+              _buildCardWithHoverAndTapEffect(
+                context,
+                cardKey: 'realtimePredict',
+                globalKey: _realtimePredictCardKey,
+                title: '실시간 예측하기',
+                subtitle: kIsWeb ? '웹에서는 이용할 수 없습니다.' : '카메라로 실시간 예측을 진행합니다.',
+                icon: Icons.videocam,
+                gradientColors: kIsWeb
+                    ? [Colors.grey.shade300, Colors.grey.shade200]
+                    : const [
+                        Color(0xFF63B8BD),
+                        Color(0xFF86DDE1),
+                      ],
+                onTap: kIsWeb
+                    ? null
+                    : () => GoRouter.of(context).push(
+                          '/diagnosis/realtime',
+                          extra: {
+                            'baseUrl': widget.baseUrl,
+                            'userId': widget.userId,
+                          },
+                        ),
+                hoverText: kIsWeb ? '웹에서는 이용할 수 없습니다.' : '카메라로 실시간 예측을 진행합니다.',
+                onInfoTap: () => _updateInfoBoxText('카메라로 실시간 예측을 진행합니다.'),
+              ),
+              const SizedBox(height: 25),
+              _buildCardWithHoverAndTapEffect(
+                context,
+                cardKey: 'history',
+                globalKey: _historyCardKey,
+                title: '이전 결과 보기',
+                subtitle: '분석한 모든 결과를 찾아 볼 수 있습니다.',
+                icon: Icons.history,
+                gradientColors: const [
+                  Color(0xFF879FFF),
+                  Color(0xFFB8CFFF),
+                ],
+                onTap: () => context.push('/history'),
+                hoverText: '분석한 모든 결과를 찾아 볼 수 있습니다.',
+                onInfoTap: () => _updateInfoBoxText('분석한 모든 결과를 찾아 볼 수 있습니다.'),
+              ),
+              const SizedBox(height: 50),
+            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLatestRecordStaticCard(
-    BuildContext context, {
-    required GlobalKey globalKey,
-    required String date,
-    required String resultSummary,
-    VoidCallback? onInfoTap,
-  }) {
-    return Container(
-      key: globalKey,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFC7E6FF),
-            Color(0xFFF0F8FF),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12.withAlpha((255 * 0.12).round()), // withOpacity 대신 withAlpha
-            blurRadius: 6,
-            spreadRadius: 2,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFADD8E6), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.calendar_today, color: Colors.blueGrey[700], size: 36),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('최근 진단 결과',
-                  style: _juaTextStyle.copyWith(
-                    color: Colors.blueGrey[800],
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text('날짜: $date',
-                  style: _juaTextStyle.copyWith(
-                    color: Colors.blueGrey[600],
-                    fontSize: 14,
-                  ),
-                ),
-                Text('요약: $resultSummary',
-                  style: _juaTextStyle.copyWith(
-                    color: Colors.blueGrey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (onInfoTap != null)
-            IconButton(
-              icon: const Icon(Icons.info_outline, color: Colors.blueGrey), // const 추가
-              onPressed: onInfoTap,
-              tooltip: '설명 보기',
-            ),
-        ],
       ),
     );
   }
@@ -236,9 +165,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String hoverText,
     VoidCallback? onInfoTap,
   }) {
-    final bool disabled = onTap == null; // 'final' 추가
-
-    final currentScale = _cardScales[cardKey] ?? 1.0;
+    final bool disabled = onTap == null;
+    final double currentScale = _cardScales[cardKey] ?? 1.0;
 
     Widget mainCardContent = AnimatedScale(
       scale: currentScale,
@@ -257,7 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              // withOpacity 대신 withAlpha
               color: Colors.black12.withAlpha((255 * (currentScale > 1.0 ? 0.3 : 0.12)).round()),
               blurRadius: currentScale > 1.0 ? 12 : 6,
               spreadRadius: currentScale > 1.0 ? 4 : 2,
@@ -273,16 +200,18 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                    style: GoogleFonts.jua(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle,
-                    style: GoogleFonts.jua(
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
                     ),
@@ -291,16 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             if (!kIsWeb && onInfoTap != null)
-              // const 추가
               IconButton(
                 icon: const Icon(Icons.info_outline, color: Colors.white70),
                 onPressed: onInfoTap,
               )
             else
-              const Icon(Icons.arrow_forward_ios,
-                color: Colors.white70,
-                size: 20,
-              ),
+              const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 20),
           ],
         ),
       ),
