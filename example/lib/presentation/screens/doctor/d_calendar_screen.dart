@@ -31,22 +31,7 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFAAD0F8), // 배경색 추가
-      appBar: AppBar(
-        title: const Text('진료 캘린더', style: TextStyle(color: Colors.white)), // 타이틀 추가 및 흰색으로 변경
-        centerTitle: true,
-        backgroundColor: const Color(0xFF4386DB), // 파란색 배경으로 변경
-        leading: Builder( // 햄버거 메뉴 아이콘 추가
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white), // 아이콘 색상 흰색으로 변경
-              onPressed: () {
-                // TODO: Drawer 열기 기능 추가
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          },
-        ),
-      ),
+      // AppBar 제거됨
       body: Column(
         children: [
           Container(
@@ -84,7 +69,6 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
                   color: Colors.deepPurple,
                   shape: BoxShape.circle,
                 ),
-                // 날짜 텍스트 색상을 검은색으로 설정하여 가시성 향상
                 defaultTextStyle: TextStyle(color: Colors.black),
                 weekendTextStyle: TextStyle(color: Colors.black),
                 outsideTextStyle: TextStyle(color: Colors.grey),
