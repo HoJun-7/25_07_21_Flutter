@@ -82,6 +82,8 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
+  String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -122,22 +124,40 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
               const SizedBox(height: 12),
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () async {
                 if (currentUser == null) return;
-                context.push('/consult', extra: {
-                  'userId': widget.userId,
-                  'registerId': currentUser.registerId ?? '',
-                  'name': currentUser.name ?? '',
-                  'phone': currentUser.phone ?? '',
-                  'birth': currentUser.birth ?? '',
-                  'gender': currentUser.gender ?? '',
-                  'role': currentUser.role ?? '',
-                  'inferenceResultId': widget.inferenceResultId,
-                  'baseUrl': widget.baseUrl,
-                  'originalImageUrl': widget.originalImageUrl,
-                  'processedImageUrls': widget.processedImageUrls,
-                  'modelInfos': widget.modelInfos,
-                });
+
+                final now = DateTime.now();
+                final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
+                                        "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
+
+                // ✅ 여기서 출력
+                print("💬 userId: ${widget.userId}");
+                print("💬 originalImageUrl: ${widget.originalImageUrl}");
+
+                final response = await http.post(
+                  Uri.parse('${widget.baseUrl}/consult'),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    'register_id': widget.userId,  // ✅ 백엔드와 일치하는 키로 수정
+                    'image_path': widget.originalImageUrl, // ✅ 올바른 필드명
+                    'request_datetime': requestDatetime,
+                  }),
+                );
+
+                if (response.statusCode == 201) {
+                  context.push('/consult-success');
+                } else {
+                  final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("신청 실패"),
+                      content: Text(msg),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("확인"))],
+                    ),
+                  );
+                }
               }),
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
@@ -226,23 +246,23 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   }
 
   Widget _buildToggleCard(Color toggleBg) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-            _buildStyledToggle("치석/보철물", _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
-            _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
-          ],
-        ),
-      );
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+    ),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+        _buildStyledToggle("치석/보철물", _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+        _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
+      ],
+    ),
+  );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged, Color bgColor) {
     return Container(
@@ -277,21 +297,21 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text("모델1 (질병): $model1Label, \${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델2 (위생): $model2Label, \${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델3 (치아번호): $model3ToothNumber, \${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
           ],
         ),
       );
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) => ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3869A8),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+    onPressed: onPressed,
+    icon: Icon(icon, color: Colors.white),
+    label: Text(label, style: const TextStyle(color: Colors.white)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF3869A8),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
 }

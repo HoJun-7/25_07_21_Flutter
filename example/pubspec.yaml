@@ -31,6 +31,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   image_gallery_saver:
     path: packages/image_gallery_saver
+  smooth_page_indicator: ^1.1.0   # ✅ 추가
 
 dev_dependencies:
   integration_test:
@@ -39,7 +40,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_native_splash: ^2.4.0
-
+  
 flutter:
   uses-material-design: true
 
