@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -138,6 +139,40 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
                   'modelInfos': widget.modelInfos,
                 });
               }),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
+                final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
+
+                final response = await http.post(
+                  uri,
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "image_url": widget.originalImageUrl,
+                    "inference_result_id": widget.inferenceResultId,
+                    "model1Label": model1?['label'] ?? '감지되지 않음',
+                    "model1Confidence": model1?['confidence'] ?? 0.0,
+                    "model2Label": model2?['label'] ?? '감지되지 않음',
+                    "model2Confidence": model2?['confidence'] ?? 0.0,
+                    "model3ToothNumber": model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
+                    "model3Confidence": model3?['confidence'] ?? 0.0,
+                  }),
+                );
+
+                if (response.statusCode == 200) {
+                  final result = jsonDecode(response.body);
+                  final message = result['message'] ?? 'AI 응답이 없습니다.';
+                  context.push('/multimodal_result', extra: {"responseText": message});
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("에러"),
+                      content: const Text("AI 소견 요청에 실패했습니다."),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("확인"))],
+                    ),
+                  );
+                }
+              }),
             ]
           ],
         ),
@@ -242,9 +277,9 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text("모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델1 (질병): $model1Label, \${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델2 (위생): $model2Label, \${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text("모델3 (치아번호): $model3ToothNumber, \${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
           ],
         ),
       );

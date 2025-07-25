@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class UploadResultDetailScreen extends StatefulWidget {
@@ -30,13 +33,55 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   bool _showHygiene = true;
   bool _showToothNumber = true;
 
+  bool _isLoadingGemini = false;
+
+  Future<void> _getGeminiOpinion() async {
+    setState(() => _isLoadingGemini = true);
+    final authViewModel = context.read<AuthViewModel>();
+    final token = await authViewModel.getAccessToken();
+    if (token == null) return;
+
+    final model1 = widget.modelInfos[1];
+    final model2 = widget.modelInfos[2];
+    final model3 = widget.modelInfos[3];
+
+    final response = await http.post(
+      Uri.parse('${widget.baseUrl}/multimodal_gemini'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'image_url': widget.originalImageUrl,
+        'inference_result_id': widget.inferenceResultId,
+        'model1Label': model1?['label'] ?? '감지되지 않음',
+        'model1Confidence': model1?['confidence'] ?? 0.0,
+        'model2Label': model2?['label'] ?? '감지되지 않음',
+        'model2Confidence': model2?['confidence'] ?? 0.0,
+        'model3ToothNumber': model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
+        'model3Confidence': model3?['confidence'] ?? 0.0,
+      }),
+    );
+
+    setState(() => _isLoadingGemini = false);
+
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
+      final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
+      context.push('/multimodal_result', extra: {"responseText": message});
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AI 소견 요청 실패: ${response.statusCode}')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
     final model1Info = widget.modelInfos[1];
-    final model1Name = model1Info?['used_model'] ?? 'N/A';
     final model1Confidence = model1Info?['confidence'] ?? 0.0;
     final model1Label = model1Info?['label'] ?? '감지되지 않음';
 
@@ -53,7 +98,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final overlay2 = widget.processedImageUrls[2];
     final overlay3 = widget.processedImageUrls[3];
 
-    const Color cardBorder = Color(0xFF3869A8);
     const Color toggleBackground = Color(0xFFEAEAEA);
     const Color outerBackground = Color(0xFFE7F0FF);
     const Color buttonColor = Color(0xFF3869A8);
@@ -106,6 +150,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
                   'modelInfos': widget.modelInfos,
                 });
               }),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
             ]
           ],
         ),
@@ -167,7 +213,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Color(0xFF3869A8), width: 1.5),
+                  border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -202,7 +248,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     required String model3ToothNumber,
     required double model3Confidence,
     required TextTheme textTheme,
-  }) => Container(
+  }) =>
+      Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -221,7 +268,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         ),
       );
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) => ElevatedButton.icon(
+  Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white),
         label: Text(label, style: const TextStyle(color: Colors.white)),
