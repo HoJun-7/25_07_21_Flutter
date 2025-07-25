@@ -14,7 +14,7 @@ import '/presentation/screens/register_screen.dart';
 import '/presentation/screens/home_screen.dart';
 import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
-import '/presentation/screens/telemedicine_apply_screen.dart';
+import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
 import '/presentation/screens/multimodal_response_screen.dart';
@@ -216,24 +216,8 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/consult',
-            builder: (context, state) {
-              final args = state.extra as Map<String, dynamic>? ?? {};
-              return TelemedicineApplyScreen(
-                userId: args['userId'],
-                registerId: args['registerId'],
-                name: args['name'],
-                phone: args['phone'],
-                birth: args['birth'],
-                gender: args['gender'],
-                role: args['role'],
-                inferenceResultId: args['inferenceResultId'],
-                baseUrl: args['baseUrl'],
-                originalImageUrl: args['originalImageUrl'],
-                processedImageUrls: Map<int, String>.from(args['processedImageUrls'] ?? {}),
-                modelInfos: Map<int, Map<String, dynamic>>.from(args['modelInfos'] ?? {}),
-              );
-            },
+            path: '/consult-success',
+            builder: (context, state) => const ConsultResultScreen(),
           ),
           GoRoute(path: '/clinics', builder: (context, state) => const ClinicsScreen()),
           GoRoute(
