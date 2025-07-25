@@ -74,8 +74,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
       '잇몸질환': 25,  // 잇몸 질환
       '임플란트': 20,  // 임플란트 시술
       '교정': 15,      // 치아 교정
-      '기타': 10,      // 그 외 진료
-    };
+      };
 
     notifyListeners();
   }
