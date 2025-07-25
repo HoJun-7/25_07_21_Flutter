@@ -49,7 +49,7 @@ class HomeScreen extends StatelessWidget {
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/images/meditooth_logo.png', height: 30),
+              Image.asset('assets/images/tooth_character.png', height: 30),
               const SizedBox(width: 8),
               const Text(
                 'MediTooth',
@@ -130,7 +130,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           Positioned(
-                            left: 0,  // 좌측 버튼 좌표 조정
+                            left: 40,  // 좌측 버튼 좌표 조정
                             bottom: 150,
                             child: _buildDiamondButton(
                               context,
