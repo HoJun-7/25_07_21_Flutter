@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class RegisterScreen extends StatefulWidget {
-  final String baseUrl; // ✅ baseUrl 필드 추가
+  final String baseUrl;
 
-  const RegisterScreen({super.key, required this.baseUrl}); // ✅ baseUrl 받도록 수정
+  const RegisterScreen({super.key, required this.baseUrl});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -16,16 +16,19 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  String _selectedGender = 'M';
   final _birthController = TextEditingController();
   final _phoneController = TextEditingController();
   final _registerIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  String _selectedGender = 'M';
   String _selectedRole = 'P';
 
   bool _isDuplicate = true;
   bool _isIdChecked = false;
+
+  static const Color primaryBlue = Color(0xFF5F97F7);
+  static const Color lightBlueBackground = Color(0xFFB4D4FF);
 
   @override
   void dispose() {
@@ -104,12 +107,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context);
-    final textTheme = Theme.of(context).textTheme;
+    final authViewModel = context.watch<AuthViewModel>();
 
     return Scaffold(
+      backgroundColor: lightBlueBackground,
       appBar: AppBar(
-        title: Text('회원가입', style: textTheme.headlineLarge),
+        title: const Text('회원가입', style: TextStyle(color: Colors.white)),
+        backgroundColor: primaryBlue,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
@@ -134,76 +139,102 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
-            children: [
-              _buildTextField(_nameController, '이름 (한글만)', keyboardType: TextInputType.name),
-              _buildGenderSelector(textTheme),
-              _buildTextField(
-                _birthController,
-                '생년월일 (YYYY-MM-DD)',
-                keyboardType: TextInputType.datetime,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
-                  LengthLimitingTextInputFormatter(10),
-                  _DateFormatter(),
-                ],
-              ),
-              _buildTextField(
-                _phoneController,
-                '전화번호',
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(11),
-                  _PhoneNumberFormatter(),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
-                      _registerIdController,
-                      '아이디 (4자 이상)',
-                      minLength: 4,
-                      onChanged: (_) {
-                        setState(() {
-                          _isIdChecked = false;
-                          _isDuplicate = true;
-                          authViewModel.clearDuplicateCheckErrorMessage();
-                        });
-                      },
-                      errorText: authViewModel.duplicateCheckErrorMessage,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: authViewModel.isCheckingUserId ? null : _checkDuplicateId,
-                    child: authViewModel.isCheckingUserId
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('중복확인'),
-                  ),
-                ],
-              ),
-              _buildTextField(_passwordController, '비밀번호 (6자 이상)', isPassword: true, minLength: 6),
-              _buildTextField(_confirmController, '비밀번호 확인', isPassword: true),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submit,
-                  child: const Text('회원가입 완료'),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTextField(_nameController, '이름 (한글만)'),
+                  const SizedBox(height: 10),
+                  _buildGenderCardSelector(),
+                  _buildTextField(
+                    _birthController,
+                    '생년월일 (YYYY-MM-DD)',
+                    keyboardType: TextInputType.datetime,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+                      LengthLimitingTextInputFormatter(10),
+                      _DateFormatter(),
+                    ],
+                  ),
+                  _buildTextField(
+                    _phoneController,
+                    '전화번호',
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(11),
+                      _PhoneNumberFormatter(),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          _registerIdController,
+                          '아이디 (4자 이상)',
+                          onChanged: (_) {
+                            setState(() {
+                              _isIdChecked = false;
+                              _isDuplicate = true;
+                              authViewModel.clearDuplicateCheckErrorMessage();
+                            });
+                          },
+                          errorText: authViewModel.duplicateCheckErrorMessage,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: authViewModel.isCheckingUserId ? null : _checkDuplicateId,
+                        child: authViewModel.isCheckingUserId
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('중복확인'),
+                      ),
+                    ],
+                  ),
+                  _buildTextField(_passwordController, '비밀번호 (6자 이상)', isPassword: true),
+                  _buildTextField(_confirmController, '비밀번호 확인', isPassword: true),
+                  const SizedBox(height: 25),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryBlue,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: const Text(
+                        '회원가입 완료',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  )
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -214,14 +245,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextEditingController controller,
     String label, {
     bool isPassword = false,
-    int? minLength,
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
     String? errorText,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
         controller: controller,
         obscureText: isPassword,
@@ -231,12 +261,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         decoration: InputDecoration(
           labelText: label,
           errorText: errorText,
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) return '$label을 입력해주세요';
-          if (minLength != null && value.trim().length < minLength) {
-            return '$label은 ${minLength}자 이상이어야 합니다';
-          }
           if (label == '비밀번호 확인' && value != _passwordController.text) {
             return '비밀번호가 일치하지 않습니다';
           }
@@ -246,30 +280,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildGenderSelector(TextTheme textTheme) {
+  Widget _buildGenderCardSelector() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('성별', style: textTheme.bodyMedium),
+          _genderCard('남', 'M', Colors.blue[700]!),
           const SizedBox(width: 16),
-          Expanded(
-            child: RadioListTile<String>(
-              title: Text('남', style: textTheme.labelLarge),
-              value: 'M',
-              groupValue: _selectedGender,
-              onChanged: (value) => setState(() => _selectedGender = value!),
-            ),
-          ),
-          Expanded(
-            child: RadioListTile<String>(
-              title: Text('여', style: textTheme.labelLarge),
-              value: 'F',
-              groupValue: _selectedGender,
-              onChanged: (value) => setState(() => _selectedGender = value!),
-            ),
-          ),
+          _genderCard('여', 'F', Colors.red[400]!),
         ],
+      ),
+    );
+  }
+
+  Widget _genderCard(String label, String genderValue, Color color) {
+    final isSelected = _selectedGender == genderValue;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedGender = genderValue),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.grey[300],
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.5),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    )
+                  ]
+                : [],
+          ),
+          child: Column(
+            children: [
+              Icon(
+                genderValue == 'M' ? Icons.male : Icons.female,
+                size: 40,
+                color: isSelected ? Colors.white : Colors.black54,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
