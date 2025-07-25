@@ -11,10 +11,8 @@ class TelemedicineApplyScreen extends StatefulWidget {
   final String birth;
   final String gender;
   final String role;
-
   final String inferenceResultId;
   final String baseUrl;
-
   final String originalImageUrl;
   final Map<int, String> processedImageUrls;
   final Map<int, Map<String, dynamic>> modelInfos;
@@ -43,6 +41,7 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
   final TextEditingController _addressController = TextEditingController(text: '대전 서구 계룡로 491번길 86');
   String? _selectedClinic;
   bool _isSubmitting = false;
+  bool _isPressed = false;
 
   final List<String> _clinicOptions = [
     '서울 치과 병원',
@@ -112,6 +111,8 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
 
+    final isFormValid = _selectedClinic != null && _addressController.text.trim().isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("비대면 진단 신청"),
@@ -169,14 +170,41 @@ class _TelemedicineApplyScreenState extends State<TelemedicineApplyScreen> {
             ),
             const SizedBox(height: 24),
 
-            ElevatedButton.icon(
-              onPressed: _isSubmitting ? null : _submitApplication,
-              icon: const Icon(Icons.check_circle),
-              label: Text(_isSubmitting ? "신청 중..." : "이대로 신청하기"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3869A8),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: !_isPressed
+                    ? (isFormValid ? const Color(0xFF3869A8) : Colors.grey[300])
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _isSubmitting || !isFormValid
+                    ? null
+                    : () async {
+                        setState(() => _isPressed = true);
+                        await _submitApplication();
+                        setState(() => _isPressed = false);
+                      },
+                onHighlightChanged: (pressed) {
+                  if (isFormValid) setState(() => _isPressed = pressed);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Center(
+                    child: Text(
+                      _isSubmitting ? "신청 중..." : "이대로 신청하기",
+                      style: TextStyle(
+                        color: !_isPressed
+                            ? (isFormValid ? Colors.white : Colors.black38)
+                            : const Color(0xFF3869A8),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

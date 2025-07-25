@@ -17,6 +17,7 @@ import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/telemedicine_apply_screen.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
+import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
 import '/presentation/screens/reauth_screen.dart';
@@ -154,7 +155,17 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot', builder: (context, state) => const ChatbotScreen()),
+          GoRoute(path: '/chatbot', 
+          builder: (context, state) => const ChatbotScreen()
+          ),
+          GoRoute(
+            path: '/multimodal_result',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final responseText = extra?['responseText'] ?? '응답이 없습니다.';
+              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
+            },
+          ),
           GoRoute(
             path: '/home',
             builder: (context, state) {
