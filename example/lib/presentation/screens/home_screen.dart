@@ -167,9 +167,15 @@ class HomeScreen extends StatelessWidget {
                         _buildIconCardButton(
                           context,
                           label: '이전 결과 보기',
-                          icon: Icons.history_edu_rounded, // 기록/히스토리 아이콘
-                          onPressed: () => context.push('/history'),
-                          cardColor: const Color(0xFFFFB380), // 부드러운 오렌지색
+                          icon: Icons.history_edu_rounded,
+                          onPressed: () => context.push(
+                            '/history',
+                            extra: {
+                              'baseUrl': baseUrl,
+                              'userId': userId, // ✅ 인증된 사용자 ID 전달
+                            },
+                          ),
+                          cardColor: const Color(0xFFFFB380),
                         ),
                         // 주변 치과 찾기 카드 (아이콘 사용)
                         _buildIconCardButton(

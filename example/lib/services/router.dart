@@ -176,8 +176,12 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/history',
             builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
+              final userId = extra['userId'] as String? ?? 'guest'; // ✅ 인증된 사용자 정보도 전달
+
               return HistoryScreen(baseUrl: passedBaseUrl);
+              // 만약 userId 도 필요하면 HistoryScreen 생성자 수정 필요
             },
           ),
           GoRoute(

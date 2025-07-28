@@ -1,4 +1,3 @@
-// C:\Users\302-1\Desktop\25_07_21_Flutter\example\lib\presentation\model\doctor\d_consultation_record.dart
 class ConsultationRecord {
   final String id;
   final String userId;
@@ -15,6 +14,10 @@ class ConsultationRecord {
   final Map<String, dynamic>? model1InferenceResult;
   final Map<String, dynamic>? model2InferenceResult;
   final Map<String, dynamic>? model3InferenceResult;
+  
+  // 이전결과보기에서 답변중, 답변완료
+  final String isRequested;
+  final String isReplied;
 
   ConsultationRecord({
     required this.id,
@@ -30,6 +33,8 @@ class ConsultationRecord {
     this.model1InferenceResult, // 새 필드 추가
     this.model2InferenceResult, // 새 필드 추가
     this.model3InferenceResult, // 새 필드 추가
+    required this.isRequested, // 이전결과보기에서 답변중, 답변완료
+    required this.isReplied, // 이전결과보기에서 답변중, 답변완료
   });
 
   factory ConsultationRecord.fromJson(Map<String, dynamic> json) {
@@ -56,6 +61,8 @@ class ConsultationRecord {
       model1InferenceResult: model1Inf,
       model2InferenceResult: model2Inf,
       model3InferenceResult: model3Inf,
+      isRequested: (json['is_requested'].toString().toUpperCase().startsWith('Y')) ? 'Y' : 'N', // 이전결과보기에서 답변중, 답변완료
+      isReplied: (json['is_replied'].toString().toUpperCase().startsWith('Y')) ? 'Y' : 'N', // 이전결과보기에서 답변중, 답변완료
     );
   }
 }

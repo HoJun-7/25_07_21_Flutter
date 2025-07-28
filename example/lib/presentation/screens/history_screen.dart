@@ -118,6 +118,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Text('파일명: $modelFilename'),
               ],
             ),
+            trailing: record.isRequested == 'Y'
+                ? Text(
+                    record.isReplied == 'Y' ? '🟢 답변 완료' : '🔵 신청중',
+                    style: TextStyle(
+                      color: record.isReplied == 'Y' ? Colors.green : Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  )
+                : null,
             onTap: () {
               Navigator.push(
                 context,
@@ -139,7 +149,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     baseUrl: widget.baseUrl,
                   ),
                 ),
-              );
+              ).then((_) {
+                // ✅ 돌아온 후에 리스트 다시 불러오기
+                final userId = context.read<AuthViewModel>().currentUser?.registerId;
+                if (userId != null) {
+                  context.read<ConsultationRecordViewModel>().fetchRecords(userId);
+                }
+              });
             },
           ),
         );
