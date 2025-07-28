@@ -26,7 +26,7 @@ class DoctorDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.medical_services),
-            title: const Text('비대면 진료 신청'),
+            title: const Text('진료 신청 현황'),
             onTap: () {
               Navigator.pop(context);
               context.go('/d_dashboard');

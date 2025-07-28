@@ -24,29 +24,47 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     return _appointments[_normalizeDate(day)] ?? [];
   }
 
+  // TODO: 예약 추가 기능 (예시)
+  void _addAppointment() {
+    // 실제 예약 추가 로직 구현 (예: 다이얼로그를 띄워 예약 정보 입력받기)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('예약 추가 버튼이 눌렸습니다.')),
+    );
+    // 예시: 선택된 날짜에 예약 추가
+    // setState(() {
+    //   final normalizedSelectedDay = _normalizeDate(_selectedDay ?? _focusedDay);
+    //   _appointments.update(normalizedSelectedDay, (list) {
+    //     list.add('새로운 예약 ${DateTime.now().second}:00');
+    //     return list;
+    //   }, ifAbsent: () => ['새로운 예약 ${DateTime.now().second}:00']);
+    // });
+  }
+
+  // TODO: 예약 삭제 기능 (예시)
+  void _deleteAppointment() {
+    // 실제 예약 삭제 로직 구현 (예: 선택된 예약을 삭제하거나, 다이얼로그를 띄워 선택)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('예약 삭제 버튼이 눌렸습니다.')),
+    );
+    // 예시: 선택된 날짜의 첫 번째 예약 삭제
+    // setState(() {
+    //   final normalizedSelectedDay = _normalizeDate(_selectedDay ?? _focusedDay);
+    //   if (_appointments.containsKey(normalizedSelectedDay) && _appointments[normalizedSelectedDay]!.isNotEmpty) {
+    //     _appointments[normalizedSelectedDay]!.removeAt(0);
+    //     if (_appointments[normalizedSelectedDay]!.isEmpty) {
+    //       _appointments.remove(normalizedSelectedDay);
+    //     }
+    //   }
+    // });
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedDate = _selectedDay ?? _focusedDay;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: const Color(0xFFAAD0F8), // 배경색 추가
-      appBar: AppBar(
-        title: const Text('진료 캘린더', style: TextStyle(color: Colors.white)), // 타이틀 추가 및 흰색으로 변경
-        centerTitle: true,
-        backgroundColor: const Color(0xFF4386DB), // 파란색 배경으로 변경
-        leading: Builder( // 햄버거 메뉴 아이콘 추가
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white), // 아이콘 색상 흰색으로 변경
-              onPressed: () {
-                // TODO: Drawer 열기 기능 추가
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          },
-        ),
-      ),
+      // 요청에 따라 AppBar 섹션 전체가 삭제되었습니다.
       body: Column(
         children: [
           Container(
@@ -84,7 +102,6 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
                   color: Colors.deepPurple,
                   shape: BoxShape.circle,
                 ),
-                // 날짜 텍스트 색상을 검은색으로 설정하여 가시성 향상
                 defaultTextStyle: TextStyle(color: Colors.black),
                 weekendTextStyle: TextStyle(color: Colors.black),
                 outsideTextStyle: TextStyle(color: Colors.grey),
@@ -163,6 +180,25 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            onPressed: _addAppointment,
+            label: const Text('예약 추가'),
+            icon: const Icon(Icons.add),
+            heroTag: 'addAppointment', // Hero 애니메이션 충돌 방지
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            onPressed: _deleteAppointment,
+            label: const Text('예약 삭제'),
+            icon: const Icon(Icons.delete),
+            backgroundColor: Colors.redAccent,
+            heroTag: 'deleteAppointment', // Hero 애니메이션 충돌 방지
           ),
         ],
       ),
