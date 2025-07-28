@@ -14,7 +14,8 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   List<String> announcements = [
     "8월 1일 정기 점검 안내",
     "병원 내부 소독 작업 일정 공지",
-    "새로운 진료 프로토콜 적용 안내",
+    "새로운 진료 프로토콜 적용 안내"
+    "환자 정보 유출 금지",
   ];
 
   // 간단한 메모 / 할일 리스트
