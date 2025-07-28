@@ -5,6 +5,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '/presentation/model/user.dart';
+import '/data/service/http_service.dart';
 
 class HistoryResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -43,8 +44,8 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   } // 비대면 진료 신청, 취소
 
   Future<void> _checkConsultStatus() async { // 비대면 진료 신청, 취소
-    final uri = Uri.parse('${widget.baseUrl}/consult/active?user_id=${widget.userId}');
-    final response = await http.get(uri);
+    final httpService = HttpService(baseUrl: widget.baseUrl);
+    final response = await httpService.get('/consult/active');
 
     if (response.statusCode == 200) {
       final result = jsonDecode(response.body);
@@ -61,19 +62,18 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       } else {
         setState(() => _status = 'locked');
       }
+    } else {
+      print("상태 확인 실패: ${response.body}");
+      _showErrorDialog("상태 확인에 실패했습니다.");
     }
   }
 
   Future<void> _submitConsultRequest(User currentUser) async { // 비대면 진료 신청, 취소
-    final uri = Uri.parse('${widget.baseUrl}/consult');
-    final response = await http.post(uri,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        'user_id': currentUser.registerId,
-        'image_path': widget.originalImageUrl,
-        'request_datetime': DateTime.now().toString(),
-      }),
-    );
+    final httpService = HttpService(baseUrl: widget.baseUrl);
+    final response = await httpService.post('/consult', {
+      'image_path': widget.originalImageUrl,
+      'request_datetime': DateTime.now().toString(),
+    });
 
     if (response.statusCode == 201) {
       await _checkConsultStatus(); // ✅ DB 상태 재조회
@@ -86,11 +86,10 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
 
   Future<void> _cancelConsultRequest() async { // 비대면 진료 신청, 취소
     if (_requestId == null) return;
-    final uri = Uri.parse('${widget.baseUrl}/consult/cancel');
-    final response = await http.post(uri,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({'request_id': _requestId}),
-    );
+    final httpService = HttpService(baseUrl: widget.baseUrl);
+    final response = await httpService.post('/consult/cancel', {
+      'request_id': _requestId,
+    });
 
     if (response.statusCode == 200) {
       await _checkConsultStatus(); // ✅ DB 상태 재조회
