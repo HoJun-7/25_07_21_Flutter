@@ -237,35 +237,43 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       ),
     );
   }
-
   Widget _buildSummaryCards(DoctorDashboardViewModel vm) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
           child: _SummaryCard(
-            title: '오늘의 요청',
+            title: '전체',
             count: vm.requestsToday,
-            icon: Icons.request_page,
-            color: Colors.blue.shade700, // 파란색 계열 색상 조정
+            icon: Icons.list_alt,
+            color: Colors.blue.shade700,
           ),
         ),
-        const SizedBox(width: 12), // 카드 사이 간격
+        const SizedBox(width: 12),
         Expanded(
           child: _SummaryCard(
-            title: '읽지 않은 알림', // ✅ 오늘의 응답과 위치 변경
-            count: vm.unreadNotifications, // ✅ 데이터도 변경
-            icon: Icons.notifications_active, // ✅ 아이콘도 변경
-            color: Colors.orange.shade700, // 주황색 계열 색상 조정
+            title: '답변전',
+            count: vm.pendingToday,
+            icon: Icons.pending_actions,
+            color: Colors.orange.shade700,
           ),
         ),
-        const SizedBox(width: 12), // 카드 사이 간격
+        const SizedBox(width: 12),
         Expanded(
           child: _SummaryCard(
-            title: '오늘의 응답', // ✅ 읽지 않은 알림과 위치 변경
-            count: vm.answeredToday, // ✅ 데이터도 변경
-            icon: Icons.done_all, // ✅ 아이콘도 변경
-            color: Colors.green.shade700, // 녹색 계열 색상 조정
+            title: '답변완료',
+            count: vm.completedToday,
+            icon: Icons.check_circle,
+            color: Colors.green.shade700,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SummaryCard(
+            title: '취소',
+            count: vm.canceledToday,
+            icon: Icons.cancel,
+            color: Colors.red.shade700,
           ),
         ),
       ],

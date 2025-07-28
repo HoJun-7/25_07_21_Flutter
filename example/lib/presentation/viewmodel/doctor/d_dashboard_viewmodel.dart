@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';      // ✅ jsonDecode 사용 시
+import 'package:http/http.dart' as http; // ✅ API 호출용
 
-// -------------------------
-// DoctorDashboardViewModel
-// -------------------------
 class DoctorDashboardViewModel extends ChangeNotifier {
   int requestsToday = 0;
   int answeredToday = 0;
@@ -53,32 +52,43 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> loadDashboardData(String baseUrl) async {
-    // 임시 데이터 로딩 (실제 API 연동 시 baseUrl 활용)
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/consult/today-status-counts'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        requestsToday = data['total'];
+        pendingToday = data['pending'];
+        completedToday = data['completed'];
+        canceledToday = data['canceled'];
+      }
 
-    // 오늘의 통계 (예시 데이터)
-    requestsToday = 10;
-    answeredToday = 7;
-    unreadNotifications = 2;
-    doctorName = '김닥터'; // ViewModel에서 이름 설정
+      // 예시 데이터 유지 (추후 API 연동 가능)
+      doctorName = '김닥터';
+      unreadNotifications = 2;
 
-    // 차트 데이터 (최근 7일 신청 건수 예시)
-    _lineData = List.generate(
-      7,
-      (index) => FlSpot(index.toDouble(), (index * 2 + 3).toDouble()),
-    );
+      _lineData = List.generate(
+        7,
+        (index) => FlSpot(index.toDouble(), (index * 2 + 3).toDouble()),
+      );
 
-    // 진료 카테고리 비율 (예시) - 치과 관련으로 수정됨
-    _categoryRatio = {
-      '충치': 30,      // 충치 치료
-      '잇몸질환': 25,  // 잇몸 질환
-      '임플란트': 20,  // 임플란트 시술
-      '교정': 15,      // 치아 교정
-      '기타': 10,      // 그 외 진료
-    };
+      _categoryRatio = {
+        '충치': 30,
+        '잇몸질환': 25,
+        '임플란트': 20,
+        '교정': 15,
+        '기타': 10,
+      };
 
-    notifyListeners();
+      notifyListeners();
+    } catch (e) {
+      print("loadDashboardData 오류: $e");
+    }
   }
+
+  // 추가 필드 선언
+  int pendingToday = 0;
+  int completedToday = 0;
+  int canceledToday = 0;
 
   // 기존의 _getColor를 public getter로 변경하여 외부에서 접근 가능하게 함
   Color getCategoryColor(int index) {

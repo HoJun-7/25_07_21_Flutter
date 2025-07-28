@@ -15,6 +15,8 @@ import 'core/theme/app_theme.dart';
 
 void main() {
   const String globalBaseUrl = "http://192.168.0.19:5000/api";
+  // "http://119.59.0.61:5000/api"; A100 서버
+  // "http://192.168.0.19:5000/api"; 로컬
 
   runApp(
     MultiProvider(
