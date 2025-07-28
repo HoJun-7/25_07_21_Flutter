@@ -95,22 +95,42 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
               const SizedBox(height: 12),
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () async {
                 if (currentUser == null) return;
-                context.push('/consult', extra: {
-                  'userId': widget.userId,
-                  'registerId': currentUser.registerId ?? '',
-                  'name': currentUser.name ?? '',
-                  'phone': currentUser.phone ?? '',
-                  'birth': currentUser.birth ?? '',
-                  'gender': currentUser.gender ?? '',
-                  'role': currentUser.role ?? '',
-                  'inferenceResultId': widget.inferenceResultId,
-                  'baseUrl': widget.baseUrl,
-                  'originalImageUrl': widget.originalImageUrl,
-                  'processedImageUrls': widget.processedImageUrls,
-                  'modelInfos': widget.modelInfos,
-                });
+
+                final now = DateTime.now();
+                final requestDatetime = "${now.year.toString().padLeft(4, '0')}"
+                    "${now.month.toString().padLeft(2, '0')}"
+                    "${now.day.toString().padLeft(2, '0')}"
+                    "${now.hour.toString().padLeft(2, '0')}"
+                    "${now.minute.toString().padLeft(2, '0')}"
+                    "${now.second.toString().padLeft(2, '0')}";
+
+                final url = Uri.parse('${widget.baseUrl}/consult');
+
+                final response = await http.post(
+                  url,
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    'user_id': currentUser.registerId ?? '',
+                    'image_path': widget.originalImageUrl,
+                    'request_datetime': requestDatetime,
+                  }),
+                );
+
+                if (response.statusCode == 201) {
+                  context.push('/consult-success');
+                } else {
+                  final msg = jsonDecode(response.body)['error'] ?? '신청 실패';
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("신청 실패"),
+                      content: Text(msg),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("확인"))],
+                    ),
+                  );
+                }
               }),
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {

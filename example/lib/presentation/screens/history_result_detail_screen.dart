@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
-import 'dart:convert';                    // jsonEncode, jsonDecode 용
-import 'package:http/http.dart' as http;  // http.post 용
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '/presentation/model/user.dart';
 
 class HistoryResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -32,13 +33,109 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   bool _showHygiene = true;
   bool _showToothNumber = true;
 
+  String _status = 'idle';
+  int? _requestId;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConsultStatus();
+  }
+
+  Future<void> _checkConsultStatus() async {
+    final uri = Uri.parse('${widget.baseUrl}/consult/active?user_id=${widget.userId}');
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
+      final activeImage = result['image_path'];
+      final activeRequestId = result['request_id'];
+
+      if (activeImage == null) {
+        setState(() => _status = 'requestable');
+      } else if (activeImage == widget.originalImageUrl) {
+        setState(() {
+          _status = 'cancelable';
+          _requestId = activeRequestId;
+        });
+      } else {
+        setState(() => _status = 'locked');
+      }
+    }
+  }
+
+  Future<void> _submitConsultRequest(User currentUser) async {
+    final uri = Uri.parse('${widget.baseUrl}/consult');
+    final response = await http.post(uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        'user_id': currentUser.registerId,
+        'image_path': widget.originalImageUrl,
+        'request_datetime': DateTime.now().toString(),
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      await _checkConsultStatus(); // ✅ DB 상태 재조회
+      setState(() => _status = 'cancelable');
+    } else {
+      final msg = jsonDecode(response.body)['error'] ?? '신청 실패';
+      _showErrorDialog(msg);
+    }
+  }
+
+  Future<void> _cancelConsultRequest() async {
+    if (_requestId == null) return;
+    final uri = Uri.parse('${widget.baseUrl}/consult/cancel');
+    final response = await http.post(uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({'request_id': _requestId}),
+    );
+
+    if (response.statusCode == 200) {
+      await _checkConsultStatus(); // ✅ DB 상태 재조회
+      setState(() {
+        _status = 'requestable';
+        _requestId = null;
+      });
+    } else {
+      final msg = jsonDecode(response.body)['error'] ?? '취소 실패';
+      _showErrorDialog(msg);
+    }
+  }
+
+  void _showErrorDialog(String msg) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("에러"),
+        content: Text(msg),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("확인"))
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsultButton(User currentUser) {
+    switch (_status) {
+      case 'requestable':
+        return _buildActionButton(Icons.medical_services, '비대면 진료 신청', () => _submitConsultRequest(currentUser));
+      case 'cancelable':
+        return _buildActionButton(Icons.cancel, '신청 취소', _cancelConsultRequest);
+      case 'locked':
+        return _buildActionButton(Icons.lock, '다른 진료 신청 진행중', null);
+      default:
+        return _buildActionButton(Icons.hourglass_empty, '상태 확인 중...', null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
 
     final model1Info = widget.modelInfos[1];
-    final model1Name = model1Info?['used_model'] ?? 'N/A';
     final model1Confidence = model1Info?['confidence'] ?? 0.0;
     final model1Label = model1Info?['label'] ?? '감지되지 않음';
 
@@ -55,15 +152,10 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     final overlay2 = widget.processedImageUrls[2];
     final overlay3 = widget.processedImageUrls[3];
 
-    const Color cardBorder = Color(0xFF3869A8);
-    const Color toggleBackground = Color(0xFFEAEAEA);
-    const Color outerBackground = Color(0xFFE7F0FF);
-    const Color buttonColor = Color(0xFF3869A8);
-
     return Scaffold(
-      backgroundColor: outerBackground,
+      backgroundColor: const Color(0xFFE7F0FF),
       appBar: AppBar(
-        backgroundColor: buttonColor,
+        backgroundColor: const Color(0xFF3869A8),
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
@@ -72,7 +164,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildToggleCard(toggleBackground),
+            _buildToggleCard(const Color(0xFFEAEAEA)),
             const SizedBox(height: 16),
             _buildFixedImageCard(imageUrl, overlay1, overlay2, overlay3),
             const SizedBox(height: 16),
@@ -91,23 +183,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
               const SizedBox(height: 12),
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () {
-                if (currentUser == null) return;
-                context.push('/consult', extra: {
-                  'userId': widget.userId,
-                  'registerId': currentUser.registerId ?? '',
-                  'name': currentUser.name ?? '',
-                  'phone': currentUser.phone ?? '',
-                  'birth': currentUser.birth ?? '',
-                  'gender': currentUser.gender ?? '',
-                  'role': currentUser.role ?? '',
-                  'inferenceResultId': widget.inferenceResultId,
-                  'baseUrl': widget.baseUrl,
-                  'originalImageUrl': widget.originalImageUrl,
-                  'processedImageUrls': widget.processedImageUrls,
-                  'modelInfos': widget.modelInfos,
-                });
-              }),
+              _buildConsultButton(currentUser!),
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
                 final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
@@ -132,17 +208,9 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
                   final message = result['message'] ?? 'AI 응답이 없습니다.';
                   context.push('/multimodal-ressult', extra: {"responseText": message});
                 } else {
-                  print("AI 요청 실패: ${response.body}");
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: Text("에러"),
-                      content: Text("AI 소견 요청에 실패했습니다."),
-                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("확인"))],
-                    ),
-                  );
+                  _showErrorDialog("AI 소견 요청에 실패했습니다.");
                 }
-              })
+              }),
             ]
           ],
         ),
@@ -259,7 +327,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         ),
       );
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) => ElevatedButton.icon(
+  Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white),
         label: Text(label, style: const TextStyle(color: Colors.white)),
@@ -269,4 +337,4 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-}
+} 
