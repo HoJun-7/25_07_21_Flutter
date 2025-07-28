@@ -33,16 +33,16 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   bool _showHygiene = true;
   bool _showToothNumber = true;
 
-  String _status = 'idle';
-  int? _requestId;
+  String _status = 'idle'; // 비대면 진료 신청, 취소
+  int? _requestId; // 비대면 진료 신청, 취소
 
-  @override
-  void initState() {
-    super.initState();
-    _checkConsultStatus();
-  }
+  @override // 비대면 진료 신청, 취소
+  void initState() { // 비대면 진료 신청, 취소
+    super.initState(); // 비대면 진료 신청, 취소
+    _checkConsultStatus(); // 비대면 진료 신청, 취소
+  } // 비대면 진료 신청, 취소
 
-  Future<void> _checkConsultStatus() async {
+  Future<void> _checkConsultStatus() async { // 비대면 진료 신청, 취소
     final uri = Uri.parse('${widget.baseUrl}/consult/active?user_id=${widget.userId}');
     final response = await http.get(uri);
 
@@ -64,7 +64,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
-  Future<void> _submitConsultRequest(User currentUser) async {
+  Future<void> _submitConsultRequest(User currentUser) async { // 비대면 진료 신청, 취소
     final uri = Uri.parse('${widget.baseUrl}/consult');
     final response = await http.post(uri,
       headers: {"Content-Type": "application/json"},
@@ -84,7 +84,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
-  Future<void> _cancelConsultRequest() async {
+  Future<void> _cancelConsultRequest() async { // 비대면 진료 신청, 취소
     if (_requestId == null) return;
     final uri = Uri.parse('${widget.baseUrl}/consult/cancel');
     final response = await http.post(uri,
@@ -104,7 +104,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
-  void _showErrorDialog(String msg) {
+  void _showErrorDialog(String msg) { // 비대면 진료 신청, 취소
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -117,7 +117,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     );
   }
 
-  Widget _buildConsultButton(User currentUser) {
+  Widget _buildConsultButton(User currentUser) { // 비대면 진료 신청, 취소
     switch (_status) {
       case 'requestable':
         return _buildActionButton(Icons.medical_services, '비대면 진료 신청', () => _submitConsultRequest(currentUser));

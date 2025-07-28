@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import 'dart:convert';                    // jsonEncode, jsonDecode 용
 import 'package:http/http.dart' as http;  // http.post 용
+import '/presentation/model/user.dart';
 
 class UploadResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -31,6 +32,103 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   bool _showDisease = true;
   bool _showHygiene = true;
   bool _showToothNumber = true;
+
+  String _status = 'idle'; // 비대면 진료 신청, 취소
+  int? _requestId; // 비대면 진료 신청, 취소
+
+  @override // 비대면 진료 신청, 취소
+  void initState() { // 비대면 진료 신청, 취소
+    super.initState(); // 비대면 진료 신청, 취소
+    _checkConsultStatus(); // 비대면 진료 신청, 취소
+  } // 비대면 진료 신청, 취소
+
+  Future<void> _checkConsultStatus() async { // 비대면 진료 신청, 취소
+    final uri = Uri.parse('${widget.baseUrl}/consult/active?user_id=${widget.userId}');
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body);
+      final activeImage = result['image_path'];
+      final activeRequestId = result['request_id'];
+
+      if (activeImage == null) {
+        setState(() => _status = 'requestable');
+      } else if (activeImage == widget.originalImageUrl) {
+        setState(() {
+          _status = 'cancelable';
+          _requestId = activeRequestId;
+        });
+      } else {
+        setState(() => _status = 'locked');
+      }
+    }
+  }
+
+  Future<void> _submitConsultRequest(User currentUser) async { // 비대면 진료 신청, 취소
+    final uri = Uri.parse('${widget.baseUrl}/consult');
+    final response = await http.post(uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        'user_id': currentUser.registerId,
+        'image_path': widget.originalImageUrl,
+        'request_datetime': DateTime.now().toString(),
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      await _checkConsultStatus(); // ✅ DB 상태 재조회
+      setState(() => _status = 'cancelable');
+    } else {
+      final msg = jsonDecode(response.body)['error'] ?? '신청 실패';
+      _showErrorDialog(msg);
+    }
+  }
+
+  Future<void> _cancelConsultRequest() async { // 비대면 진료 신청, 취소
+    if (_requestId == null) return;
+    final uri = Uri.parse('${widget.baseUrl}/consult/cancel');
+    final response = await http.post(uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({'request_id': _requestId}),
+    );
+
+    if (response.statusCode == 200) {
+      await _checkConsultStatus(); // ✅ DB 상태 재조회
+      setState(() {
+        _status = 'requestable';
+        _requestId = null;
+      });
+    } else {
+      final msg = jsonDecode(response.body)['error'] ?? '취소 실패';
+      _showErrorDialog(msg);
+    }
+  }
+
+  void _showErrorDialog(String msg) { // 비대면 진료 신청, 취소
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("에러"),
+        content: Text(msg),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("확인"))
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsultButton(User currentUser) { // 비대면 진료 신청, 취소
+    switch (_status) {
+      case 'requestable':
+        return _buildActionButton(Icons.medical_services, '비대면 진료 신청', () => _submitConsultRequest(currentUser));
+      case 'cancelable':
+        return _buildActionButton(Icons.cancel, '신청 취소', _cancelConsultRequest);
+      case 'locked':
+        return _buildActionButton(Icons.lock, '다른 진료 신청 진행중', null);
+      default:
+        return _buildActionButton(Icons.hourglass_empty, '상태 확인 중...', null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,43 +193,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               const SizedBox(height: 12),
               _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
               const SizedBox(height: 12),
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () async {
-                if (currentUser == null) return;
-
-                final now = DateTime.now();
-                final requestDatetime = "${now.year.toString().padLeft(4, '0')}"
-                    "${now.month.toString().padLeft(2, '0')}"
-                    "${now.day.toString().padLeft(2, '0')}"
-                    "${now.hour.toString().padLeft(2, '0')}"
-                    "${now.minute.toString().padLeft(2, '0')}"
-                    "${now.second.toString().padLeft(2, '0')}";
-
-                final url = Uri.parse('${widget.baseUrl}/consult');
-
-                final response = await http.post(
-                  url,
-                  headers: {"Content-Type": "application/json"},
-                  body: jsonEncode({
-                    'user_id': currentUser.registerId ?? '',
-                    'image_path': widget.originalImageUrl,
-                    'request_datetime': requestDatetime,
-                  }),
-                );
-
-                if (response.statusCode == 201) {
-                  context.push('/consult-success');
-                } else {
-                  final msg = jsonDecode(response.body)['error'] ?? '신청 실패';
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text("신청 실패"),
-                      content: Text(msg),
-                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("확인"))],
-                    ),
-                  );
-                }
-              }),
+              _buildConsultButton(currentUser!),              
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', () async {
                 final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
@@ -282,14 +344,14 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         ),
       );
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) => ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3869A8),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+  Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon, color: Colors.white),
+    label: Text(label, style: const TextStyle(color: Colors.white)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF3869A8),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
 }
