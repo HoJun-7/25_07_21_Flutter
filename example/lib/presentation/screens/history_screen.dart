@@ -6,6 +6,7 @@ import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/doctor/d_consultation_record.dart';
 import 'history_result_detail_screen.dart'; // ✅ 바뀐 상세화면 import
+import 'history_xray_result_detail_screen.dart'; // ✅ X-ray용 상세화면 import
 
 class HistoryScreen extends StatefulWidget {
   final String baseUrl;
@@ -129,28 +130,42 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   )
                 : null,
             onTap: () {
+              final isXray = record.imageType == 'xray';
+              final originalUrl = '$imageBaseUrl${record.originalImagePath}';
+              final model1Url = '$imageBaseUrl/images/${isXray ? 'xmodel1' : 'model1'}/$modelFilename';
+              final model2Url = '$imageBaseUrl/images/${isXray ? 'xmodel2' : 'model2'}/$modelFilename';
+
+              final screen = isXray
+                  ? HistoryXrayResultDetailScreen( // ✅ 만들 예정인 새 화면
+                      originalImageUrl: originalUrl,
+                      model1ImageUrl: model1Url,
+                      model2ImageUrl: model2Url,
+                      model1Result: record.model1InferenceResult ?? {},
+                      userId: record.userId,
+                      inferenceResultId: record.id,
+                      baseUrl: widget.baseUrl,
+                    )
+                  : HistoryResultDetailScreen(
+                      originalImageUrl: originalUrl,
+                      processedImageUrls: {
+                        1: model1Url,
+                        2: model2Url,
+                        3: '$imageBaseUrl/images/model3/$modelFilename',
+                      },
+                      modelInfos: {
+                        1: record.model1InferenceResult ?? {},
+                        2: record.model2InferenceResult ?? {},
+                        3: record.model3InferenceResult ?? {},
+                      },
+                      userId: record.userId,
+                      inferenceResultId: record.id,
+                      baseUrl: widget.baseUrl,
+                    );
+
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => HistoryResultDetailScreen(
-                    originalImageUrl: '$imageBaseUrl${record.originalImagePath}',
-                    processedImageUrls: {
-                      1: '$imageBaseUrl/images/model1/$modelFilename',
-                      2: '$imageBaseUrl/images/model2/$modelFilename',
-                      3: '$imageBaseUrl/images/model3/$modelFilename',
-                    },
-                    modelInfos: {
-                      1: record.model1InferenceResult ?? {},
-                      2: record.model2InferenceResult ?? {},
-                      3: record.model3InferenceResult ?? {},
-                    },
-                    userId: record.userId,
-                    inferenceResultId: record.id,
-                    baseUrl: widget.baseUrl,
-                  ),
-                ),
+                MaterialPageRoute(builder: (_) => screen),
               ).then((_) {
-                // ✅ 돌아온 후에 리스트 다시 불러오기
                 final userId = context.read<AuthViewModel>().currentUser?.registerId;
                 if (userId != null) {
                   context.read<ConsultationRecordViewModel>().fetchRecords(userId);

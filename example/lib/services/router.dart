@@ -28,6 +28,7 @@ import '/presentation/screens/clinics_screen.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/screens/multimodal_response_screen.dart';
+import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -221,6 +222,22 @@ GoRouter createRouter(String baseUrl) {
                 originalImageUrl: extra['originalImageUrl'],
                 processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
                 modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/upload_xray_result_detail',
+            name: 'uploadXrayResultDetail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return UploadXrayResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                model1ImageUrl: extra['model1ImageUrl'],
+                model2ImageUrl: extra['model2ImageUrl'],
+                model1Result: Map<String, dynamic>.from(extra['model1Result']),
                 userId: extra['userId'],
                 inferenceResultId: extra['inferenceResultId'],
                 baseUrl: extra['baseUrl'],

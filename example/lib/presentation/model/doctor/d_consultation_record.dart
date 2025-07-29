@@ -19,6 +19,8 @@ class ConsultationRecord {
   final String isRequested;
   final String isReplied;
 
+  final String imageType; // ✅ normal, xray 사진 추가
+
   ConsultationRecord({
     required this.id,
     required this.userId,
@@ -35,6 +37,7 @@ class ConsultationRecord {
     this.model3InferenceResult, // 새 필드 추가
     required this.isRequested, // 이전결과보기에서 답변중, 답변완료
     required this.isReplied, // 이전결과보기에서 답변중, 답변완료
+    required this.imageType, // ✅ normal, xray 사진 추가
   });
 
   factory ConsultationRecord.fromJson(Map<String, dynamic> json) {
@@ -63,6 +66,7 @@ class ConsultationRecord {
       model3InferenceResult: model3Inf,
       isRequested: (json['is_requested'].toString().toUpperCase().startsWith('Y')) ? 'Y' : 'N', // 이전결과보기에서 답변중, 답변완료
       isReplied: (json['is_replied'].toString().toUpperCase().startsWith('Y')) ? 'Y' : 'N', // 이전결과보기에서 답변중, 답변완료
+      imageType: json['image_type'] ?? 'normal', // ✅ normal, xray 사진 추가
     );
   }
 }

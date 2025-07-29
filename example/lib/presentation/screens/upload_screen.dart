@@ -14,6 +14,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 import 'upload_result_detail_screen.dart';
 import '/presentation/viewmodel/upload_viewmodel.dart';
 import '/data/service/http_service.dart';
+import 'upload_xray_result_detail_screen.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
@@ -28,6 +29,7 @@ class _UploadScreenState extends State<UploadScreen> {
   File? _imageFile;
   Uint8List? _webImage;
   bool _isLoading = false;
+  int _selectedTypeIndex = 0; // 0: 일반사진, 1: X-ray
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -112,6 +114,7 @@ class _UploadScreenState extends State<UploadScreen> {
         userId: registerId,
         imageFile: _imageFile,
         webImage: _webImage,
+        imageType: _selectedTypeIndex == 0 ? 'normal' : 'xray', // ✅ 추가
       );
       print("✅ 서버 응답 전체: $responseData"); // ← 이 줄 추가!
 
@@ -129,23 +132,42 @@ class _UploadScreenState extends State<UploadScreen> {
         3: '$baseStaticUrl${responseData['model3_image_path']}',
       };
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UploadResultDetailScreen(
-            originalImageUrl: originalImageUrl,
-            processedImageUrls: processedImageUrls,
-            modelInfos: {
-              1: responseData['model1_inference_result'],
-              2: responseData['model2_inference_result'],
-              3: responseData['model3_inference_result'],
-            },
-            userId: registerId,
-            inferenceResultId: inferenceResultId,
-            baseUrl: widget.baseUrl,
+      if (_selectedTypeIndex == 0) {
+        // 일반 사진 → 기존 화면
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UploadResultDetailScreen(
+              originalImageUrl: originalImageUrl,
+              processedImageUrls: processedImageUrls,
+              modelInfos: {
+                1: responseData['model1_inference_result'],
+                2: responseData['model2_inference_result'],
+                3: responseData['model3_inference_result'],
+              },
+              userId: registerId,
+              inferenceResultId: inferenceResultId,
+              baseUrl: widget.baseUrl,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        // X-ray 사진 → 새로운 화면
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UploadXrayResultDetailScreen(
+              originalImageUrl: originalImageUrl,
+              model1ImageUrl: processedImageUrls[1] ?? '',
+              model2ImageUrl: processedImageUrls[2] ?? '',
+              model1Result: responseData['model1_inference_result'],
+              userId: registerId,
+              inferenceResultId: inferenceResultId,
+              baseUrl: widget.baseUrl,
+            ),
+          ),
+        );
+      }
     } catch (e) {
       print('업로드 실패: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -186,6 +208,26 @@ class _UploadScreenState extends State<UploadScreen> {
                     '진단할 사진을 업로드하세요',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: ToggleButtons(
+                  isSelected: [_selectedTypeIndex == 0, _selectedTypeIndex == 1],
+                  onPressed: (int index) {
+                    setState(() {
+                      _selectedTypeIndex = index;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  selectedColor: Colors.white,
+                  fillColor: const Color(0xFF3869A8),
+                  color: Colors.black87,
+                  constraints: const BoxConstraints(minHeight: 36, minWidth: 140),
+                  children: const [
+                    Text("일반사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text("X-ray 사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

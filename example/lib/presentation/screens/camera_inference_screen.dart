@@ -240,6 +240,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
 
       final request = http.MultipartRequest('POST', Uri.parse(serverUrl))
         ..fields['user_id'] = widget.userId
+        ..fields['image_type'] = 'normal' // ✅ normal, xray 일반 사진으로 처리
         ..fields['yolo_results_json'] = jsonResults
         ..headers['Authorization'] = 'Bearer $token' // JWT
         ..files.add(http.MultipartFile.fromBytes(
