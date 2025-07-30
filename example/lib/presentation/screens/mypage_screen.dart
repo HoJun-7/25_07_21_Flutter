@@ -8,7 +8,8 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/userinfo_viewmodel.dart';
 
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({super.key});
+  final String baseUrl;
+  const MyPageScreen({super.key, required this.baseUrl});
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -24,7 +25,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 
   Future<void> _loadDiagnosisCount() async {
-    final baseUrl = "http://192.168.0.19:5000/api";
+    final baseUrl = widget.baseUrl;
     final user = context.read<UserInfoViewModel>().user;
     if (user == null) return;
 

@@ -147,7 +147,10 @@ GoRouter createRouter(String baseUrl) {
           ),
           GoRoute(
             path: '/mypage',
-            builder: (context, state) => const MyPageScreen(),
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return MyPageScreen(baseUrl: passedBaseUrl);
+            },
           ),
           GoRoute(
             path: '/reauth',

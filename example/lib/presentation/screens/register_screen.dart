@@ -99,7 +99,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('회원가입 성공!')),
         );
-        Navigator.pop(context);
+        context.go('/login'); // ✅ 이걸로 수정!
       }
     } else {
       if (mounted) {
