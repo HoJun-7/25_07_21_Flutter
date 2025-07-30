@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_patient_viewmodel.dart';
 import '/presentation/model/doctor/d_patient.dart';
-import '/presentation/model/doctor/d_consultation_record.dart';
+import '../../model/doctor/d_history.dart';
 
 class PatientDetailScreen extends StatefulWidget {
   final int patientId;

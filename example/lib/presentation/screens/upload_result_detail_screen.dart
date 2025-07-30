@@ -88,39 +88,59 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   Future<void> _applyConsultRequest() async {
     final authViewModel = context.read<AuthViewModel>();
     final token = await authViewModel.getAccessToken();
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('인증 토큰이 없습니다. 다시 로그인해주세요.')),
+      );
+      return;
+    }
+
     final now = DateTime.now();
-    final requestDatetime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+    final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
+                            "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
 
-    print("💬 userId: ${widget.userId}");
-    print("💬 originalImageUrl: ${widget.originalImageUrl}");
-
-    final response = await http.post(
-      Uri.parse('${widget.baseUrl}/consult'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'register_id': widget.userId,  // ✅ 올바른 키
-        'image_path': widget.originalImageUrl,
-        'request_datetime': requestDatetime,
-      }),
+    final relativePath = widget.originalImageUrl.replaceFirst(
+      widget.baseUrl.replaceAll('/api', ''),
+      '',
     );
 
-    if (response.statusCode == 201) {
-      context.push('/consult-success');
-    } else {
-      final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("신청 실패"),
-          content: Text(msg),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("확인"))],
-        ),
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/consult'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_id': widget.userId,
+          'original_image_url': relativePath,
+          'request_datetime': requestDatetime,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        // ✅ FIXED: consult_result.dart가 type을 받아야 UI가 정상 출력됨
+        context.push('/consult_success', extra: {'type': 'apply'});
+      } else {
+        final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('신청 실패'),
+            content: Text(msg),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ 서버 요청 실패: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
     }
   }
+
+
 
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
@@ -155,7 +175,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     if (response.statusCode == 200) {
       final result = jsonDecode(response.body);
       final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
-      context.push('/multimodal_result', extra: {"responseText": message});
+      context.push('/multimodal_result', extra: {'responseText': message});
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('AI 소견 요청 실패: ${response.statusCode}')),
@@ -259,9 +279,9 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       children: [
         const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-        _buildStyledToggle("치석/보철물", _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
-        _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
+        _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+        _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+        _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
       ],
     ),
   );
@@ -299,9 +319,9 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text("모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
-            Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%", style: textTheme.bodyMedium),
+            Text('모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
+            Text('모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
+            Text('모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
           ],
         ),
       );

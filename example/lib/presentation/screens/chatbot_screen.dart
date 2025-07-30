@@ -2,233 +2,334 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/chatbot_viewmodel.dart';
+import 'package:flutter/services.dart';
+import 'chat_bubble.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
-
   @override
   _ChatbotScreenState createState() => _ChatbotScreenState();
 }
 
-class _ChatbotScreenState extends State<ChatbotScreen> {
+class _ChatbotScreenState extends State<ChatbotScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late AnimationController _sendBtnAnimCtr;
+  late Animation<double> _sendBtnScale;
+
+  static const double profileImageSize = 40.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _sendBtnAnimCtr = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 150));
+    _sendBtnScale = Tween<double>(begin: 1.0, end: 0.9).animate(
+        CurvedAnimation(parent: _sendBtnAnimCtr, curve: Curves.easeOut));
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _sendBtnAnimCtr.dispose();
     super.dispose();
-  }
-
-  Future<void> _sendMessage(String message) async {
-    final trimmed = message.trim();
-    if (trimmed.isEmpty) return;
-
-    _controller.clear();
-    _scrollToBottom();
-
-    await Provider.of<ChatbotViewModel>(context, listen: false)
-        .sendMessage(trimmed);
-
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
 
-  Future<bool> _onWillPop() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('앱 종료'),
-        content: const Text('앱을 종료하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
+  Future<void> _sendMessage(String message) async {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) return;
+    _controller.clear();
+    _scrollToBottom();
+    await Provider.of<ChatbotViewModel>(context, listen: false)
+        .sendMessage(trimmed);
+    _scrollToBottom();
+  }
+
+  Widget _buildProfileAvatar({required bool isUser}) {
+    final currentUser =
+        Provider.of<AuthViewModel>(context, listen: false).currentUser;
+    String? userNameInitial;
+    if (isUser &&
+        currentUser != null &&
+        currentUser.name != null &&
+        currentUser.name!.isNotEmpty) {
+      userNameInitial = currentUser.name![0].toUpperCase();
+    }
+
+    return ClipOval(
+      child: Container(
+        width: profileImageSize,
+        height: profileImageSize,
+        decoration: BoxDecoration(
+          color: isUser ? const Color(0xFFC9F1DE) : const Color(0xFFADD8E6),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isUser ? const Color(0xFF9CCC65) : const Color(0xFF87CEEB),
+            width: 2.5,
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('종료'),
-          ),
-        ],
+        ),
+        child: Center(
+          child: isUser && userNameInitial != null
+              ? Text(
+                  userNameInitial,
+                  style: GoogleFonts.notoSansKr(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                )
+              : Image.asset(
+                  'images/dentibot.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  width: profileImageSize * .8,
+                  height: profileImageSize * .8,
+                ),
+        ),
       ),
     );
-    return shouldExit ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
     final messages = context.watch<ChatbotViewModel>().messages;
+    final isLoading = context.watch<ChatbotViewModel>().isLoading;
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          final shouldExit = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('앱 종료',
+                  style: GoogleFonts.notoSansKr(fontWeight: FontWeight.bold)),
+              content: Text('앱을 종료하시겠습니까?',
+                  style: GoogleFonts.notoSansKr()),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: Text('취소',
+                        style: GoogleFonts.notoSansKr(
+                            color: const Color(0xFFADD8E6)))),
+                TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: Text('종료',
+                        style: GoogleFonts.notoSansKr(
+                            color: const Color(0xFFADD8E6)))),
+              ],
+            ),
+          );
+          if (shouldExit == true) SystemNavigator.pop();
+        }
+      },
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text("챗봇"),
-          backgroundColor: const Color(0xFF3869A8),
-          foregroundColor: Colors.white,
-
-          // 🔄 초기화 → 왼쪽으로
-          leading: IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '대화 초기화',
-            onPressed: () {
-              context.read<ChatbotViewModel>().clearMessages();
-            },
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFADD8E6), Color(0xFF87CEEB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-
-          // 🔔 알림 → 오른쪽으로
+          centerTitle: true,
+          title: Text('Denti',
+              style: GoogleFonts.notoSansKr(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22)),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white),
+            tooltip: '대화 초기화',
+            onPressed: () => context.read<ChatbotViewModel>().clearMessages(),
+          ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.notifications_none),
+              icon: const Icon(Icons.notifications_none, color: Colors.white),
               tooltip: '알림',
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('알림 아이콘 클릭됨')),
+                  const SnackBar(content: Text('알림 기능은 아직 준비 중입니다.')),
                 );
               },
-            ),
+            )
           ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isUser = message.role == 'user';
-                    final imageUrls = message.imageUrls;
-
-                    const labelMap = {
-                      "model1": "충치/치주염/치은염",
-                      "model2": "치석/보철물",
-                      "model3": "치아번호",
-                      "original": "원본"
-                    };
-
-                    return Align(
-                      alignment: isUser
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 4.0, horizontal: 8.0),
-                        child: Column(
-                          crossAxisAlignment: isUser
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                itemCount: messages.length,
+                itemBuilder: (_, idx) {
+                  final msg = messages[idx];
+                  final isUser = msg.role == 'user';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 6, horizontal: 12),
+                    child: Column(
+                      crossAxisAlignment: isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: isUser
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Material(
-                              borderRadius: BorderRadius.circular(8.0),
-                              color: isUser
-                                  ? Colors.green[200]
-                                  : Colors.blue[200],
-                              elevation: 2.0,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10.0, horizontal: 15.0),
-                                child: Text(
-                                  message.content,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
+                            if (!isUser) _buildProfileAvatar(isUser: false),
+                            if (!isUser) const SizedBox(width: 8),
+                            Flexible(
+                              child: ChatBubble(
+                                message: msg.content,
+                                isUser: isUser,
+                                bubbleColor: isUser
+                                    ? const Color(0xFFAAD9FF)
+                                    : const Color(0xFFE0F2FF),
+                                borderColor: isUser
+                                    ? const Color(0xFF7EB7E6)
+                                    : const Color(0xFFC0E6FF),
+                                textStyle: GoogleFonts.notoSansKr(
+                                    fontSize: 15, color: Colors.black),
                               ),
                             ),
-                            if (imageUrls != null && imageUrls.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: imageUrls.entries
-                                      .map((entry) => Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                labelMap[entry.key] ?? entry.key,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              Image.network(
-                                                entry.value,
-                                                width: 150,
-                                                height: 150,
-                                                fit: BoxFit.cover,
-                                                loadingBuilder: (context, child, progress) {
-                                                  if (progress == null) return child;
-                                                  return Center(
-                                                    child: CircularProgressIndicator(
-                                                      value: progress.expectedTotalBytes != null
-                                                          ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                                                          : null,
-                                                    ),
-                                                  );
-                                                },
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return const Text('이미지를 불러올 수 없습니다.');
-                                                },
-                                              ),
-                                            ],
-                                          ))
-                                      .toList(),
-                                ),
-                              ),
+                            if (isUser) const SizedBox(width: 8),
+                            if (isUser) _buildProfileAvatar(isUser: true),
                           ],
                         ),
-                      ),
-                    );
-                  },
+                        if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: msg.imageUrls!.entries.map((entry) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        entry.value,
+                                        width: 200,
+                                        height: 200,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (isLoading)
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    _buildProfileAvatar(isUser: false),
+                    const SizedBox(width: 8),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(seconds: 1),
+                      builder: (_, value, __) {
+                        final dots = '.' * ((value * 4).floor() % 4);
+                        return Text('덴티가 생각 중이에요$dots',
+                            style: GoogleFonts.notoSansKr(
+                                color: Colors.black54, fontSize: 15));
+                      },
+                      onEnd: () => setState(() {}),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: "질문을 입력하세요...",
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16.0,
-                          vertical: 12.0,
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: '메시지를 작성해주세요',
+                          hintStyle:
+                              GoogleFonts.notoSansKr(color: Colors.grey[500]),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFC0E6FF), width: 1)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF7EB7E6), width: 2)),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                        ),
+                        style: GoogleFonts.notoSansKr(fontSize: 16),
+                        onSubmitted: (txt) {
+                          FocusScope.of(context).unfocus();
+                          _sendMessage(txt);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                      onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                      onTapCancel: () => _sendBtnAnimCtr.reverse(),
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        _sendMessage(_controller.text);
+                      },
+                      child: ScaleTransition(
+                        scale: _sendBtnScale,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFADD8E6),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2)),
+                              ]),
+                          padding: const EdgeInsets.all(12),
+                          child: const Icon(Icons.send,
+                              color: Colors.white, size: 24),
                         ),
                       ),
-                      onSubmitted: (text) {
-                        FocusScope.of(context).unfocus();
-                        _sendMessage(text);
-                      },
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: () {
-                      FocusScope.of(context).unfocus();
-                      _sendMessage(_controller.text);
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

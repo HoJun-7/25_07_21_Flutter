@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 // Screens
-import '/presentation/screens/doctor/d_inference_result_screen.dart';
 import '/presentation/screens/doctor/d_real_home_screen.dart';
 import '/presentation/screens/doctor/d_telemedicine_application_screen.dart';
+import '/presentation/screens/doctor/d_result_detail_screen.dart';
 import '/presentation/screens/doctor/d_calendar_screen.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 import '/presentation/screens/main_scaffold.dart';
@@ -23,6 +23,7 @@ import '/presentation/screens/mypage_screen.dart';
 import '/presentation/screens/reauth_screen.dart';
 import '/presentation/screens/edit_profile_screen.dart';
 import '/presentation/screens/edit_profile_result_screen.dart';
+import '/presentation/screens/dental_survey_screen.dart';
 import '/presentation/screens/upload_screen.dart';
 import '/presentation/screens/history_screen.dart';
 import '/presentation/screens/clinics_screen.dart';
@@ -113,17 +114,6 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/d_inference_result',
-            builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return Scaffold(
-                appBar: AppBar(title: const Text('진료 결과')),
-                drawer: DoctorDrawer(baseUrl: passedBaseUrl),
-                body: DInferenceResultScreen(baseUrl: passedBaseUrl),
-              );
-            },
-          ),
-          GoRoute(
             path: '/d_calendar',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
@@ -142,6 +132,40 @@ GoRouter createRouter(String baseUrl) {
                 appBar: AppBar(title: const Text('환자 목록')),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const Center(child: Text('환자 목록 화면입니다.')),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/d_result_detail', // ✅ 이름 없이 path만 사용
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+
+              if (extra == null ||
+                  !extra.containsKey('userId') ||
+                  !extra.containsKey('imagePath') ||
+                  !extra.containsKey('baseUrl')) {
+                return const Scaffold(
+                  body: Center(child: Text('잘못된 접근입니다')),
+                );
+              }
+
+              return DResultDetailScreen(
+                userId: extra['userId'] as String,
+                originalImageUrl: extra['imagePath'] as String,
+                baseUrl: extra['baseUrl'] as String,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/d_telemedicine_application',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final initialTab = extra['initialTab'] as int? ?? 0;
+              final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
+
+              return DTelemedicineApplicationScreen(
+                baseUrl: passedBaseUrl,
+                initialTab: initialTab,
               );
             },
           ),
@@ -188,6 +212,11 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
+            path: '/survey',
+            name: 'survey',
+            builder: (context, state) => const DentalSurveyScreen(),
+          ),
+          GoRoute(
             path: '/upload',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
@@ -216,8 +245,11 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/consult-success',
-            builder: (context, state) => const ConsultResultScreen(),
+            path: '/consult_success',
+            builder: (context, state) {
+              final type = state.extra is Map ? (state.extra as Map)['type'] as String? : null;
+              return ConsultResultScreen(type: type);
+            },
           ),
           GoRoute(path: '/clinics', builder: (context, state) => const ClinicsScreen()),
           GoRoute(
@@ -232,7 +264,6 @@ GoRouter createRouter(String baseUrl) {
           ),
           GoRoute(
             path: '/upload_result_detail',
-            name: 'uploadResultDetail',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>;
               return UploadResultDetailScreen(
@@ -247,7 +278,6 @@ GoRouter createRouter(String baseUrl) {
           ),
           GoRoute(
             path: '/history_result_detail',
-            name: 'historyResultDetail',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>;
               return HistoryResultDetailScreen(
@@ -257,6 +287,8 @@ GoRouter createRouter(String baseUrl) {
                 userId: extra['userId'],
                 inferenceResultId: extra['inferenceResultId'],
                 baseUrl: extra['baseUrl'],
+                isRequested: extra['isRequested'],
+                isReplied: extra['isReplied'],
               );
             },
           ),
