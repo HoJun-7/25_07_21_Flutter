@@ -1,22 +1,18 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 
-// -------------------------
-// DoctorDashboardViewModel
-// -------------------------
 class DoctorDashboardViewModel extends ChangeNotifier {
   int requestsToday = 0;
   int answeredToday = 0;
   int unreadNotifications = 0;
-  String doctorName = '홍길동';
+  String doctorName = '';
 
   List<FlSpot> _lineData = [];
   Map<String, double> _categoryRatio = {};
 
-  // ViewModel 외부에서 _categoryRatio를 참조할 수 있도록 getter 추가
   Map<String, double> get categoryRatio => _categoryRatio;
-
 
   List<LineChartBarData> get chartData => [
     LineChartBarData(
@@ -35,14 +31,11 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     if (total == 0) return [];
 
     return _categoryRatio.entries.mapIndexed((i, entry) {
-      final isTouched = false; // 이 부분은 실제 터치 이벤트 처리 시 사용됩니다.
-      final double radius = isTouched ? 60 : 50;
-
       return PieChartSectionData(
         color: getCategoryColor(i),
         value: entry.value,
         title: '${((entry.value / total) * 100).toStringAsFixed(1)}%',
-        radius: radius,
+        radius: 50,
         titleStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
@@ -53,34 +46,34 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> loadDashboardData(String baseUrl) async {
-    // 임시 데이터 로딩 (실제 API 연동 시 baseUrl 활용)
-    await Future.delayed(const Duration(milliseconds: 500));
+    final today = DateTime.now();
+    final formattedDate = "${today.year.toString().padLeft(4, '0')}"
+        "${today.month.toString().padLeft(2, '0')}"
+        "${today.day.toString().padLeft(2, '0')}";
 
-    // 오늘의 통계 (예시 데이터)
-    requestsToday = 10;
-    answeredToday = 7;
-    unreadNotifications = 2;
-    doctorName = '김닥터'; // ViewModel에서 이름 설정
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/consult/stats?date=$formattedDate'));
 
-    // 차트 데이터 (최근 7일 신청 건수 예시)
-    _lineData = List.generate(
-      7,
-      (index) => FlSpot(index.toDouble(), (index * 2 + 3).toDouble()),
-    );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        requestsToday = data['total'] ?? 0;
+        answeredToday = data['completed'] ?? 0;
+        unreadNotifications = requestsToday - answeredToday;
+        doctorName = '김닥터'; // TODO: 백엔드에서 닥터 이름도 전달하도록 개선
+      } else {
+        debugPrint("❌ 통계 데이터 로딩 실패: ${response.statusCode}");
+      }
 
-    // 진료 카테고리 비율 (예시) - 치과 관련으로 수정됨
-    _categoryRatio = {
-      '충치': 30,      // 충치 치료
-      '잇몸질환': 25,  // 잇몸 질환
-      '임플란트': 20,  // 임플란트 시술
-      '교정': 15,      // 치아 교정
-      '기타': 10,      // 그 외 진료
-    };
+      // 차트 데이터 및 카테고리도 추후 API 연동 예정 → 현재는 0으로 초기화
+      _lineData = [];
+      _categoryRatio = {};
 
-    notifyListeners();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ loadDashboardData 예외 발생: $e");
+    }
   }
 
-  // 기존의 _getColor를 public getter로 변경하여 외부에서 접근 가능하게 함
   Color getCategoryColor(int index) {
     const colors = [
       Colors.blue,
@@ -94,7 +87,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   }
 }
 
-// mapIndexed 확장 (이것은 Iterable에 대한 유틸리티 확장으로, ViewModel 파일에 있어도 괜찮습니다)
+// mapIndexed 확장
 extension MapIndexedExtension<E> on Iterable<E> {
   Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
     int i = 0;

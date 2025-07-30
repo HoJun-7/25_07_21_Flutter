@@ -26,12 +26,14 @@ dependencies:
   permission_handler: ^11.0.0
   flutter_secure_storage: ^9.0.0
   table_calendar: ^3.0.9
+  google_fonts: ^6.2.1
   ultralytics_yolo:
     path: ../
   cupertino_icons: ^1.0.8
   image_gallery_saver:
     path: packages/image_gallery_saver
   smooth_page_indicator: ^1.1.0   # ✅ 추가
+  
 
 dev_dependencies:
   integration_test:

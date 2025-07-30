@@ -1,6 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'doctor_drawer.dart'; // 같은 폴더 또는 경로에 맞게 수정
+import 'package:provider/provider.dart';
+import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
+import '/presentation/model/doctor/d_history.dart';
+import 'doctor_drawer.dart';
+import 'd_result_detail_screen.dart';
+
+extension DoctorRecordExtensions on DoctorHistoryRecord {
+  String get status {
+    return isReplied == 'Y' ? '진단 완료' : '진단 대기';
+  }
+
+  String get name => userName ?? userId;
+
+  String get date {
+    final dateTime = timestamp;
+    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+  }
+
+  String get time {
+    final dateTime = timestamp;
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+}
 
 class DTelemedicineApplicationScreen extends StatefulWidget {
   final String baseUrl;
@@ -18,25 +40,9 @@ class DTelemedicineApplicationScreen extends StatefulWidget {
 
 class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicationScreen> {
   final TextEditingController _searchController = TextEditingController();
-
-  final List<Map<String, dynamic>> _patients = [
-    {'name': '김철수', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:00'},
-    {'name': '이영희', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:10'},
-    {'name': '박민수', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:20'},
-    {'name': '최지우', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:30'},
-    {'name': '장하늘', 'status': '진단 대기', 'date': '2025-07-17', 'time': '09:40'},
-    {'name': '한가람', 'status': '진단 완료', 'date': '2025-07-17', 'time': '09:50'},
-    {'name': '서유리', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:00'},
-    {'name': '오하늘', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:10'},
-    {'name': '강도현', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:20'},
-    {'name': '이수민', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:30'},
-    {'name': '문정우', 'status': '진단 대기', 'date': '2025-07-17', 'time': '10:40'},
-    {'name': '배지훈', 'status': '진단 완료', 'date': '2025-07-17', 'time': '10:50'},
-  ];
-
   final List<String> statuses = ['ALL', '진단 대기', '진단 완료'];
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
+  late PageController _pageController;
   int _currentPage = 0;
   final int _itemsPerPage = 5;
 
@@ -44,7 +50,11 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTab;
+    _pageController = PageController(initialPage: _selectedIndex);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DoctorHistoryViewModel>().fetchConsultRecords(); // ✅ 수정됨
+
       final extra = GoRouterState.of(context).extra;
       if (extra is Map && extra.containsKey('initialTab')) {
         final int index = extra['initialTab'] ?? 0;
@@ -58,24 +68,23 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     });
   }
 
-  List<Map<String, dynamic>> get _filteredPatients {
+  List<DoctorHistoryRecord> _getFilteredRecords(List<DoctorHistoryRecord> all, String selectedStatus) {
     String keyword = _searchController.text.trim();
-    String selectedStatus = statuses[_selectedIndex];
-    return _patients.where((patient) {
-      final matchesFilter = selectedStatus == 'ALL' || patient['status'] == selectedStatus;
-      final matchesSearch = keyword.isEmpty || patient['name'].contains(keyword);
-      return matchesFilter && matchesSearch;
+    return all.where((record) {
+      final matchesStatus = selectedStatus == 'ALL' || record.status == selectedStatus;
+      final matchesSearch = keyword.isEmpty || record.name.contains(keyword);
+      return matchesStatus && matchesSearch;
     }).toList();
   }
 
-  List<Map<String, dynamic>> get _paginatedPatients {
+  List<DoctorHistoryRecord> _getPaginatedRecords(List<DoctorHistoryRecord> list) {
     final start = _currentPage * _itemsPerPage;
     final end = (_currentPage + 1) * _itemsPerPage;
-    final list = _filteredPatients;
     return list.sublist(start, end > list.length ? list.length : end);
   }
 
-  int get _totalPages => (_filteredPatients.length / _itemsPerPage).ceil();
+  int _getTotalPages(List<DoctorHistoryRecord> filtered) =>
+      (filtered.length / _itemsPerPage).ceil();
 
   Color _getSelectedColorByStatus(String status) {
     switch (status) {
@@ -96,8 +105,8 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     }
   }
 
-  void _goToNextPage() {
-    if (_currentPage + 1 < _totalPages) {
+  void _goToNextPage(List<DoctorHistoryRecord> filtered) {
+    if (_currentPage + 1 < _getTotalPages(filtered)) {
       setState(() {
         _currentPage++;
       });
@@ -106,31 +115,63 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: const Color(0xFFAAD0F8),
-      appBar: AppBar(
-        title: const Text('비대면 진료 신청 현황'),
-        backgroundColor: const Color(0xFF4386DB),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+    return WillPopScope(
+      onWillPop: () async {
+        context.go('/d_home'); // ✅ 뒤로가기 시 홈으로 이동
+        return false; // 뒤로가기 기본 동작 막기
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false, // ✅ ← 이 줄을 여기 삽입
+        backgroundColor: const Color(0xFFAAD0F8),
+        appBar: AppBar(
+          title: const Text('비대면 진료 신청 현황'),
+          backgroundColor: const Color(0xFF4386DB),
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
-          _buildSearchBar(),
-          _buildStatusChips(),
-          Expanded(child: _buildPatientListView()),
-        ],
+        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
+        body: Consumer<DoctorHistoryViewModel>(
+          builder: (context, viewModel, _) {
+            final allRecords = viewModel.records;
+
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                _buildSearchBar(),
+                _buildStatusChips(),
+                Expanded(
+                  child: viewModel.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _selectedIndex = index;
+                              _currentPage = 0;
+                            });
+                          },
+                          itemCount: statuses.length,
+                          itemBuilder: (context, index) {
+                            final filtered = _getFilteredRecords(allRecords, statuses[index]);
+                            final paginated = _getPaginatedRecords(filtered);
+                            final totalPages = _getTotalPages(filtered);
+                            return _buildListView(filtered, paginated, totalPages);
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
+
 
   Widget _buildSearchBar() {
     return Container(
@@ -139,7 +180,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
       ),
       child: Row(
         children: [
@@ -172,7 +213,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final double itemWidth = constraints.maxWidth / statuses.length;
+          final itemWidth = constraints.maxWidth / statuses.length;
           return Stack(
             children: [
               AnimatedPositioned(
@@ -197,7 +238,11 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                       setState(() {
                         _selectedIndex = index;
                         _currentPage = 0;
-                        _pageController.jumpToPage(index);
+                        _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
                       });
                     },
                     child: Container(
@@ -213,7 +258,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                     ),
                   );
                 }),
-              )
+              ),
             ],
           );
         },
@@ -221,122 +266,100 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     );
   }
 
-  Widget _buildPatientListView() {
-    return PageView.builder(
-      controller: _pageController,
-      onPageChanged: (index) {
-        setState(() {
-          _selectedIndex = index;
-          _currentPage = 0;
-        });
-      },
-      itemCount: statuses.length,
-      itemBuilder: (context, index) {
-        final filtered = _filteredPatients;
-        final paginated = _paginatedPatients;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.55,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
-                ),
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: filtered.isEmpty
-                    ? const Center(child: Text('일치하는 환자가 없습니다.'))
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: paginated.length,
-                        separatorBuilder: (_, __) => Divider(color: Colors.grey[300], thickness: 1),
-                        itemBuilder: (context, i) {
-                          final patient = paginated[i];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6.0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.person_outline),
-                                const SizedBox(width: 12),
-                                Text(
-                                  patient['name'],
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                const SizedBox(width: 12),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF0F0F0),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('날짜 : ${patient['date']}',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      Text('시간 : ${patient['time']}',
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  height: 64,
-                                  width: 64,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: _getSelectedColorByStatus(patient['status']),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    patient['status'],
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                            ),
+  Widget _buildListView(List<DoctorHistoryRecord> records, List<DoctorHistoryRecord> paginated, int totalPages) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        children: [
+          Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: records.isEmpty
+                ? const Center(child: Text('일치하는 환자가 없습니다.'))
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: paginated.length,
+                    separatorBuilder: (_, __) => Divider(color: Colors.grey[300], thickness: 1),
+                    itemBuilder: (context, i) {
+                      final patient = paginated[i];
+                      return InkWell(
+                        onTap: () {
+                          print('🧪 userId: ${patient.userId}');
+                          print('🧪 imagePath: ${patient.originalImagePath}');
+                          print('🧪 baseUrl: ${widget.baseUrl}');
+                          context.push(
+                            '/d_result_detail',
+                            extra: {
+                              'userId': patient.userId,
+                              'imagePath': patient.originalImagePath ?? '',
+                              'baseUrl': widget.baseUrl,
+                            },
                           );
                         },
-                      ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.black12),
-                    ),
-                    onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('이전'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.person_outline),
+                              const SizedBox(width: 12),
+                              Text(patient.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('날짜 : ${patient.date}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text('시간 : ${patient.time}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const Spacer(),
+                              Container(
+                                height: 64,
+                                width: 64,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _getSelectedColorByStatus(patient.status),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  patient.status,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 16),
-                  Text('${_currentPage + 1} / $_totalPages', style: const TextStyle(fontSize: 16)),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.black12),
-                    ),
-                    onPressed: (_currentPage + 1 < _totalPages) ? _goToNextPage : null,
-                    icon: const Icon(Icons.arrow_forward),
-                    label: const Text('다음'),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _currentPage > 0 ? _goToPreviousPage : null,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('이전'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(width: 16),
+              Text('${_currentPage + 1} / $totalPages'),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('다음'),
+              ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

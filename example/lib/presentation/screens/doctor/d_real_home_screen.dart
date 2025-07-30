@@ -129,7 +129,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent, // 알림 숫자 배경색 (좀 더 쨍한 빨강)
+                          color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         constraints: const BoxConstraints(
@@ -139,7 +139,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         child: Text(
                           '${vm.unreadNotifications}',
                           style: const TextStyle(
-                            color: Colors.white, // 알림 숫자는 흰색 유지 (배경 대비)
+                            color: Colors.white,
                             fontSize: 12,
                           ),
                           textAlign: TextAlign.center,
@@ -155,8 +155,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           builder: (context, vm, child) {
             return RefreshIndicator(
               onRefresh: () => vm.loadDashboardData(widget.baseUrl),
-              color: Colors.white, // 새로고침 아이콘 색상 변경 (배경에 대비되도록)
-              backgroundColor: Colors.blueAccent, // 새로고침 배경색 변경
+              color: Colors.white,
+              backgroundColor: Colors.blueAccent,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -166,7 +166,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     Text(
                       '안녕하세요, ${vm.doctorName}님',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white, // 환영 메시지 텍스트는 흰색 유지 (배경 대비)
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -176,17 +176,16 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     Text(
                       '최근 7일 신청 건수',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
-                    const SizedBox(height: 16), // 간격 조정
-                    // 라인 차트 컨테이너 배경 추가 및 패딩 조정
+                    const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.all(8), // 내부 패딩
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
-                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -202,17 +201,16 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     Text(
                       '진료 카테고리 비율',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
-                    const SizedBox(height: 16), // 간격 조정
-                    // 파이 차트 컨테이너 배경 추가 및 패딩 조정
+                    const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.all(8), // 내부 패딩
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
-                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -224,9 +222,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       height: 200,
                       child: const _PieChartWidget(),
                     ),
-                    const SizedBox(height: 16), // 파이 차트와 범례 사이 간격
+                    const SizedBox(height: 16),
                     Center(
-                      child: _buildCategoryLegend(vm), // 범례 위젯 호출
+                      child: _buildCategoryLegend(vm),
                     ),
                   ],
                 ),
@@ -244,28 +242,31 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       children: [
         Expanded(
           child: _SummaryCard(
-            title: '오늘의 요청',
+            title: '오늘의 요청\n',
             count: vm.requestsToday,
             icon: Icons.request_page,
-            color: Colors.blue.shade700, // 파란색 계열 색상 조정
+            color: Colors.blue.shade700,
+            tabFilter: 'ALL', // ✅
           ),
         ),
-        const SizedBox(width: 12), // 카드 사이 간격
+        const SizedBox(width: 12),
         Expanded(
           child: _SummaryCard(
-            title: '읽지 않은 알림', // ✅ 오늘의 응답과 위치 변경
-            count: vm.unreadNotifications, // ✅ 데이터도 변경
-            icon: Icons.notifications_active, // ✅ 아이콘도 변경
-            color: Colors.orange.shade700, // 주황색 계열 색상 조정
+            title: '읽지 않은 \n알림',
+            count: vm.unreadNotifications,
+            icon: Icons.notifications_active,
+            color: Colors.orange.shade700,
+            tabFilter: '진단 대기', // ✅
           ),
         ),
-        const SizedBox(width: 12), // 카드 사이 간격
+        const SizedBox(width: 12),
         Expanded(
           child: _SummaryCard(
-            title: '오늘의 응답', // ✅ 읽지 않은 알림과 위치 변경
-            count: vm.answeredToday, // ✅ 데이터도 변경
-            icon: Icons.done_all, // ✅ 아이콘도 변경
-            color: Colors.green.shade700, // 녹색 계열 색상 조정
+            title: '오늘의 응답\n',
+            count: vm.answeredToday,
+            icon: Icons.done_all,
+            color: Colors.green.shade700,
+            tabFilter: '진단 완료', // ✅
           ),
         ),
       ],
@@ -281,6 +282,7 @@ class _SummaryCard extends StatelessWidget {
   final int count;
   final IconData icon;
   final Color color;
+  final String tabFilter;
 
   const _SummaryCard({
     Key? key,
@@ -288,39 +290,57 @@ class _SummaryCard extends StatelessWidget {
     required this.count,
     required this.icon,
     required this.color,
+    required this.tabFilter,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 카드 모서리 둥글게
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        child: Column(
-          children: [
-            Icon(icon, size: 36, color: color),
-            const SizedBox(height: 8),
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color, // 아이콘 색상과 동일하게 유지 (이미 검은색 계열)
+    // ✅ 탭 필터 → 인덱스로 매핑
+    final tabIndexMap = {
+      'ALL': 0,
+      '진단 대기': 1,
+      '진단 완료': 2,
+    };
+
+    return InkWell(
+      onTap: () {
+        final initialTab = tabIndexMap[tabFilter] ?? 0;
+        context.push('/d_telemedicine_application', extra: {
+          'initialTab': initialTab,
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Column(
+            children: [
+              Icon(icon, size: 36, color: color),
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 14, color: Colors.black87), // 텍스트 색상 명확히 (이미 검은색 계열)
-              textAlign: TextAlign.center, // 텍스트 중앙 정렬
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
 
 // -------------------------
 // Line Chart Widget

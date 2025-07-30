@@ -6,15 +6,18 @@ import 'presentation/viewmodel/clinics_viewmodel.dart';
 import 'presentation/viewmodel/userinfo_viewmodel.dart';
 import 'services/router.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
+import '/presentation/viewmodel/history_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_patient_viewmodel.dart';
-import '/presentation/viewmodel/doctor/d_consultation_record_viewmodel.dart';
+import 'presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ✅ 유지
 import '/presentation/viewmodel/chatbot_viewmodel.dart'; // ✅ 추가
 
 import 'core/theme/app_theme.dart';
 
 void main() {
-  const String globalBaseUrl = "http://192.168.0.19:5000/api";
+  //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
+  const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
+  //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
 
   runApp(
     MultiProvider(
@@ -32,13 +35,32 @@ void main() {
           create: (_) => ClinicsViewModel(baseUrl: globalBaseUrl),
         ),
         ChangeNotifierProvider(
-          create: (_) => ConsultationRecordViewModel(baseUrl: globalBaseUrl),
+          create: (_) => HistoryViewModel(baseUrl: globalBaseUrl),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => DoctorHistoryViewModel(baseUrl: globalBaseUrl),
         ),
         ChangeNotifierProvider(
           create: (_) => DoctorDashboardViewModel(), // ✅ 단 하나만 등록
         ),
-        ChangeNotifierProvider( // ✅ ChatbotViewModel 등록
-          create: (_) => ChatbotViewModel(baseUrl: globalBaseUrl),
+        // ✅ ChatbotViewModel 등록 부분을 ChangeNotifierProxyProvider로 변경
+        ChangeNotifierProxyProvider<AuthViewModel, ChatbotViewModel>(
+          // AuthViewModel이 변경될 때 ChatbotViewModel을 생성/업데이트
+          create: (context) => ChatbotViewModel(
+            baseUrl: globalBaseUrl,
+            authViewModel: context.read<AuthViewModel>(), // AuthViewModel 주입
+          ),
+          update: (context, authViewModel, previousChatbotViewModel) {
+            // AuthViewModel이 변경될 때마다 ChatbotViewModel을 새로 생성하거나 업데이트할 수 있습니다.
+            // 여기서는 AuthViewModel이 변경되면 ChatbotViewModel 내부에서 이를 감지하므로,
+            // 기존 인스턴스를 반환하거나 필요에 따라 새로운 인스턴스를 생성합니다.
+            // 대부분의 경우 이전 인스턴스를 반환하면 됩니다.
+            return previousChatbotViewModel ??
+                ChatbotViewModel(
+                  baseUrl: globalBaseUrl,
+                  authViewModel: authViewModel,
+                );
+          },
         ),
       ],
       child: YOLOExampleApp(baseUrl: globalBaseUrl),
