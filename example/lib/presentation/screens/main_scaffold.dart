@@ -22,11 +22,13 @@ class MainScaffold extends StatelessWidget {
       currentIndex = 2;
     }
     // /upload, /result, /history 등 ShellRoute 내 다른 화면들도 특정 탭으로 간주할 수 있음
-    else if (location.startsWith('/upload') || location.startsWith('/result') || location.startsWith('/history')) {
-      // 사진 진단, 진단 결과, 진단 기록 화면은 홈 탭으로 간주 (인덱스 1)
-      currentIndex = 1; 
+    else if (
+      location.startsWith('/upload')
+    || location.startsWith('/result')
+    || location.startsWith('/history')
+    || location.startsWith('/multimodal-ressult')) {
+      currentIndex = 1; // 사진 진단, 진단 결과, 진단 기록 화면은 홈 탭으로 간주 (인덱스 1)
     }
-
 
     return Scaffold(
       // ShellRoute의 child 위젯을 Scaffold의 body에 표시

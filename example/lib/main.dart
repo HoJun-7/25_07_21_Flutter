@@ -11,13 +11,20 @@ import '/presentation/viewmodel/doctor/d_patient_viewmodel.dart';
 import 'presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ✅ 유지
 import '/presentation/viewmodel/chatbot_viewmodel.dart'; // ✅ 추가
+import 'my_http_overrides.dart'; // ✅ https
+import 'package:flutter/foundation.dart'; // ✅ https, kIsWeb
+import 'dart:io' if (dart.library.html) 'stub.dart'; // ✅ https, HttpOverrides (웹 회피)
 
 import 'core/theme/app_theme.dart';
 
 void main() {
-  //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
-  const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
+  const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
+  //const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
   //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
+
+  if (!kIsWeb) {
+    HttpOverrides.global = MyHttpOverrides(); // ✅ 웹이 아닐 때만 실행
+  }
 
   runApp(
     MultiProvider(

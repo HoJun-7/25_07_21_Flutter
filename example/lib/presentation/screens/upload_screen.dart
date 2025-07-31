@@ -1,4 +1,3 @@
-// 생략된 import는 동일
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -10,14 +9,19 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart'; // ✅ 추가
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
-import 'upload_result_detail_screen.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
+  final Map<String, int> survey;
 
-  const UploadScreen({super.key, required this.baseUrl});
+  const UploadScreen({
+    super.key,
+    required this.baseUrl,
+    required this.survey,
+  });
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
@@ -27,6 +31,7 @@ class _UploadScreenState extends State<UploadScreen> {
   File? _imageFile;
   Uint8List? _webImage;
   bool _isLoading = false;
+  int _selectedTypeIndex = 0; // ✅ 0: 일반사진, 1: X-ray
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -110,6 +115,8 @@ class _UploadScreenState extends State<UploadScreen> {
       final request = http.MultipartRequest('POST', uri);
       request.fields['user_id'] = registerId;
       request.headers['Authorization'] = 'Bearer $token';
+      request.fields['survey'] = json.encode(widget.survey);
+      request.fields['image_type'] = _selectedTypeIndex == 0 ? 'normal' : 'xray';
 
       if (_imageFile != null) {
         final ext = path.extension(_imageFile!.path).toLowerCase();
@@ -119,7 +126,7 @@ class _UploadScreenState extends State<UploadScreen> {
         request.files.add(await http.MultipartFile.fromPath(
           'file',
           _imageFile!.path,
-          filename: 'camera_upload_image.png',
+          filename: 'camera_upload_image.$subType',
           contentType: MediaType(mimeType, subType),
         ));
       } else if (_webImage != null) {
@@ -136,40 +143,38 @@ class _UploadScreenState extends State<UploadScreen> {
 
       if (response.statusCode == 200) {
         final responseData = json.decode(responseBody);
-        final userId = registerId;
         final inferenceResultId = responseData['inference_result_id'] ?? 'UNKNOWN';
-        final originalPath = responseData['original_image_path'];
-        final processedPath = responseData['model1_image_path'];
-        final inferenceData = responseData['model1_inference_result'];
+        final imageType = responseData['image_type'] ?? 'normal';
+        final baseStaticUrl = widget.baseUrl.replaceFirst('/api', '');
+        final originalImageUrl = '$baseStaticUrl${responseData['original_image_path']}';
 
-        if (processedPath != null && inferenceData != null && originalPath != null) {
-          final baseStaticUrl = widget.baseUrl.replaceFirst('/api', '');
-          final originalImageUrl = '$baseStaticUrl$originalPath';
-          final processedImageUrls = {
-            1: '$baseStaticUrl${responseData['model1_image_path']}',
-            2: '$baseStaticUrl${responseData['model2_image_path']}',
-            3: '$baseStaticUrl${responseData['model3_image_path']}',
-          };
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UploadResultDetailScreen(
-                originalImageUrl: originalImageUrl,
-                processedImageUrls: processedImageUrls,
-                modelInfos: {
-                  1: responseData['model1_inference_result'],
-                  2: responseData['model2_inference_result'],
-                  3: responseData['model3_inference_result'],
-                },
-                userId: userId,
-                inferenceResultId: inferenceResultId,
-                baseUrl: widget.baseUrl,
-              ),
-            ),
-          );
+        if (imageType == 'xray') {
+          context.push('/upload_xray_result_detail', extra: {
+            'originalImageUrl': originalImageUrl,
+            'model1ImageUrl': '$baseStaticUrl${responseData['model1_image_path']}',
+            'model2ImageUrl': '$baseStaticUrl${responseData['model2_image_path']}',
+            'model1Result': responseData['model1_inference_result'],
+            'userId': registerId,
+            'inferenceResultId': inferenceResultId,
+            'baseUrl': widget.baseUrl,
+          });
         } else {
-          throw Exception('model1_image_path 또는 model1_inference_result 없음');
+          context.push('/upload_result_detail', extra: {
+            'originalImageUrl': originalImageUrl,
+            'processedImageUrls': {
+              1: '$baseStaticUrl${responseData['model1_image_path']}',
+              2: '$baseStaticUrl${responseData['model2_image_path']}',
+              3: '$baseStaticUrl${responseData['model3_image_path']}',
+            },
+            'modelInfos': {
+              1: responseData['model1_inference_result'],
+              2: responseData['model2_inference_result'],
+              3: responseData['model3_inference_result'],
+            },
+            'userId': registerId,
+            'inferenceResultId': inferenceResultId,
+            'baseUrl': widget.baseUrl,
+          });
         }
       } else {
         print('서버 오류: ${response.statusCode}');
@@ -198,17 +203,6 @@ class _UploadScreenState extends State<UploadScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            tooltip: '알림',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('알림 아이콘 클릭됨')),
-              );
-            },
-          ),
-        ],
       ),
       backgroundColor: const Color(0xFFA9CCF7),
       body: Center(
@@ -229,6 +223,27 @@ class _UploadScreenState extends State<UploadScreen> {
                     '진단할 사진을 업로드하세요',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: ToggleButtons(
+                  isSelected: [_selectedTypeIndex == 0, _selectedTypeIndex == 1],
+                  onPressed: (int index) {
+                    setState(() {
+                      _selectedTypeIndex = index;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  selectedColor: Colors.white,
+                  fillColor: const Color(0xFF3869A8),
+                  color: Colors.black87,
+                  constraints: const BoxConstraints(minHeight: 36, minWidth: 140),
+                  children: const [
+                    Text("일반사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text("X-ray 사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

@@ -6,19 +6,20 @@ class HistoryRecord {
   final String processedImagePath;
   final DateTime timestamp;
 
-  final double? confidence; // model1의 confidence
-  final String? modelUsed; // model1의 used_model
-  final String? className; // model1의 label
-  final List<List<int>>? lesionPoints; // model1의 lesion_points
+  final double? confidence;
+  final String? modelUsed;
+  final String? className;
+  final List<List<int>>? lesionPoints;
 
   final Map<String, dynamic>? model1InferenceResult;
   final Map<String, dynamic>? model2InferenceResult;
   final Map<String, dynamic>? model3InferenceResult;
 
-  final String source; // 'AI' 또는 'DOCTOR'
+  final String source;
+  final String isRequested;
+  final String isReplied;
 
-  final String isRequested; // ✅ consult 여부
-  final String isReplied;   // ✅ consult 응답 여부
+  final String imageType; // ✅ 추가: normal 또는 xray
 
   HistoryRecord({
     required this.id,
@@ -30,6 +31,7 @@ class HistoryRecord {
     required this.source,
     required this.isRequested,
     required this.isReplied,
+    required this.imageType, // ✅ 필수 파라미터
     this.confidence,
     this.modelUsed,
     this.className,
@@ -54,6 +56,7 @@ class HistoryRecord {
       source: json['source'] ?? 'AI',
       isRequested: json['is_requested'] ?? 'N',
       isReplied: json['is_replied'] ?? 'N',
+      imageType: json['image_type'] ?? 'normal', // ✅ 여기서 파싱
       confidence: (model1Inf['confidence'] as num?)?.toDouble(),
       modelUsed: model1Inf['used_model'] as String?,
       className: model1Inf['label'] as String?,
@@ -80,6 +83,7 @@ class HistoryRecord {
       source: source,
       isRequested: isRequested ?? this.isRequested,
       isReplied: isReplied ?? this.isReplied,
+      imageType: imageType, // ✅ 유지
       confidence: confidence,
       modelUsed: modelUsed,
       className: className,
