@@ -16,7 +16,9 @@ import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
+import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
 import '/presentation/screens/history_result_detail_screen.dart';
+import '/presentation/screens/history_xray_result_detail_screen.dart'; // ✅ 추가
 import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
@@ -198,9 +200,21 @@ GoRouter createRouter(String baseUrl) {
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
           ),
-          GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen()),
-          GoRoute(path: '/reauth', builder: (context, state) => const ReauthScreen()),
-          GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
+          GoRoute(
+            path: '/mypage',
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return MyPageScreen(baseUrl: passedBaseUrl);
+            },
+          ),
+          GoRoute(
+            path: '/reauth',
+            builder: (context, state) => const ReauthScreen(),
+          ),
+          GoRoute(
+            path: '/edit-profile',
+            builder: (context, state) => const EditProfileScreen(),
+          ),
           GoRoute(
             path: '/edit_profile_result',
             builder: (context, state) {
@@ -213,14 +227,18 @@ GoRouter createRouter(String baseUrl) {
           ),
           GoRoute(
             path: '/survey',
-            name: 'survey',
-            builder: (context, state) => const DentalSurveyScreen(),
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return DentalSurveyScreen(baseUrl: passedBaseUrl);
+            },
           ),
           GoRoute(
             path: '/upload',
             builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return UploadScreen(baseUrl: passedBaseUrl);
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final baseUrl = extra['baseUrl'] as String? ?? '';
+              final survey = extra['survey'] as Map<String, int>? ?? {};
+              return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
           GoRoute(
@@ -277,6 +295,21 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
+            path: '/upload_xray_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return UploadXrayResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                model1ImageUrl: extra['model1ImageUrl'],
+                model2ImageUrl: extra['model2ImageUrl'],
+                model1Result: Map<String, dynamic>.from(extra['model1Result']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+              );
+            },
+          ),
+          GoRoute(
             path: '/history_result_detail',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>;
@@ -289,6 +322,39 @@ GoRouter createRouter(String baseUrl) {
                 baseUrl: extra['baseUrl'],
                 isRequested: extra['isRequested'],
                 isReplied: extra['isReplied'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/history_xray_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+
+              final processedImageUrlsRaw = extra['processedImageUrls'] as Map;
+              final modelInfosRaw = extra['modelInfos'] as Map;
+
+              final processedImageUrls = processedImageUrlsRaw.map<int, String>(
+                (key, value) => MapEntry(int.parse(key.toString()), value.toString()),
+              );
+
+              final modelInfos = modelInfosRaw.map<int, Map<String, dynamic>>(
+                (key, value) => MapEntry(int.parse(key.toString()), Map<String, dynamic>.from(value)),
+              );
+
+              // ✅ 문자열로 명확히 변환
+              final String isRequested = (extra['isRequested'] ?? 'N').toString();
+              final String isReplied = (extra['isReplied'] ?? 'N').toString();
+
+              return HistoryXrayResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                model1ImageUrl: processedImageUrls[1] ?? '',
+                model2ImageUrl: processedImageUrls[2] ?? '',
+                model1Result: modelInfos[1] ?? {},
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+                isRequested: isRequested,
+                isReplied: isReplied,
               );
             },
           ),

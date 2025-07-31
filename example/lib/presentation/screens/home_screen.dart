@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   final String baseUrl;
   final String userId;
 
@@ -15,302 +13,225 @@ class HomeScreen extends StatefulWidget {
   });
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  final PageController _pageController = PageController(viewportFraction: 0.75);
-  int _currentPage = 0;
-
-  final List<_DiamondButtonData> pages = [];
-
-  @override
-  void initState() {
-    super.initState();
-    pages.addAll([
-      _DiamondButtonData(
-        label: 'AI 진단',
-        icon: Icons.camera_alt_rounded,
-        color: const Color(0xFF6A9EEB),
-        onTap: () => context.push('/survey'),
-      ),
-      _DiamondButtonData(
-        label: '실시간 예측',
-        icon: Icons.videocam_rounded,
-        color: kIsWeb ? const Color(0xFFD0D0D0) : const Color(0xFF82C8A0),
-        onTap: kIsWeb
-            ? null
-            : () => context.push('/diagnosis/realtime', extra: {
-                  'baseUrl': widget.baseUrl,
-                  'userId': widget.userId,
-                }),
-        disabled: kIsWeb,
-      ),
-      _DiamondButtonData(
-        label: '이전 결과',
-        icon: Icons.history_edu_rounded,
-        color: const Color(0xFFFFB380),
-        onTap: () => context.push('/history'),
-      ),
-      _DiamondButtonData(
-        label: '치과 찾기',
-        icon: Icons.location_on_rounded,
-        color: const Color(0xFFC2A8FF),
-        onTap: () => context.push('/clinics'),
-      ),
-    ]);
-  }
-
-  void _goToPreviousPage() {
-    if (_currentPage > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-    } else {
-      _pageController.jumpToPage(pages.length - 1);
-      setState(() => _currentPage = pages.length - 1);
-    }
-  }
-
-  void _goToNextPage() {
-    if (_currentPage < pages.length - 1) {
-      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-    } else {
-      _pageController.jumpToPage(0);
-      setState(() => _currentPage = 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // 기본 배경 색상 정의: 요청하신 #B4D4FF (부드러운 하늘색)
     const Color primaryBackgroundColor = Color(0xFFB4D4FF);
 
     return WillPopScope(
       onWillPop: () async {
+        // 사용자가 뒤로가기 버튼을 눌렀을 때 앱 종료를 확인하는 대화 상자
         final shouldExit = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (context) => AlertDialog(
             title: const Text('앱 종료'),
             content: const Text('앱을 종료하시겠습니까?'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
+                onPressed: () => Navigator.of(context).pop(false), // '취소' 버튼: 앱 종료하지 않음
                 child: const Text('취소'),
               ),
               TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
+                onPressed: () => Navigator.of(context).pop(true), // '종료' 버튼: 앱 종료
                 child: const Text('종료'),
               ),
             ],
           ),
         );
-        if (shouldExit == true) {
-          SystemNavigator.pop(); // Android용 앱 강제 종료
-        }
-        return false;
+        return shouldExit ?? false; // 대화 상자가 닫히지 않았을 경우 (null) false 반환
       },
       child: Scaffold(
+        // 배경 그라데이션이 앱바 뒤까지 확장되도록 설정
+        extendBodyBehindAppBar: true,
+        // 앱 상단 바 (AppBar) 디자인
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.person, color: Colors.white, size: 28),
-            onPressed: () => context.go('/mypage'),
-          ),
           title: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min, // Row의 크기를 자식 위젯에 맞게 최소화
             children: [
-              Image.asset('assets/images/meditooth_logo.png', height: 30),
-              const SizedBox(width: 8),
-              const Text('MediTooth', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              // MediTooth 로고 이미지 (앱 바 타이틀 옆)
+              Image.asset(
+                'assets/images/meditooth_logo.png', // 로고 이미지 경로
+                height: 30, // 로고 높이 조정
+              ),
+              const SizedBox(width: 8), // 로고와 텍스트 사이 간격
+              const Text(
+                'MediTooth', // 앱 이름
+                style: TextStyle(
+                  fontWeight: FontWeight.bold, // 폰트 굵게
+                  color: Colors.white, // 텍스트 색상 흰색
+                  fontSize: 22, // 폰트 크기
+                ),
+              ),
             ],
           ),
-          centerTitle: true,
+          centerTitle: true, // 제목을 앱 바 중앙에 배치
+          backgroundColor: Colors.transparent, // 앱 바 배경색을 투명하게
+          elevation: 0, // 앱 바 아래 그림자 제거
           actions: [
+            // 마이페이지 이동 버튼
             IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.white),
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('알림 아이콘 클릭됨')),
-              ),
+              icon: const Icon(Icons.person, color: Colors.white, size: 28), // 사람 아이콘, 흰색, 크기 조정
+              onPressed: () => context.go('/mypage'), // '/mypage' 경로로 이동
             ),
           ],
         ),
-        extendBodyBehindAppBar: true,
         body: Container(
           decoration: const BoxDecoration(
+            // 메인 화면 배경 그라데이션
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [primaryBackgroundColor, Color(0xFFE0F2F7)],
+              begin: Alignment.topCenter, // 상단 중앙에서 시작
+              end: Alignment.bottomCenter, // 하단 중앙으로 끝남
+              colors: [
+                primaryBackgroundColor, // 상단은 기본 배경색
+                Color(0xFFE0F2F7), // 하단은 더 밝은 파스텔톤 색상으로 부드럽게 연결
+              ],
             ),
           ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      PageView.builder(
-                        controller: _pageController,
-                        itemCount: pages.length,
-                        onPageChanged: (index) => setState(() => _currentPage = index),
-                        itemBuilder: (context, index) {
-                          final page = pages[index];
-                          final isCurrent = index == _currentPage;
-                          return Center(
-                            child: AnimatedScale(
-                              scale: isCurrent ? 1.0 : 0.85,
-                              duration: const Duration(milliseconds: 300),
-                              child: _AnimatedDiamondButton(
-                                label: page.label,
-                                icon: page.icon,
-                                onPressed: page.onTap,
-                                cardColor: page.color,
-                                textColor: page.disabled ? Colors.black54 : Colors.white,
-                                iconColor: page.disabled ? Colors.black54 : Colors.white,
+          child: SafeArea( // 상태 바 및 노치 영역을 고려하여 콘텐츠 배치
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0), // 전체 콘텐츠에 패딩 적용
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center, // 세로 중앙 정렬
+                  crossAxisAlignment: CrossAxisAlignment.stretch, // 가로로 최대한 확장
+                  children: [
+                    // --- 앱 로고 및 슬로건 섹션 ---
+                    Column(
+                      children: [
+                        // 메인 화면 중앙에 크게 표시되는 로고 이미지
+                        Image.asset(
+                          'assets/images/meditooth_logo.png', // 로고 이미지 경로
+                          height: 120, // 로고 높이 증가
+                          color: Colors.white, // 로고 색상 흰색 (배경과 대비되도록)
+                        ),
+                        const SizedBox(height: 20), // 로고와 슬로건 사이 간격
+                        const Text(
+                          '건강한 치아, MediTooth와 함께!', // 앱 슬로건
+                          textAlign: TextAlign.center, // 텍스트 중앙 정렬
+                          style: TextStyle(
+                            fontSize: 28, // 폰트 크기 증가
+                            fontWeight: FontWeight.bold, // 폰트 굵게
+                            color: Colors.white, // 텍스트 색상 흰색
+                            shadows: [
+                              Shadow(
+                                blurRadius: 10.0, // 그림자 흐림 정도 증가
+                                color: Colors.black45, // 그림자 색상 (더 진하게)
+                                offset: Offset(3.0, 3.0), // 그림자 위치 (오른쪽 아래)
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      Positioned(
-                        left: 8,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: IconButton(
-                            icon: const Icon(Icons.chevron_left, size: 40, color: Colors.black45),
-                            onPressed: _goToPreviousPage,
+                            ],
                           ),
                         ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: IconButton(
-                            icon: const Icon(Icons.chevron_right, size: 40, color: Colors.black45),
-                            onPressed: _goToNextPage,
+                        const SizedBox(height: 60), // 슬로건과 기능 그리드 사이 간격 증가
+                      ],
+                    ),
+
+                    // --- 4개 네모 박스 기능 섹션 (GridView) ---
+                    GridView.count(
+                      shrinkWrap: true, // GridView가 Column 내에서 콘텐츠 크기에 맞게 줄어들도록 함
+                      physics: const NeverScrollableScrollPhysics(), // GridView 자체 스크롤 비활성화 (SingleChildScrollView가 처리)
+                      crossAxisCount: 2, // 한 줄에 2개의 아이템 배치
+                      crossAxisSpacing: 15, // 가로 간격
+                      mainAxisSpacing: 15, // 세로 간격
+                      childAspectRatio: 1.0, // 아이템 비율 (정사각형)
+                      children: [
+                        // AI 진단 카드 (아이콘 사용)
+                        _buildIconCardButton(
+                          context,
+                          label: 'AI 진단',
+                          icon: Icons.camera_alt_rounded, // 카메라 아이콘
+                          onPressed: () => context.push('/survey'),
+                          cardColor: const Color(0xFF6A9EEB), // 부드러운 파란색
+                        ),
+                        // 실시간 예측하기 카드 (아이콘 사용, 웹에서는 비활성화)
+                        Tooltip(
+                          message: kIsWeb ? '웹에서는 이용할 수 없습니다.' : '',
+                          triggerMode: kIsWeb ? TooltipTriggerMode.longPress : TooltipTriggerMode.manual,
+                          child: _buildIconCardButton(
+                            context,
+                            label: '실시간 예측하기',
+                            icon: Icons.videocam_rounded, // 비디오 카메라 아이콘
+                            onPressed: kIsWeb
+                                ? null
+                                : () => GoRouter.of(context).push(
+                                      '/diagnosis/realtime',
+                                      extra: {
+                                        'baseUrl': baseUrl,
+                                        'userId': userId,
+                                      },
+                                    ),
+                            cardColor: kIsWeb ? const Color(0xFFD0D0D0) : const Color(0xFF82C8A0), // 웹일 경우 회색, 아니면 부드러운 녹색
+                            textColor: kIsWeb ? Colors.black54 : Colors.white,
+                            iconColor: kIsWeb ? Colors.black54 : Colors.white,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        // 이전 결과 보기 카드 (아이콘 사용)
+                        _buildIconCardButton(
+                          context,
+                          label: '이전 결과 보기',
+                          icon: Icons.history_edu_rounded,
+                          onPressed: () => context.push('/history'),
+                          cardColor: const Color(0xFFFFB380),
+                        ),
+                        // 주변 치과 찾기 카드 (아이콘 사용)
+                        _buildIconCardButton(
+                          context,
+                          label: '주변 치과 찾기',
+                          icon: Icons.location_on_rounded, // 위치 아이콘
+                          onPressed: () => context.push('/clinics'),
+                          cardColor: const Color(0xFFC2A8FF), // 부드러운 보라색
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30), // 그리드뷰 아래 여백
+                  ],
                 ),
-                const SizedBox(height: 10),
-                SmoothPageIndicator(
-                  controller: _pageController,
-                  count: pages.length,
-                  effect: const WormEffect(
-                    dotHeight: 10,
-                    dotWidth: 10,
-                    activeDotColor: Colors.white,
-                    dotColor: Colors.white54,
-                  ),
-                ),
-                const SizedBox(height: 30),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _DiamondButtonData {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  final bool disabled;
-
-  _DiamondButtonData({
-    required this.label,
-    required this.icon,
-    required this.color,
-    this.onTap,
-    this.disabled = false,
-  });
-}
-
-class _AnimatedDiamondButton extends StatefulWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final Color cardColor;
-  final Color textColor;
-  final Color iconColor;
-
-  const _AnimatedDiamondButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    required this.cardColor,
-    this.textColor = Colors.white,
-    this.iconColor = Colors.white,
-  });
-
-  @override
-  State<_AnimatedDiamondButton> createState() => _AnimatedDiamondButtonState();
-}
-
-class _AnimatedDiamondButtonState extends State<_AnimatedDiamondButton> with SingleTickerProviderStateMixin {
-  double _scale = 1.0;
-
-  void _onTapDown(_) => setState(() => _scale = 0.93);
-  void _onTapUp(_) => setState(() => _scale = 1.0);
-  void _onTapCancel() => setState(() => _scale = 1.0);
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: 0.785398, // 45도
-      child: GestureDetector(
-        onTapDown: widget.onPressed != null ? _onTapDown : null,
-        onTapUp: widget.onPressed != null ? _onTapUp : null,
-        onTapCancel: widget.onPressed != null ? _onTapCancel : null,
-        child: AnimatedScale(
-          scale: _scale,
-          duration: const Duration(milliseconds: 100),
-          child: Card(
-            color: widget.onPressed == null ? Colors.grey[300] : widget.cardColor,
-            elevation: 6,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: InkWell(
-              onTap: widget.onPressed,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 200,
-                height: 200,
-                padding: const EdgeInsets.all(8.0),
-                child: Transform.rotate(
-                  angle: -0.785398,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(widget.icon, size: 70, color: widget.iconColor),
-                      const SizedBox(height: 12),
-                      Text(
-                        widget.label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: widget.textColor,
-                        ),
-                      ),
-                    ],
-                  ),
+  // 아이콘 중심의 카드형 버튼 위젯을 생성하는 헬퍼 함수
+  Widget _buildIconCardButton(
+    BuildContext context, {
+    required String label, // 버튼에 표시될 텍스트
+    required IconData icon, // 버튼에 표시될 아이콘
+    required VoidCallback? onPressed, // 버튼 클릭 시 실행될 함수
+    required Color cardColor, // 카드 배경색
+    Color textColor = Colors.white, // 텍스트 색상 (기본값 흰색)
+    Color iconColor = Colors.white, // 아이콘 색상 (기본값 흰색)
+  }) {
+    return Card(
+      color: onPressed == null ? Colors.grey[300] : cardColor, // 비활성화 시 회색 배경
+      elevation: 8, // 카드 그림자 강도 증가
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(25), // 카드 모서리를 더 둥글게
+      ),
+      child: InkWell( // 터치 피드백을 위한 InkWell 사용
+        onTap: onPressed, // 클릭 이벤트 핸들러
+        borderRadius: BorderRadius.circular(25), // InkWell의 둥근 모서리 설정
+        child: Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // 세로 중앙 정렬
+            children: [
+              Icon(
+                icon,
+                size: 70, // 아이콘 크기
+                color: iconColor, // 아이콘 색상
+              ),
+              const SizedBox(height: 10), // 아이콘과 텍스트 사이 간격
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18, // 폰트 크기
+                  fontWeight: FontWeight.bold, // 폰트 굵게
+                  color: textColor, // 텍스트 색상
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),

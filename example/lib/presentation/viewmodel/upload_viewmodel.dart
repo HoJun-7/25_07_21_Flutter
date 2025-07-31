@@ -16,11 +16,13 @@ class UploadViewModel with ChangeNotifier {
     required String userId,
     File? imageFile,
     Uint8List? webImage,
+    required String imageType, // ✅ 추가
   }) async {
     try {
       final uri = Uri.parse('${httpService.baseUrl}/upload');
       final request = http.MultipartRequest('POST', uri);
       request.fields['user_id'] = userId;
+      request.fields['image_type'] = imageType; // ✅ 핵심 추가
 
       if (imageFile != null) {
         final ext = p.extension(imageFile.path).toLowerCase();

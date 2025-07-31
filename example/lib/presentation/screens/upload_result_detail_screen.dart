@@ -95,10 +95,12 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       return;
     }
 
+    // ✅ 백엔드 요구 형식: yyyyMMddHHmmss
     final now = DateTime.now();
     final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
                             "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
 
+    // ✅ 상대 경로 변환
     final relativePath = widget.originalImageUrl.replaceFirst(
       widget.baseUrl.replaceAll('/api', ''),
       '',
@@ -119,8 +121,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       );
 
       if (response.statusCode == 201) {
-        // ✅ FIXED: consult_result.dart가 type을 받아야 UI가 정상 출력됨
-        context.push('/consult_success', extra: {'type': 'apply'});
+        context.push('/consult_success');
       } else {
         final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
         showDialog(
@@ -139,7 +140,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       );
     }
   }
-
 
 
   Future<void> _getGeminiOpinion() async {

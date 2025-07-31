@@ -7,6 +7,7 @@ import '/presentation/viewmodel/history_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/history.dart';
 import 'history_result_detail_screen.dart';
+import 'history_xray_result_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String baseUrl;
@@ -44,7 +45,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        context.go('/home'); // ← 뒤로가기 시 /home 으로 이동
+        context.go('/home');
         return false;
       },
       child: Scaffold(
@@ -190,6 +191,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _extractDateTimeFromFilename(record.originalImagePath),
         );
 
+        final isXray = record.imageType == 'xray';
+        final route = isXray ? '/history_xray_result_detail' : '/history_result_detail';
+
+        final modelUrls = isXray
+            ? {
+                1: '$imageBaseUrl/images/xmodel1/$modelFilename',
+                2: '$imageBaseUrl/images/xmodel2/$modelFilename',
+              }
+            : {
+                1: '$imageBaseUrl/images/model1/$modelFilename',
+                2: '$imageBaseUrl/images/model2/$modelFilename',
+                3: '$imageBaseUrl/images/model3/$modelFilename',
+              };
+
+        final modelData = isXray
+            ? {
+                1: record.model1InferenceResult ?? {},
+                2: record.model2InferenceResult ?? {},
+              }
+            : {
+                1: record.model1InferenceResult ?? {},
+                2: record.model2InferenceResult ?? {},
+                3: record.model3InferenceResult ?? {},
+              };
+
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -210,24 +236,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             onTap: () {
               context.push(
-                '/history_result_detail',
+                route,
                 extra: {
                   'originalImageUrl': '$imageBaseUrl${record.originalImagePath}',
-                  'processedImageUrls': {
-                    1: '$imageBaseUrl/images/model1/$modelFilename',
-                    2: '$imageBaseUrl/images/model2/$modelFilename',
-                    3: '$imageBaseUrl/images/model3/$modelFilename',
-                  },
-                  'modelInfos': {
-                    1: record.model1InferenceResult ?? {},
-                    2: record.model2InferenceResult ?? {},
-                    3: record.model3InferenceResult ?? {},
-                  },
+                  'processedImageUrls': modelUrls,
+                  'modelInfos': modelData,
                   'userId': record.userId,
                   'inferenceResultId': record.id,
                   'baseUrl': widget.baseUrl,
-                  'isRequested': record.isRequested,
-                  'isReplied': record.isReplied,
+                  'isRequested': record.isRequested == 'Y' ? 'Y' : 'N',
+                  'isReplied': record.isReplied == 'Y' ? 'Y' : 'N',
                 },
               );
             },
