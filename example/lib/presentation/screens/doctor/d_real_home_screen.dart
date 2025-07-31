@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart'; // mapIndexed 사용을 위해 추가
+import 'package:flutter/foundation.dart' show kIsWeb; // kIsWeb import
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
 import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
@@ -78,8 +79,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 Text(
                   '${entry.key} (${((entry.value / vm.categoryRatio.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(1)}%)',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black87, // 범례 텍스트 색상을 흰색 배경에 어울리게 변경 (이미 검은색 계열)
-                        ),
+                              color: Colors.black87, // 범례 텍스트 색상을 흰색 배경에 어울리게 변경 (이미 검은색 계열)
+                            ),
                 ),
               ],
             );
@@ -88,7 +89,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -151,92 +151,218 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             )
           ],
         ),
-        body: Consumer<DoctorDashboardViewModel>(
-          builder: (context, vm, child) {
-            return RefreshIndicator(
-              onRefresh: () => vm.loadDashboardData(widget.baseUrl),
-              color: Colors.white, // 새로고침 아이콘 색상 변경 (배경에 대비되도록)
-              backgroundColor: Colors.blueAccent, // 새로고침 배경색 변경
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '안녕하세요, ${vm.doctorName}님',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        body: kIsWeb ? _buildWebLayout(context) : _buildMobileLayout(context),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
+    return Consumer<DoctorDashboardViewModel>(
+      builder: (context, vm, child) {
+        return RefreshIndicator(
+          onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+          color: Colors.white, // 새로고침 아이콘 색상 변경 (배경에 대비되도록)
+          backgroundColor: Colors.blueAccent, // 새로고침 배경색 변경
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '안녕하세요, ${vm.doctorName}님',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             color: Colors.white, // 환영 메시지 텍스트는 흰색 유지 (배경 대비)
                             fontWeight: FontWeight.bold,
                           ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSummaryCards(vm),
-                    const SizedBox(height: 24),
-                    Text(
-                      '최근 7일 신청 건수',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16), // 간격 조정
-                    // 라인 차트 컨테이너 배경 추가 및 패딩 조정
-                    Container(
-                      padding: const EdgeInsets.all(8), // 내부 패딩
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
-                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      height: 200,
-                      child: const _LineChartWidget(),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      '진료 카테고리 비율',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16), // 간격 조정
-                    // 파이 차트 컨테이너 배경 추가 및 패딩 조정
-                    Container(
-                      padding: const EdgeInsets.all(8), // 내부 패딩
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
-                        borderRadius: BorderRadius.circular(12), // 둥근 모서리
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      height: 200,
-                      child: const _PieChartWidget(),
-                    ),
-                    const SizedBox(height: 16), // 파이 차트와 범례 사이 간격
-                    Center(
-                      child: _buildCategoryLegend(vm), // 범례 위젯 호출
-                    ),
-                  ],
                 ),
+                const SizedBox(height: 16),
+                _buildSummaryCards(vm),
+                const SizedBox(height: 24),
+                Text(
+                  '최근 7일 신청 건수',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            fontWeight: FontWeight.bold,
+                          ),
+                ),
+                const SizedBox(height: 16), // 간격 조정
+                // 라인 차트 컨테이너 배경 추가 및 패딩 조정
+                Container(
+                  padding: const EdgeInsets.all(8), // 내부 패딩
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
+                    borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  height: 200,
+                  child: const _LineChartWidget(),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  '진료 카테고리 비율',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white, // 섹션 제목 텍스트는 흰색 유지 (배경 대비)
+                            fontWeight: FontWeight.bold,
+                          ),
+                ),
+                const SizedBox(height: 16), // 간격 조정
+                // 파이 차트 컨테이너 배경 추가 및 패딩 조정
+                Container(
+                  padding: const EdgeInsets.all(8), // 내부 패딩
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9), // 차트 컨테이너 배경색
+                    borderRadius: BorderRadius.circular(12), // 둥근 모서리
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  height: 200,
+                  child: const _PieChartWidget(),
+                ),
+                const SizedBox(height: 16), // 파이 차트와 범례 사이 간격
+                Center(
+                  child: _buildCategoryLegend(vm), // 범례 위젯 호출
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebLayout(BuildContext context) {
+    final vm = Provider.of<DoctorDashboardViewModel>(context);
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(24.0),
+        constraints: const BoxConstraints(maxWidth: 1200), // 웹 콘텐츠의 최대 너비
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${vm.doctorName}님의 웹 대시보드',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-            );
-          },
+              const SizedBox(height: 24),
+              Text(
+                '요약 정보',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              // 웹에서는 Summary Cards를 반응형으로 배치할 수 있습니다.
+              // 예를 들어, GridView 또는 Wrap을 사용합니다.
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(), // GridView가 SingleChildScrollView 내부에 있으므로 스크롤 비활성화
+                crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2, // 화면 너비에 따라 열 개수 조정
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.2, // 카드 비율 조정
+                children: [
+                  _SummaryCard(
+                    title: '전체',
+                    count: vm.requestsToday,
+                    icon: Icons.list_alt,
+                    color: Colors.blue.shade700,
+                  ),
+                  _SummaryCard(
+                    title: '답변전',
+                    count: vm.pendingToday,
+                    icon: Icons.pending_actions,
+                    color: Colors.orange.shade700,
+                  ),
+                  _SummaryCard(
+                    title: '답변완료',
+                    count: vm.completedToday,
+                    icon: Icons.check_circle,
+                    color: Colors.green.shade700,
+                  ),
+                  _SummaryCard(
+                    title: '취소',
+                    count: vm.canceledToday,
+                    icon: Icons.cancel,
+                    color: Colors.red.shade700,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(), // GridView가 SingleChildScrollView 내부에 있으므로 스크롤 비활성화
+                crossAxisCount: MediaQuery.of(context).size.width > 800 ? 2 : 1, // 화면 너비에 따라 열 개수 조정
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+                childAspectRatio: 2.0, // 차트 카드 비율 조정
+                children: [
+                  _buildWebChartCard(
+                    context,
+                    title: '최근 7일 신청 건수 (웹)',
+                    chartWidget: const _LineChartWidget(),
+                  ),
+                  _buildWebChartCard(
+                    context,
+                    title: '진료 카테고리 비율 (웹)',
+                    chartWidget: Column(
+                      children: [
+                        Expanded(child: const _PieChartWidget()),
+                        const SizedBox(height: 16),
+                        _buildCategoryLegend(vm),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // 여기에 더 많은 웹 특정 위젯 또는 레이아웃을 추가할 수 있습니다.
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildWebChartCard(BuildContext context, {required String title, required Widget chartWidget}) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(child: chartWidget),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryCards(DoctorDashboardViewModel vm) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

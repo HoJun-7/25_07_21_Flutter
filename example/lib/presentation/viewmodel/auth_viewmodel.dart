@@ -11,17 +11,20 @@ class AuthViewModel with ChangeNotifier {
 
   String? _errorMessage;
   String? duplicateCheckErrorMessage;
-  bool isCheckingUserId = false;
+  bool _isCheckingUserId = false; // private 변수로 변경
+  bool _isLoading = false; // 새로 추가된 로딩 상태 변수
   User? _currentUser;
 
   AuthViewModel({required String baseUrl}) : _baseUrl = baseUrl;
 
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
+  bool get isCheckingUserId => _isCheckingUserId; // getter 추가
+  bool get isLoading => _isLoading; // 새로 추가된 getter
 
   // ✅ 아이디 중복 확인
   Future<bool?> checkUserIdDuplicate(String userId, String role) async {
-    isCheckingUserId = true;
+    _isCheckingUserId = true; // 로딩 시작
     duplicateCheckErrorMessage = null;
     notifyListeners();
 
@@ -47,7 +50,7 @@ class AuthViewModel with ChangeNotifier {
       notifyListeners();
       return null;
     } finally {
-      isCheckingUserId = false;
+      _isCheckingUserId = false; // 로딩 종료
       notifyListeners();
     }
   }
@@ -60,6 +63,9 @@ class AuthViewModel with ChangeNotifier {
   // ✅ 회원가입
   Future<String?> registerUser(Map<String, dynamic> userData) async {
     _errorMessage = null;
+    _isLoading = true; // 로딩 시작
+    notifyListeners();
+
     try {
       final res = await http.post(
         Uri.parse('$_baseUrl/auth/register'),
@@ -86,12 +92,18 @@ class AuthViewModel with ChangeNotifier {
       _errorMessage = '네트워크 오류: ${e.toString()}';
       notifyListeners();
       return _errorMessage;
+    } finally {
+      _isLoading = false; // 로딩 종료
+      notifyListeners();
     }
   }
 
   // ✅ 로그인
   Future<User?> loginUser(String registerId, String password, String role) async {
     _errorMessage = null;
+    _isLoading = true; // 로딩 시작
+    notifyListeners();
+
     try {
       final res = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
@@ -132,6 +144,9 @@ class AuthViewModel with ChangeNotifier {
       if (kDebugMode) print('로그인 오류: $e');
       notifyListeners();
       return null;
+    } finally {
+      _isLoading = false; // 로딩 종료
+      notifyListeners();
     }
   }
 
@@ -193,6 +208,9 @@ class AuthViewModel with ChangeNotifier {
   // ✅ 회원 탈퇴
   Future<String?> deleteUser(String registerId, String password, String? role) async {
     _errorMessage = null;
+    _isLoading = true; // 로딩 시작 (탈퇴도 로딩 상태로 관리)
+    notifyListeners();
+
     try {
       final res = await http.delete(
         Uri.parse('$_baseUrl/auth/delete_account'),
@@ -219,6 +237,9 @@ class AuthViewModel with ChangeNotifier {
       _errorMessage = '네트워크 오류: ${e.toString()}';
       notifyListeners();
       return _errorMessage;
+    } finally {
+      _isLoading = false; // 로딩 종료
+      notifyListeners();
     }
   }
 
