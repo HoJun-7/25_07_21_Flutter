@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:convert'; // ✅ jsonDecode
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class DoctorDashboardViewModel extends ChangeNotifier {
@@ -15,7 +15,6 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   List<FlSpot> _lineData = [];
   Map<String, double> _categoryRatio = {};
 
-  // 공지사항 / 병원 전달사항 리스트
   List<String> announcements = [
     "8월 1일 정기 점검 안내",
     "병원 내부 소독 작업 일정 공지",
@@ -23,7 +22,6 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     "환자 정보 유출 금지",
   ];
 
-  // 간단한 메모 / 할일 리스트
   List<String> todoList = [
     "환자 김철수 상담 결과 공유",
     "주간 미팅 준비",
@@ -49,14 +47,11 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     if (total == 0) return [];
 
     return _categoryRatio.entries.mapIndexed((i, entry) {
-      final isTouched = false;
-      final double radius = isTouched ? 60 : 50;
-
       return PieChartSectionData(
         color: getCategoryColor(i),
         value: entry.value,
         title: '${((entry.value / total) * 100).toStringAsFixed(1)}%',
-        radius: radius,
+        radius: 50,
         titleStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
@@ -66,8 +61,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     }).toList();
   }
 
-  // ✅ 1번 코드 기반: 실 API 호출로 대시보드 상태값 로딩
-  Future<void> loadDashboardData(String baseUrl) async {
+  Future<void> loadDashboardData(String baseUrl, String registerId) async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/consult/today-status-counts'));
       if (res.statusCode == 200) {
@@ -78,7 +72,6 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         canceledToday = data['canceled'];
       }
 
-      doctorName = '김닥터';
       unreadNotifications = 2;
 
       _lineData = List.generate(
@@ -100,6 +93,20 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     }
   }
 
+  /// ✅ 의사 이름 가져오는 독립 메서드
+  Future<String> loadDoctorName(String baseUrl, String registerId) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/auth/doctor-name/$registerId'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['name'];
+      }
+    } catch (e) {
+      print('loadDoctorName 오류: $e');
+    }
+    return '알 수 없음';
+  }
+
   Color getCategoryColor(int index) {
     const colors = [
       Colors.blue,
@@ -117,7 +124,6 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   int get upcomingSchedules => 4;
 }
 
-// ✅ mapIndexed 확장 함수
 extension MapIndexedExtension<E> on Iterable<E> {
   Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
     int i = 0;

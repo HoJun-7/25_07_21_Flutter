@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
+import '/presentation/viewmodel/userinfo_viewmodel.dart';
 
 class DRealHomeScreen extends StatefulWidget {
   final String baseUrl;
@@ -17,8 +18,20 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DoctorDashboardViewModel>().loadDashboardData(widget.baseUrl);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final userVm = context.read<UserInfoViewModel>();
+      final user = userVm.user;
+      final dashboardVm = context.read<DoctorDashboardViewModel>();
+
+      if (user != null) {
+        await dashboardVm.loadDashboardData(widget.baseUrl, user.registerId);
+
+        // 👇 이름 불러오기 분리
+        final name = await dashboardVm.loadDoctorName(widget.baseUrl, user.registerId);
+        dashboardVm.doctorName = name;
+        userVm.updateUserName(name);
+        dashboardVm.notifyListeners();
+      }
     });
   }
 
@@ -94,7 +107,13 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         body: Consumer<DoctorDashboardViewModel>(
           builder: (context, vm, child) {
             return RefreshIndicator(
-              onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+              onRefresh: () {
+                final user = context.read<UserInfoViewModel>().user;
+                if (user != null) {
+                  return vm.loadDashboardData(widget.baseUrl, user.registerId);
+                }
+                return Future.value(); // fallback
+              },
               color: Colors.white,
               backgroundColor: Colors.blueAccent,
               child: SingleChildScrollView(
