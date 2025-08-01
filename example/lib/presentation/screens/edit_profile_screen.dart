@@ -90,128 +90,175 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return raw;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('프로필 수정')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
-            children: [
-              _buildTextField(_nameController, '이름 (한글만)', keyboardType: TextInputType.name),
-              _buildGenderSelector(),
-              _buildTextField(_passwordController, '비밀번호 (6자 이상)', isPassword: true, minLength: 6),
-              _buildTextField(
-                _birthController,
-                '생년월일 (YYYY-MM-DD)',
-                maxLength: 10,
-                keyboardType: TextInputType.datetime,
-                inputFormatters: [DateInputFormatter()],
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFFEAF4FF),
+    resizeToAvoidBottomInset: true, // 💡 키보드 대응
+    appBar: AppBar(
+      title: const Text('프로필 수정'),
+      backgroundColor: const Color(0xFF3F8CD4),
+      foregroundColor: Colors.white,
+      elevation: 0,
+    ),
+    body: SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Form(
+                  key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildRoundedField(_nameController, '이름 (한글만)', keyboardType: TextInputType.name),
+                        const SizedBox(height: 16),
+                        _buildGenderButtons(),
+                        const SizedBox(height: 16),
+                        _buildRoundedField(_passwordController, '비밀번호 (6자 이상)', isPassword: true, minLength: 6),
+                        const SizedBox(height: 16),
+                        _buildRoundedField(
+                          _birthController,
+                          '생년월일 (YYYY-MM-DD)',
+                          maxLength: 10,
+                          keyboardType: TextInputType.datetime,
+                          inputFormatters: [DateInputFormatter()],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildRoundedField(
+                          _phoneController,
+                          '전화번호',
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(11),
+                            _PhoneNumberFormatter(),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3F8CD4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('저장', style: TextStyle(fontSize: 16)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              _buildTextField(
-                _phoneController,
-                '전화번호',
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(11),
-                  _PhoneNumberFormatter(),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(onPressed: _submit, child: const Text('저장')),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildTextField(
+
+  Widget _buildRoundedField(
     TextEditingController controller,
     String label, {
     bool isPassword = false,
     int? maxLength,
     int? minLength,
     TextInputType? keyboardType,
-    ValueChanged<String>? onChanged,
     List<TextInputFormatter>? inputFormatters,
-    bool readOnly = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: TextFormField(
-        controller: controller,
-        obscureText: isPassword,
-        maxLength: maxLength,
-        keyboardType: keyboardType,
-        onChanged: onChanged,
-        inputFormatters: inputFormatters,
-        readOnly: readOnly,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          counterText: '',
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword,
+      maxLength: maxLength,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      decoration: InputDecoration(
+        hintText: label,
+        filled: true,
+        fillColor: const Color(0xFFF5F8FC),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
         ),
-        validator: (value) {
-          if (!readOnly && (value == null || value.trim().isEmpty)) {
-            return '$label을 입력해주세요';
-          }
-          if (minLength != null && value!.trim().length < minLength) {
-            return '$label은 ${minLength}자 이상이어야 합니다';
-          }
-          if (label == '이름 (한글만)' && value != null && !RegExp(r'^[가-힣]+$').hasMatch(value)) {
-            return '이름은 한글만 입력 가능합니다';
-          }
-          if (label == '전화번호' && value != null && !RegExp(r'^\d{3}-\d{3,4}-\d{4}$').hasMatch(value)) {
-            return '유효한 전화번호를 입력하세요 (형식: 010-1234-5678)';
-          }
-          if (label == '생년월일 (YYYY-MM-DD)' && value != null) {
-            final RegExp dateRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
-            if (!dateRegex.hasMatch(value)) return '올바른 생년월일 형식(YYYY-MM-DD)으로 입력하세요';
-            try {
-              final DateTime birthDate = DateTime.parse(value);
-              if (birthDate.isAfter(DateTime.now())) {
-                return '생년월일은 오늘 날짜를 넘을 수 없습니다';
-              }
-            } catch (_) {
-              return '유효하지 않은 날짜입니다 (예: 2023-02-30)';
-            }
-          }
-          return null;
-        },
+        counterText: '',
       ),
+      validator: (value) {
+        if ((value == null || value.trim().isEmpty)) return '$label을 입력해주세요';
+        if (minLength != null && value.trim().length < minLength) return '$label은 ${minLength}자 이상이어야 합니다';
+        if (label == '이름 (한글만)' && !RegExp(r'^[가-힣]+$').hasMatch(value)) return '이름은 한글만 입력 가능합니다';
+        if (label == '전화번호' && !RegExp(r'^\d{3}-\d{3,4}-\d{4}$').hasMatch(value)) return '전화번호 형식이 올바르지 않습니다';
+        if (label == '생년월일 (YYYY-MM-DD)') {
+          final RegExp dateRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+          if (!dateRegex.hasMatch(value)) return 'YYYY-MM-DD 형식으로 입력해주세요';
+          try {
+            final DateTime date = DateTime.parse(value);
+            if (date.isAfter(DateTime.now())) return '생년월일은 미래일 수 없습니다';
+          } catch (_) {
+            return '유효하지 않은 날짜입니다';
+          }
+        }
+        return null;
+      },
     );
   }
 
-  Widget _buildGenderSelector() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          const Text('성별', style: TextStyle(fontSize: 16)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: RadioListTile<String>(
-              title: const Text('남'),
-              value: 'M',
-              groupValue: _selectedGender,
-              onChanged: (value) => setState(() => _selectedGender = value!),
+  Widget _buildGenderButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedGender = 'M'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: _selectedGender == 'M' ? const Color(0xFF3F8CD4) : const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: Text('남', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ),
             ),
           ),
-          Expanded(
-            child: RadioListTile<String>(
-              title: const Text('여'),
-              value: 'F',
-              groupValue: _selectedGender,
-              onChanged: (value) => setState(() => _selectedGender = value!),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedGender = 'F'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: _selectedGender == 'F' ? const Color(0xFF3F8CD4) : const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: Text('여', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

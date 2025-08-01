@@ -18,14 +18,14 @@ import 'dart:io' if (dart.library.html) 'stub.dart'; // ✅ https, HttpOverrides
 import 'core/theme/app_theme.dart';
 
 void main() {
-  const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
-  //const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
+  //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
+  const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
   //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
 
   if (!kIsWeb) {
     HttpOverrides.global = MyHttpOverrides(); // ✅ 웹이 아닐 때만 실행
   }
-
+  
   runApp(
     MultiProvider(
       providers: [
