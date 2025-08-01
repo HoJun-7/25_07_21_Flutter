@@ -1,30 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart'; // Provider is used for ChangeNotifierProvider
+// import 'package:provider/provider'; // ✅ 이 줄을 주석 처리합니다.
 
-// 필요한 화면들 임포트
-import '/presentation/screens/doctor/d_inference_result_screen.dart';
-import '/presentation/screens/doctor/d_real_home_screen.dart'; // 의사 첫 홈 (DoctorDrawer 포함)
-import '/presentation/screens/doctor/d_telemedicine_application_screen.dart'; // ✅ 새로 추가된 비대면 진료 신청 화면
+// Screens
+import '/presentation/screens/doctor/d_real_home_screen.dart';
+import '/presentation/screens/doctor/d_telemedicine_application_screen.dart';
+import '/presentation/screens/doctor/d_result_detail_screen.dart';
 import '/presentation/screens/doctor/d_calendar_screen.dart';
-import '/presentation/screens/main_scaffold.dart'; // 일반 사용자용 스캐폴드
+import '/presentation/screens/doctor/doctor_drawer.dart';
+import '/presentation/screens/main_scaffold.dart';
 import '/presentation/screens/login_screen.dart';
 import '/presentation/screens/register_screen.dart';
 import '/presentation/screens/home_screen.dart';
 import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
-import '/presentation/screens/telemedicine_apply_screen.dart';
-import '/presentation/viewmodel/auth_viewmodel.dart'; // ✅ 사용자 로그인 정보 접근
-
-// 하단 탭 바 화면들
+import '/presentation/screens/consult_result.dart';
+import '/presentation/screens/upload_result_detail_screen.dart';
+import '/presentation/screens/history_result_detail_screen.dart';
+import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
+import '/presentation/screens/reauth_screen.dart';
+import '/presentation/screens/edit_profile_screen.dart';
+import '/presentation/screens/edit_profile_result_screen.dart';
+import '/presentation/screens/dental_survey_screen.dart';
 import '/presentation/screens/upload_screen.dart';
 import '/presentation/screens/history_screen.dart';
 import '/presentation/screens/clinics_screen.dart';
+import '/presentation/screens/find_id_screen.dart';
+import '/presentation/screens/find_id_result.dart';
+import '/presentation/screens/find_password_screen.dart';
+import '/presentation/screens/find_password_result.dart';
 
-// DoctorDashboardViewModel은 전용 파일에서만 임포트합니다.
-import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel의 정식 경로
+// ViewModels
+import '/presentation/viewmodel/auth_viewmodel.dart';
+import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import '/presentation/viewmodel/find_id_viewmodel.dart';
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -36,38 +47,59 @@ GoRouter createRouter(String baseUrl) {
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/find_id',
+        builder: (context, state) =>
+            // ChangeNotifierProvider( // ✅ 이 부분을 주석 처리합니다.
+            // create: (_) => FindIdViewModel(baseUrl: baseUrl),
+            // child:
+            FindIdScreen(baseUrl: baseUrl),
+        // ), // ✅ 이 부분을 주석 처리합니다.
+      ),
+      GoRoute(
+        path: '/find-id-result',
+        builder: (context, state) {
+          final userId = state.extra as String;
+          return FindIdResultScreen(userId: userId);
+        },
+      ),
+      GoRoute(
+        path: '/find_password',
+        builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/find-password-result',
+        builder: (context, state) => const FindPasswordResultScreen(),
       ),
       GoRoute(
         path: '/web',
         builder: (context, state) => const WebPlaceholderScreen(),
       ),
 
-      // ✅ 의사 전용 ShellRoute 추가: 이 ShellRoute 내의 모든 화면은 Drawer를 유지합니다.
+      // Doctor Shell
       ShellRoute(
-        builder: (context, state, child) {
-          return child; // 자식 위젯을 그대로 반환
-        },
+        builder: (context, state, child) => child,
         routes: [
-          // ✅ 의사 로그인 후 메인 홈
           GoRoute(
             path: '/d_home',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return ChangeNotifierProvider(
-                create: (_) => DoctorDashboardViewModel(),
-                // DRealHomeScreen은 이미 DoctorDrawer를 포함하고 있습니다.
-                child: DRealHomeScreen(baseUrl: passedBaseUrl),
-              );
+              return (
+                  // ChangeNotifierProvider( // ✅ 이 부분을 주석 처리합니다.
+                  // create: (_) => DoctorDashboardViewModel(),
+                  // child:
+                  DRealHomeScreen(baseUrl: passedBaseUrl)
+                  // ), // ✅ 이 부분을 주석 처리합니다.
+                  );
             },
           ),
-
-          // ✅ 의사 메뉴: 비대면 진료 신청 화면 (이제 별도 파일로 분리)
           GoRoute(
             path: '/d_dashboard',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
-              final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl; // ✅ 수정 완료
+              final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
               final initialTab = extra['initialTab'] as int? ?? 0;
               return DTelemedicineApplicationScreen(
                 baseUrl: passedBaseUrl,
@@ -75,78 +107,143 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-          // ✅ 의사 메뉴: 예약 현황
           GoRoute(
             path: '/d_appointments',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              // TODO: 실제 예약 현황 화면 위젯으로 교체하세요. (이 화면도 Scaffold를 포함하고 DoctorDrawer를 사용해야 합니다.)
               return Scaffold(
-                appBar: AppBar(title: const Text('예약 현황')),
-                drawer: DoctorDrawer(baseUrl: passedBaseUrl), // DoctorDrawer 적용
+                appBar: AppBar(
+                  title: const Text('예약 현황'),
+                  backgroundColor: const Color(0xFF3869A8), // 색상 적용
+                  foregroundColor: Colors.white, // 텍스트 및 아이콘 색상 적용
+                  centerTitle: true,
+                  elevation: 0,
+                ),
+                drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const Center(child: Text('예약 현황 화면입니다.')),
               );
             },
           ),
-
-          // ✅ 의사 메뉴: 진료 결과 (기존 DInferenceResultScreen을 재사용하거나, 필요시 별도 화면 생성)
-          GoRoute(
-            path: '/d_inference_result',
-            builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
-              // DInferenceResultScreen에 Drawer를 추가해야 합니다.
-              // 현재 DInferenceResultScreen의 코드를 알 수 없으므로,
-              // 임시로 Scaffold로 감싸고 DoctorDrawer를 추가합니다.
-              // 실제 DInferenceResultScreen 파일에서 Scaffold와 Drawer를 구현해야 합니다.
-              return Scaffold(
-                appBar: AppBar(title: const Text('진료 결과')),
-                drawer: DoctorDrawer(baseUrl: passedBaseUrl), // DoctorDrawer 적용
-                body: DInferenceResultScreen(baseUrl: passedBaseUrl),
-              );
-            },
-          ),
-
-          // ✅ 의사 메뉴: 진료 캘린더
           GoRoute(
             path: '/d_calendar',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return Scaffold(
-                appBar: AppBar(title: const Text('진료 캘린더')),
+                appBar: AppBar(
+                  title: const Text('진료 캘린더'),
+                  backgroundColor: const Color(0xFF3869A8), // ✅ 여기를 수정했습니다.
+                  foregroundColor: Colors.white, // ✅ 여기를 추가했습니다.
+                  centerTitle: true, // ✅ 여기를 추가했습니다.
+                  elevation: 0, // ✅ 여기를 추가했습니다.
+                ),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
-                body: const DCalendarScreen(), // ✅ 실제 달력 화면 연결
+                body: const DCalendarScreen(),
+                floatingActionButton: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    FloatingActionButton.extended(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('예약 추가 화면으로 이동합니다.')),
+                        );
+                      },
+                      label: const Text('예약 추가', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      backgroundColor: const Color(0xFF3869A8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 6,
+                      heroTag: 'addAppointmentRouter',
+                    ),
+                    const SizedBox(height: 10),
+                    FloatingActionButton.extended(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('예약 삭제 기능을 구현해야 합니다.')),
+                        );
+                      },
+                      label: const Text('예약 삭제', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.delete, color: Colors.white),
+                      backgroundColor: Colors.redAccent.shade700,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      elevation: 6,
+                      heroTag: 'deleteAppointmentRouter',
+                    ),
+                  ],
+                ),
               );
             },
           ),
-
-          // ✅ 의사 메뉴: 환자 목록
           GoRoute(
             path: '/d_patients',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              // TODO: 실제 환자 목록 화면 위젯으로 교체하세요. (이 화면도 Scaffold를 포함하고 DoctorDrawer를 사용해야 합니다.)
               return Scaffold(
-                appBar: AppBar(title: const Text('환자 목록')),
-                drawer: DoctorDrawer(baseUrl: passedBaseUrl), // DoctorDrawer 적용
+                appBar: AppBar(
+                  title: const Text('환자 목록'),
+                  backgroundColor: const Color(0xFF3869A8), // 색상 적용
+                  foregroundColor: Colors.white, // 텍스트 및 아이콘 색상 적용
+                  centerTitle: true,
+                  elevation: 0,
+                ),
+                drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const Center(child: Text('환자 목록 화면입니다.')),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/d_result_detail', // ✅ 이름 없이 path만 사용
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+
+              if (extra == null ||
+                  !extra.containsKey('userId') ||
+                  !extra.containsKey('imagePath') ||
+                  !extra.containsKey('baseUrl')) {
+                return const Scaffold(
+                  body: Center(child: Text('잘못된 접근입니다')),
+                );
+              }
+
+              return DResultDetailScreen(
+                userId: extra['userId'] as String,
+                originalImageUrl: extra['imagePath'] as String,
+                baseUrl: extra['baseUrl'] as String,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/d_telemedicine_application',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final initialTab = extra['initialTab'] as int? ?? 0;
+              final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
+
+              return DTelemedicineApplicationScreen(
+                baseUrl: passedBaseUrl,
+                initialTab: initialTab,
               );
             },
           ),
         ],
       ),
 
-      // ✅ 일반 사용자 ShellRoute (기존 유지)
+      // User Shell
       ShellRoute(
-        builder: (context, state, child) {
-          return MainScaffold(
-            child: child,
-            currentLocation: state.uri.toString(),
-          );
-        },
+        builder: (context, state, child) => MainScaffold(
+          child: child,
+          currentLocation: state.uri.toString(),
+        ),
         routes: [
+          GoRoute(path: '/chatbot',
+          builder: (context, state) => const ChatbotScreen()
+          ),
           GoRoute(
-            path: '/chatbot',
-            builder: (context, state) => const ChatbotScreen(),
+            path: '/multimodal_result',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final responseText = extra?['responseText'] ?? '응답이 없습니다.';
+              return MultimodalResponseScreen(responseText: responseText);   // ✅ 이 부분만 multimodal로
+            },
           ),
           GoRoute(
             path: '/home',
@@ -156,31 +253,29 @@ GoRouter createRouter(String baseUrl) {
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
           ),
+          GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen()),
+          GoRoute(path: '/reauth', builder: (context, state) => const ReauthScreen()),
+          GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
           GoRoute(
-            path: '/mypage',
-            builder: (context, state) => const MyPageScreen(),
+            path: '/edit_profile_result',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return EditProfileResultScreen(
+                isSuccess: extra['isSuccess'] as bool,
+                message: extra['message'] as String,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/survey',
+            name: 'survey',
+            builder: (context, state) => const DentalSurveyScreen(),
           ),
           GoRoute(
             path: '/upload',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return UploadScreen(baseUrl: passedBaseUrl);
-            },
-          ),
-          GoRoute(
-            path: '/diagnosis/realtime',
-            builder: (context, state) {
-              // ✅ 로그인된 사용자 정보 가져오기
-              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-              final currentUser = authViewModel.currentUser;
-              final realUserId = currentUser?.registerId ?? 'guest'; // ← 여기서 선언
-              // ✅ 전달된 baseUrl만 extra로 받기
-              final data = state.extra as Map<String, dynamic>? ?? {};
-              final baseUrl = data['baseUrl'] ?? '';
-              return CameraInferenceScreen(
-                baseUrl: baseUrl,
-                userId: realUserId, // ✅ 정상 전달
-              );
             },
           ),
           GoRoute(
@@ -191,26 +286,27 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/apply',
+            path: '/diagnosis/realtime',
             builder: (context, state) {
-              final args = state.extra as Map<String, dynamic>? ?? {};
-              return TelemedicineApplyScreen(
-                userId: args['userId'],
-                inferenceResultId: args['inferenceResultId'],
-                baseUrl: args['baseUrl'],
-                diagnosisClassName: args['className'],
-                confidence: args['confidence'],
-                modelUsed: args['modelUsed'],
-                patientName: args['name'],
-                patientPhone: args['phone'],
-                patientBirth: args['birth'],
+              // final authViewModel = Provider.of<AuthViewModel>(context, listen: false); // ✅ 이 줄을 주석 처리합니다.
+              // final currentUser = authViewModel.currentUser; // ✅ 이 줄을 주석 처리합니다.
+              final realUserId = 'guest'; // ✅ 기본값으로 설정합니다.
+              final data = state.extra as Map<String, dynamic>? ?? {};
+              final baseUrlFromData = data['baseUrl'] ?? '';
+              return CameraInferenceScreen(
+                baseUrl: baseUrlFromData,
+                userId: realUserId,
               );
             },
           ),
           GoRoute(
-            path: '/clinics',
-            builder: (context, state) => const ClinicsScreen(),
+            path: '/consult_success',
+            builder: (context, state) {
+              final type = state.extra is Map ? (state.extra as Map)['type'] as String? : null;
+              return ConsultResultScreen(type: type);
+            },
           ),
+          GoRoute(path: '/clinics', builder: (context, state) => const ClinicsScreen()),
           GoRoute(
             path: '/camera',
             builder: (context, state) {
@@ -218,6 +314,36 @@ GoRouter createRouter(String baseUrl) {
               return CameraInferenceScreen(
                 baseUrl: data['baseUrl'] ?? '',
                 userId: data['userId'] ?? 'guest',
+              );
+            },
+          ),
+          GoRoute(
+            path: '/upload_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return UploadResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
+                modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
+                userId: extra['userId'],
+                inferenceResultId: extra['userId'], // Assuming inferenceResultId is userId based on context
+                baseUrl: extra['baseUrl'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/history_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return HistoryResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
+                modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+                isRequested: extra['isRequested'],
+                isReplied: extra['isReplied'],
               );
             },
           ),
