@@ -1,9 +1,10 @@
+// chatbot_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '/presentation/viewmodel/auth_viewmodel.dart'; // AuthViewModel 임포트
-import '/presentation/viewmodel/chatbot_viewmodel.dart'; // ChatbotViewModel 임포트
+import '/presentation/viewmodel/auth_viewmodel.dart';
+import '/presentation/viewmodel/chatbot_viewmodel.dart';
 import 'package:flutter/services.dart';
-import 'chat_bubble.dart'; // ChatBubble 위젯 임포트 (이 파일이 프로젝트에 있어야 함)
+import 'chat_bubble.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ChatbotScreen extends StatefulWidget {
@@ -21,6 +22,15 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
   static const double profileImageSize = 40.0;
 
+  // 마스킹 스위치 상태를 관리할 Map 추가
+  // 모든 스위치 기본값을 false로 설정하여, 아무것도 선택되지 않았을 때 원본 이미지가 보이도록 합니다.
+  final Map<String, bool> _currentMaskSettings = {
+    '충치/치아/위생 관련': false,
+    '치석/보철물': false,
+    '치아번호': false,
+  };
+
+
   @override
   void initState() {
     super.initState();
@@ -28,9 +38,6 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         vsync: this, duration: const Duration(milliseconds: 150));
     _sendBtnScale = Tween<double>(begin: 1.0, end: 0.9).animate(
         CurvedAnimation(parent: _sendBtnAnimCtr, curve: Curves.easeOut));
-
-    // ChatbotViewModel이 초기 메시지를 스스로 관리하므로,
-    // 이곳에서 WidgetsBinding.instance.addPostFrameCallback 블록을 제거합니다.
   }
 
   @override
@@ -53,20 +60,20 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     final trimmed = message.trim();
     if (trimmed.isEmpty) return;
     _controller.clear();
-    // 메시지 전송 전에 스크롤을 맨 아래로 이동
     _scrollToBottom();
     await Provider.of<ChatbotViewModel>(context, listen: false)
         .sendMessage(trimmed);
-    // 챗봇 응답 후 다시 스크롤을 맨 아래로 이동
     _scrollToBottom();
   }
 
-  // 수정: isUser 인자를 추가하여 봇과 사용자 아바타를 구분합니다.
   Widget _buildProfileAvatar({required bool isUser}) {
-    final currentUser = Provider.of<AuthViewModel>(context, listen: false).currentUser;
-
+    final currentUser =
+        Provider.of<AuthViewModel>(context, listen: false).currentUser;
     String? userNameInitial;
-    if (isUser && currentUser != null && currentUser.name != null && currentUser.name!.isNotEmpty) {
+    if (isUser &&
+        currentUser != null &&
+        currentUser.name != null &&
+        currentUser.name!.isNotEmpty) {
       userNameInitial = currentUser.name![0].toUpperCase();
     }
 
@@ -74,13 +81,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       child: Container(
         width: profileImageSize,
         height: profileImageSize,
-        decoration: BoxDecoration( // BoxDecoration 사용
-          color: isUser ? const Color(0xFFC9F1DE) : const Color(0xFFADD8E6), // 사용자/봇에 따라 다른 배경색 (기존 연한 색상 유지)
+        decoration: BoxDecoration(
+          color: isUser ? const Color(0xFFC9F1DE) : const Color(0xFFADD8E6),
           shape: BoxShape.circle,
           border: Border.all(
-            // ✅ 테두리 색상만 요청에 따라 변경 (하늘색, 연두색)
-            color: isUser ? const Color(0xFF9CCC65) : const Color(0xFF87CEEB), // 사용자: 연두색, 봇: 하늘색
-            width: 2.5, // 테두리 두께는 유지
+            color: isUser ? const Color(0xFF9CCC65) : const Color(0xFF87CEEB),
+            width: 2.5,
           ),
         ),
         child: Center(
@@ -94,7 +100,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                   ),
                 )
               : Image.asset(
-                  'images/dentibot.png', // 봇 아바타 이미지
+                  'images/dentibot.png',
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   width: profileImageSize * .8,
@@ -105,11 +111,36 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
+  // ✅ 마스크 설정 스위치 UI를 만드는 위젯
+  Widget _buildMaskSettingSwitch(String label, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.notoSansKr(fontSize: 14, color: Colors.grey[700])),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFFADD8E6), // 활성 색상
+            inactiveThumbColor: Colors.grey[300], // 비활성 시 엄지 색상
+            inactiveTrackColor: Colors.grey[200], // 비활성 시 트랙 색상
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ChatbotViewModel의 messages 리스트를 watch하여 변경 시 UI 업데이트
     final messages = context.watch<ChatbotViewModel>().messages;
     final isLoading = context.watch<ChatbotViewModel>().isLoading;
+
+    // 화면 너비의 절반을 계산 (예: 챗봇 말풍선의 최대 너비가 화면의 70-80% 정도라면, 그 절반)
+    // 정확한 말풍선 너비를 알 수 없으므로, 대략적인 화면 너비의 비율로 설정합니다.
+    // 여기서는 화면 너비의 60%를 이미지 컨테이너의 최대 너비로 설정해 보겠습니다.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final imageContainerWidth = screenWidth * 0.6; // 화면 너비의 60%
 
     return PopScope(
       canPop: false,
@@ -180,79 +211,222 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                itemCount: messages.length, // ViewModel의 메시지 목록 길이를 사용
+                itemCount: messages.length,
                 itemBuilder: (_, idx) {
                   final msg = messages[idx];
                   final isUser = msg.role == 'user';
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                    child: Row(
-                      mainAxisAlignment: isUser
-                          ? MainAxisAlignment.end // 사용자 메시지는 오른쪽 정렬
-                          : MainAxisAlignment.start, // 봇 메시지는 왼쪽 정렬
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ✅ 사용자 메시지일 때: Spacer -> 메시지 버블 -> 여백 -> 아바타
-                        if (isUser) const Spacer(), // 남은 공간을 모두 차지하여 오른쪽으로 밀어냄
-                        if (isUser)
-                          Flexible(
-                            child: ChatBubble(
-                              message: msg.content,
-                              isUser: isUser,
-                              bubbleColor: const Color(0xFFAAD9FF), // 사용자 메시지 버블 색상
-                              borderColor: const Color(0xFF7EB7E6), // 사용자 메시지 테두리 색상
-                              textStyle: GoogleFonts.notoSansKr(
-                                  fontSize: 15, color: Colors.black),
-                            ),
-                          ),
-                        if (isUser) const SizedBox(width: 8),
-                        if (isUser) _buildProfileAvatar(isUser: true), // 사용자 아바타
 
-                        // ✅ 봇 메시지일 때: 아바타 -> 여백 -> 메시지 버블 -> Spacer
-                        if (!isUser) _buildProfileAvatar(isUser: false), // 봇 아바타
-                        if (!isUser) const SizedBox(width: 8),
-                        if (!isUser)
-                          Flexible(
-                            child: ChatBubble(
-                              message: msg.content,
-                              isUser: isUser,
-                              bubbleColor: const Color(0xFFE0F2FF), // 봇 메시지 버블 색상
-                              borderColor: const Color(0xFFC0E6FF), // 봇 메시지 테두리 색상
-                              textStyle: GoogleFonts.notoSansKr(
-                                  fontSize: 15, color: Colors.black),
+                  // ✅ 이미지 URL을 결정하는 로직을 수정합니다.
+                  String? imageUrlToDisplay;
+                  if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
+                    print('수신된 메시지의 imageUrls: ${msg.imageUrls}');
+                    print('현재 충치/치아/위생 관련 마스크 설정: ${_currentMaskSettings['충치/치아/위생 관련']}');
+                    print('현재 치석/보철물 마스크 설정: ${_currentMaskSettings['치석/보철물']}');
+                    print('현재 치아번호 마스크 설정: ${_currentMaskSettings['치아번호']}');
+
+                    if (_currentMaskSettings['충치/치아/위생 관련'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model1'];
+                      print('--> 모델1 이미지 (충치/치아/위생) 선택: $imageUrlToDisplay');
+                    } else if (_currentMaskSettings['치석/보철물'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model2'];
+                      print('--> 모델2 이미지 (치석/보철물) 선택: $imageUrlToDisplay');
+                    } else if (_currentMaskSettings['치아번호'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model3'];
+                      print('--> 모델3 이미지 (치아번호) 선택: $imageUrlToDisplay');
+                    }
+
+                    // 선택된 마스크 이미지가 없거나 해당 URL이 null이면 원본 이미지 사용
+                    imageUrlToDisplay ??= msg.imageUrls!['original'];
+                    print('--> 원본 이미지 (original) 선택: $imageUrlToDisplay');
+                    
+                    // 그럼에도 불구하고 null이면, 맵의 첫 번째 이미지 표시 (최후의 fallback)
+                    imageUrlToDisplay ??= msg.imageUrls!.values.first;
+                    if (imageUrlToDisplay == msg.imageUrls!.values.first && imageUrlToDisplay != msg.imageUrls!['original'] && imageUrlToDisplay != msg.imageUrls!['model1'] && imageUrlToDisplay != msg.imageUrls!['model2'] && imageUrlToDisplay != msg.imageUrls!['model3']) {
+                        print('--> Fallback 이미지 선택 (최후): $imageUrlToDisplay');
+                    }
+                  }
+
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 6, horizontal: 12),
+                    child: Column(
+                      crossAxisAlignment: isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: isUser
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!isUser) _buildProfileAvatar(isUser: false),
+                            if (!isUser) const SizedBox(width: 8),
+                            Flexible(
+                              child: ChatBubble(
+                                message: msg.content,
+                                isUser: isUser,
+                                bubbleColor: isUser
+                                    ? const Color(0xFFAAD9FF)
+                                    : const Color(0xFFE0F2FF),
+                                borderColor: isUser
+                                    ? const Color(0xFF7EB7E6)
+                                    : const Color(0xFFC0E6FF),
+                                textStyle: GoogleFonts.notoSansKr(
+                                    fontSize: 15, color: Colors.black),
+                              ),
+                            ),
+                            if (isUser) const SizedBox(width: 8),
+                            if (isUser) _buildProfileAvatar(isUser: true),
+                          ],
+                        ),
+                        // ✅ 이미지 및 마스킹 설정 UI 추가
+                        if (imageUrlToDisplay != null) // Display image if URL is determined
+                          Align( // 이미지와 마스킹 UI를 가운데 정렬 또는 봇 메시지 위치에 맞춤
+                            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              // ✅ 너비 제약 추가
+                              width: imageContainerWidth, // 계산된 너비 적용
+                              margin: EdgeInsets.only(
+                                  top: 10,
+                                  left: isUser ? 0 : profileImageSize + 8, // 봇 프로필 아바타 공간 고려
+                                  right: isUser ? profileImageSize + 8 : 0, // 사용자 프로필 아바타 공간 고려
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFC0E6FF), width: 1),
+                                boxShadow: const [ // prefer_const_constructors 경고 해결
+                                  BoxShadow(
+                                    color: Color.fromARGB(13, 0, 0, 0),
+                                    blurRadius: 5,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '진단 사진 (${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일 ${DateTime.now().hour}시 ${DateTime.now().minute}분 촬영)', // 실제 촬영 시간으로 변경 필요
+                                    style: GoogleFonts.notoSansKr(
+                                        fontSize: 13, color: Colors.grey[600]),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // 이미지 표시
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      imageUrlToDisplay, // Use the determined image URL
+                                      width: imageContainerWidth - 24, // 컨테이너 패딩 제외
+                                      height: imageContainerWidth - 24, // 1:1 비율 유지를 위해 너비와 동일하게 설정
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return SizedBox(
+                                          width: imageContainerWidth - 24,
+                                          height: imageContainerWidth - 24,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return SizedBox(
+                                          width: imageContainerWidth - 24,
+                                          height: imageContainerWidth - 24,
+                                          child: Center(
+                                            child: Icon(Icons.broken_image, color: Colors.grey[400], size: 50),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  // 마스크 설정 섹션
+                                  Text(
+                                    '마스크 설정',
+                                    style: GoogleFonts.notoSansKr(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blueGrey[800]),
+                                  ),
+                                  const Divider(color: Colors.grey, thickness: 0.5),
+                                  _buildMaskSettingSwitch(
+                                    '충치/치아/위생 관련',
+                                    _currentMaskSettings['충치/치아/위생 관련']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['충치/치아/위생 관련'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['치석/보철물'] = false;
+                                          _currentMaskSettings['치아번호'] = false;
+                                        }
+                                        print('충치/치아/위생 관련 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                  _buildMaskSettingSwitch(
+                                    '치석/보철물',
+                                    _currentMaskSettings['치석/보철물']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['치석/보철물'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                          _currentMaskSettings['치아번호'] = false;
+                                        }
+                                        print('치석/보철물 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                  _buildMaskSettingSwitch(
+                                    '치아번호',
+                                    _currentMaskSettings['치아번호']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['치아번호'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                          _currentMaskSettings['치석/보철물'] = false;
+                                        }
+                                        print('치아번호 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        if (!isUser) const Spacer(), // 남은 공간을 모두 차지하여 왼쪽으로 밀어냄
                       ],
                     ),
                   );
                 },
               ),
             ),
-            // 챗봇이 응답을 로딩 중일 때 표시되는 부분
             if (isLoading)
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Row(
                   children: [
-                    _buildProfileAvatar(isUser: false), // 봇이 생각 중이므로 봇 아바타 표시
+                    _buildProfileAvatar(isUser: false),
                     const SizedBox(width: 8),
-                    AnimatedBuilder(
-                      animation: Listenable.merge([]),
-                      builder: (context, child) {
-                        return TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: const Duration(seconds: 1),
-                          builder: (_, value, __) {
-                            final dots = '.' * ((value * 4).floor() % 4);
-                            return Text('덴티가 생각 중이에요$dots',
-                                style: GoogleFonts.notoSansKr(
-                                    color: Colors.black54, fontSize: 15));
-                          },
-                          onEnd: () => setState(() {}),
-                        );
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(seconds: 1),
+                      builder: (_, value, __) {
+                        final dots = '.' * ((value * 4).floor() % 4);
+                        return Text('덴티가 생각 중이에요$dots',
+                            style: GoogleFonts.notoSansKr(
+                                color: Colors.black54, fontSize: 15));
                       },
+                      onEnd: () => setState(() {}),
                     ),
                   ],
                 ),
@@ -294,28 +468,28 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                     ),
                     const SizedBox(width: 10),
                     GestureDetector(
-                      onTapDown: (_) => _sendBtnAnimCtr.forward(), // 버튼 눌릴 때 애니메이션 시작
-                      onTapUp: (_) => _sendBtnAnimCtr.reverse(), // 버튼 떼어질 때 애니메이션 복귀
-                      onTapCancel: () => _sendBtnAnimCtr.reverse(), // 탭 취소 시 애니메이션 복귀
+                      onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                      onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                      onTapCancel: () => _sendBtnAnimCtr.reverse(),
                       onTap: () {
-                        FocusScope.of(context).unfocus(); // 키보드 내리기
-                        _sendMessage(_controller.text); // 메시지 전송
+                        FocusScope.of(context).unfocus();
+                        _sendMessage(_controller.text);
                       },
                       child: ScaleTransition(
-                        scale: _sendBtnScale, // 전송 버튼 스케일 애니메이션 적용
+                        scale: _sendBtnScale,
                         child: Container(
                           decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: Color(0xFFADD8E6),
                               boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2)),
+                                BoxShadow( // prefer_const_constructors 경고 해결
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2)),
                               ]),
                           padding: const EdgeInsets.all(12),
-                          child:
-                              const Icon(Icons.send, color: Colors.white, size: 24),
+                          child: const Icon(Icons.send,
+                              color: Colors.white, size: 24),
                         ),
                       ),
                     ),
