@@ -31,7 +31,7 @@ class AuthViewModel with ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/auth/check-username?username=$userId&role=$role'));
+      final res = await http.get(Uri.parse('$_baseUrl/auth/check-username?register_id=$userId&role=$role'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         return data['exists'] == true;
@@ -101,7 +101,11 @@ class AuthViewModel with ChangeNotifier {
       final res = await http.post(
         Uri.parse('$_baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'register_id': registerId, 'password': password, 'role': role}),
+        body: jsonEncode({
+          'register_id': registerId,
+          'password': password,
+          'role': role
+        }),
       );
 
       if (res.statusCode == 200) {
@@ -202,7 +206,11 @@ class AuthViewModel with ChangeNotifier {
       final res = await http.delete(
         Uri.parse('$_baseUrl/auth/delete_account'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': registerId, 'password': password, 'role': role}),
+        body: jsonEncode({
+          'register_id': registerId,
+          'password': password,
+          'role': role
+        }),
       );
 
       if (res.statusCode == 200) {
