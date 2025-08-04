@@ -235,23 +235,43 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         ),
       );
 
-  Widget _buildXraySummaryCard(String modelName, int count) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Text("YOLO 모델: $modelName"),
-            Text("탐지된 객체 수: $count개"),
-          ],
-        ),
-      );
+  Widget _buildXraySummaryCard(String modelName, int count) {
+    final predictions = widget.model1Result['predictions'] as List<dynamic>?;
+
+    String summaryText = '감지된 객체가 없습니다.';
+    if (predictions != null && predictions.isNotEmpty) {
+      final Map<String, int> classCounts = {};
+      for (final pred in predictions) {
+        final className = pred['class_name'] ?? 'Unknown';
+        if (className == '정상치아') continue; // 제외
+        classCounts[className] = (classCounts[className] ?? 0) + 1;
+      }
+
+      if (classCounts.isNotEmpty) {
+        final lines = classCounts.entries
+            .map((e) => '${e.key} ${e.value}개 감지')
+            .toList();
+        summaryText = lines.join('\n');
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text(summaryText),
+        ],
+      ),
+    );
+  }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
         onPressed: onPressed,
