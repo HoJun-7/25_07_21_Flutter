@@ -187,7 +187,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
         ),
-        actions: [
+        /*actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
               setState(() {
@@ -205,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             icon: const Icon(Icons.account_circle),
             tooltip: '사용자 유형 선택',
           ),
-        ],
+        ],*/
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -228,6 +228,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // ✅ 사용자 유형 선택 (의사/환자)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('환자'),
+                        selected: _selectedRole == 'P',
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedRole = 'P';
+                              _isIdChecked = false;
+                              _isDuplicate = true;
+                              _registerIdController.clear();
+                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                            });
+                          }
+                        },
+                        selectedColor: Colors.blueAccent,
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text('의사'),
+                        selected: _selectedRole == 'D',
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedRole = 'D';
+                              _isIdChecked = false;
+                              _isDuplicate = true;
+                              _registerIdController.clear();
+                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                            });
+                          }
+                        },
+                        selectedColor: Colors.redAccent,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
                   _buildTextField(
                     _nameController,
                     '이름 (한글만)',
@@ -268,6 +308,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             });
                           },
                           errorText: authViewModel.duplicateCheckErrorMessage,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                            LengthLimitingTextInputFormatter(20),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -283,8 +327,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  _buildTextField(_passwordController, '비밀번호 (6자 이상)', isPassword: true),
-                  _buildTextField(_confirmController, '비밀번호 확인', isPassword: true),
+                  _buildTextField(
+                    _passwordController,
+                    '비밀번호 (6자 이상)',
+                    isPassword: true,
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                  ),
+                  _buildTextField(
+                    _confirmController,
+                    '비밀번호 확인',
+                    isPassword: true,
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                  ),
                   const SizedBox(height: 25),
                   SizedBox(
                     width: double.infinity,
@@ -416,7 +470,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 class _NameByteLimitFormatter extends TextInputFormatter {
   final int maxBytes;
-  _NameByteLimitFormatter({this.maxBytes = 15});
+  _NameByteLimitFormatter({this.maxBytes = 18}); // 이름 필드 18Byte 입력제한(현행법상 성 포함 6글자까지. 1글자=3Byte)
 
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
