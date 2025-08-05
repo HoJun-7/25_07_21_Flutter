@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 환경 감지를 위해 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -98,7 +99,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     // ✅ 백엔드 요구 형식: yyyyMMddHHmmss
     final now = DateTime.now();
     final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
-                            "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
+        "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
 
     // ✅ 상대 경로 변환
     final relativePath = widget.originalImageUrl.replaceFirst(
@@ -140,7 +141,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       );
     }
   }
-
 
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
@@ -201,69 +201,80 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildToggleCard(const Color(0xFFEAEAEA)),
-            const SizedBox(height: 16),
-            _buildImageCard(),
-            const SizedBox(height: 16),
-            _buildSummaryCard(
-              model1Label: model1?['label'] ?? '감지되지 않음',
-              model1Confidence: model1?['confidence'] ?? 0.0,
-              model2Label: model2?['label'] ?? '감지되지 않음',
-              model2Confidence: model2?['confidence'] ?? 0.0,
-              model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
-              model3Confidence: model3?['confidence'] ?? 0.0,
-              textTheme: textTheme,
+      body: Center( // ✅ Center 위젯 추가
+        child: Container(
+          constraints: kIsWeb ? const BoxConstraints(maxWidth: 800) : null, // ✅ 웹일 경우 최대 너비 지정
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildToggleCard(const Color(0xFFEAEAEA)),
+                const SizedBox(height: 16),
+                _buildImageCard(),
+                const SizedBox(height: 16),
+                _buildSummaryCard(
+                  model1Label: model1?['label'] ?? '감지되지 않음',
+                  model1Confidence: model1?['confidence'] ?? 0.0,
+                  model2Label: model2?['label'] ?? '감지되지 않음',
+                  model2Confidence: model2?['confidence'] ?? 0.0,
+                  model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
+                  model3Confidence: model3?['confidence'] ?? 0.0,
+                  textTheme: textTheme,
+                ),
+                const SizedBox(height: 24),
+                if (currentUser?.role == 'P') ...[
+                  // ✅ 업로드 결과 화면에서는 저장 버튼 제거
+                  // ✅ 업로드 결과 화면에서는 상담 신청 버튼 하나만 남기고,
+                  //    History 화면에서만 취소 버튼이 나타나도록 구현
+                  _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest),
+                  const SizedBox(height: 12),
+                  _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+                ]
+              ],
             ),
-            const SizedBox(height: 24),
-            if (currentUser?.role == 'P') ...[
-              _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
-            ]
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildImageCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F0),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: AspectRatio(
-        aspectRatio: 4 / 3,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (originalImageBytes != null)
-                Image.memory(originalImageBytes!, fit: BoxFit.fill)
-              else
-                const Center(child: CircularProgressIndicator()),
-              if (_showDisease && overlay1Bytes != null)
-                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-              if (_showHygiene && overlay2Bytes != null)
-                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-              if (_showToothNumber && overlay3Bytes != null)
-                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-            ],
+    return LayoutBuilder( // ✅ LayoutBuilder 추가
+      builder: (context, constraints) {
+        final isWideScreen = constraints.maxWidth > 600; // ✅ 넓은 화면 기준
+        final aspectRatio = isWideScreen && kIsWeb ? 3 / 2 : 4 / 3; // ✅ 웹에서 넓은 화면일 때 비율 조정
+        
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F0F0),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
           ),
-        ),
-      ),
+          padding: const EdgeInsets.all(16),
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (originalImageBytes != null)
+                    Image.memory(originalImageBytes!, fit: BoxFit.fill)
+                  else
+                    const Center(child: CircularProgressIndicator()),
+                  if (_showDisease && overlay1Bytes != null)
+                    Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                  if (_showHygiene && overlay2Bytes != null)
+                    Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                  if (_showToothNumber && overlay3Bytes != null)
+                    Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

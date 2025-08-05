@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '/presentation/viewmodel/history_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -62,24 +63,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ? Center(child: Text('오류: ${viewModel.error}'))
                 : currentUser == null
                     ? const Center(child: Text('로그인이 필요합니다.'))
-                    : Column(
-                        children: [
-                          _buildStatusChips(),
-                          Expanded(
-                            child: PageView.builder(
-                              controller: _pageController,
-                              onPageChanged: (index) => setState(() => _selectedIndex = index),
-                              itemCount: statuses.length,
-                              itemBuilder: (context, index) {
-                                final filtered = _filterRecords(
-                                  viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
-                                  statuses[index],
-                                );
-                                return _buildRecordList(filtered, imageBaseUrl);
-                              },
-                            ),
+                    : Center(
+                        child: ConstrainedBox(
+                          constraints: kIsWeb
+                              ? const BoxConstraints(maxWidth: 600)
+                              : const BoxConstraints(),
+                          child: Column(
+                            children: [
+                              _buildStatusChips(),
+                              Expanded(
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  onPageChanged: (index) => setState(() => _selectedIndex = index),
+                                  itemCount: statuses.length,
+                                  itemBuilder: (context, index) {
+                                    final filtered = _filterRecords(
+                                      viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
+                                      statuses[index],
+                                    );
+                                    return _buildRecordList(filtered, imageBaseUrl);
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
       ),
     );
@@ -202,7 +210,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             : {
                 1: '$imageBaseUrl/images/model1/$modelFilename',
                 2: '$imageBaseUrl/images/model2/$modelFilename',
-                3: '$imageBaseUrl/images/model3/$modelFilename',
+                3: '$imageBaseUrl/images/model3_1/$modelFilename',
+                4: '$imageBaseUrl/images/model3_2/$modelFilename',
               };
 
         final modelData = isXray
@@ -214,6 +223,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 1: record.model1InferenceResult ?? {},
                 2: record.model2InferenceResult ?? {},
                 3: record.model3InferenceResult ?? {},
+                4: record.model3InferenceResult ?? {},
               };
 
         return Container(

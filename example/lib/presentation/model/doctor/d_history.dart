@@ -18,6 +18,10 @@ class DoctorHistoryRecord {
   final Map<String, dynamic>? model2InferenceResult;
   final Map<String, dynamic>? model3InferenceResult;
 
+  // ✅ model3 관련 경로 (추가됨)
+  final String? model3_1ImagePath;
+  final String? model3_2ImagePath;
+
   // ✅ 의사용 진료 신청 리스트 기반 필드
   final int? requestId;
   final String? userName;
@@ -39,6 +43,8 @@ class DoctorHistoryRecord {
     this.model1InferenceResult,
     this.model2InferenceResult,
     this.model3InferenceResult,
+    this.model3_1ImagePath,
+    this.model3_2ImagePath,
     this.requestId,
     this.userName,
     this.imagePath,
@@ -62,7 +68,7 @@ class DoctorHistoryRecord {
       // 추론 결과용 필드
       id: json['_id'],
       originalImageFilename: json['original_image_filename'],
-      originalImagePath: json['original_image_path'] ?? (isConsult ? json['image_path'] : null), // ✅ 수정된 부분
+      originalImagePath: json['original_image_path'] ?? (isConsult ? json['image_path'] : null),
       processedImagePath: json['processed_image_path'],
       confidence: (model1Inf['confidence'] as num?)?.toDouble(),
       modelUsed: model1Inf['used_model'] as String?,
@@ -73,6 +79,10 @@ class DoctorHistoryRecord {
       model1InferenceResult: model1Inf,
       model2InferenceResult: model2Inf,
       model3InferenceResult: model3Inf,
+
+      // ✅ 추가된 model3 마스크 경로
+      model3_1ImagePath: json['model3_1_image_path'],
+      model3_2ImagePath: json['model3_2_image_path'],
 
       // 진료 신청용 필드
       requestId: isConsult ? json['request_id'] : null,
@@ -87,6 +97,7 @@ class DoctorHistoryRecord {
 extension DoctorHistoryRecordExtensions on DoctorHistoryRecord {
   String get inferenceResultId => id ?? '';
 
+  /// ✅ model3_2 만 사용
   Map<int, String> get processedImageUrls {
     final result = <int, String>{};
     if (model1InferenceResult?['processed_image_path'] != null) {
@@ -95,8 +106,8 @@ extension DoctorHistoryRecordExtensions on DoctorHistoryRecord {
     if (model2InferenceResult?['processed_image_path'] != null) {
       result[2] = model2InferenceResult!['processed_image_path'];
     }
-    if (model3InferenceResult?['processed_image_path'] != null) {
-      result[3] = model3InferenceResult!['processed_image_path'];
+    if (model3_2ImagePath != null) {
+      result[3] = model3_2ImagePath!;
     }
     return result;
   }

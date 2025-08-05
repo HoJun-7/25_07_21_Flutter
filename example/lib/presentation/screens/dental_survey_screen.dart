@@ -87,6 +87,9 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth > 800;
+
     return Scaffold(
       backgroundColor: const Color(0xFFA9C9F5),
       appBar: AppBar(
@@ -95,35 +98,35 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         backgroundColor: const Color(0xFF3869A8),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              children: categories
-                  .map((category) => _buildCategoryTile(
-                        category,
-                        categorizedQuestions[category] ?? [],
-                      ))
-                  .toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: _submitSurvey,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3869A8),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWideScreen ? 800 : double.infinity),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  children: categories.map((category) => _buildCategoryTile(category, categorizedQuestions[category] ?? [])).toList(),
                 ),
               ),
-              child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
-            ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: _submitSurvey,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3869A8),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -190,9 +193,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             alignment: Alignment.center,
             children: [
               Positioned.fill(
-                child: CustomPaint(
-                  painter: _GradientLinePainter(),
-                ),
+                child: CustomPaint(painter: _GradientLinePainter()),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -248,9 +249,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
   }
 
   void _submitSurvey() {
-    final surveyResponses = {
-      for (final q in questions) q.question: q.response,
-    };
+    final surveyResponses = {for (final q in questions) q.question: q.response};
 
     context.push(
       '/upload',

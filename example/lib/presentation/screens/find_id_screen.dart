@@ -1,84 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/find_id_viewmodel.dart';
-
-class _GradientButton extends StatefulWidget {
-  final Widget child;
-  final Gradient gradient;
-  final VoidCallback onPressed;
-  final double height;
-  final double borderRadius;
-
-  const _GradientButton({
-    required this.child,
-    required this.gradient,
-    required this.onPressed,
-    this.height = 55,
-    this.borderRadius = 12.0,
-  });
-
-  @override
-  _GradientButtonState createState() => _GradientButtonState();
-}
-
-class _GradientButtonState extends State<_GradientButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      lowerBound: 0.95,
-      upperBound: 1.0,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) => _controller.reverse();
-  void _onTapUp(TapUpDetails details) => _controller.forward();
-  void _onTapCancel() => _controller.forward();
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onTap: widget.onPressed,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            gradient: widget.gradient,
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.25),
-                spreadRadius: 2,
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Center(child: widget.child),
-        ),
-      ),
-    );
-  }
-}
 
 class FindIdScreen extends StatelessWidget {
   final String baseUrl;
@@ -92,127 +16,132 @@ class FindIdScreen extends StatelessWidget {
     final phoneController = TextEditingController();
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFB4D4FF), Color(0xFFA0C5FF)],
-          ),
+      backgroundColor: const Color(0xFFB4D4FF),
+      appBar: AppBar(
+        title: const Text('아이디 찾기', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF5F97F7),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/login'),
         ),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: const Text(
-              '아이디 찾기',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 24,
-                shadows: [
-                  Shadow(
-                    offset: Offset(1.0, 1.0),
-                    blurRadius: 3.0,
-                    color: Color.fromARGB(100, 0, 0, 0),
-                  ),
-                ],
-              ),
-            ),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.white),
-            centerTitle: true,
-          ),
-          body: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 50.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Image.asset('assets/images/tooth_character.png', height: 150),
-                  const SizedBox(height: 40),
-
-                  _buildInputField(
-                    context,
-                    controller: nameController,
-                    labelText: '이름',
-                    keyboardType: TextInputType.text,
-                    prefixIcon: Icons.person_outline,
-                  ),
-                  const SizedBox(height: 25),
-                  _buildInputField(
-                    context,
-                    controller: phoneController,
-                    labelText: '전화번호',
-                    keyboardType: TextInputType.phone,
-                    prefixIcon: Icons.phone_outlined,
-                  ),
-                  const SizedBox(height: 50),
-
-                  if (viewModel.isLoading)
-                    const Center(child: CircularProgressIndicator(color: Colors.white))
-                  else
-                    _GradientButton(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF6a9ce7), Color(0xFF4a7fd6)],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints:
+                  kIsWeb ? const BoxConstraints(maxWidth: 450) : const BoxConstraints(),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/images/tooth_character.png', height: 150),
+                    const SizedBox(height: 30),
+                    _buildInputField(
+                      context,
+                      controller: nameController,
+                      labelText: '이름',
+                      keyboardType: TextInputType.text,
+                      prefixIcon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildInputField(
+                      context,
+                      controller: phoneController,
+                      labelText: '전화번호',
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: Icons.phone_outlined,
+                    ),
+                    const SizedBox(height: 30),
+                    if (viewModel.isLoading)
+                      const Center(child: CircularProgressIndicator(color: Colors.blue))
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            await viewModel.findId(
+                              name: nameController.text.trim(),
+                              phone: phoneController.text.trim(),
+                            );
+                            if (viewModel.foundId != null && context.mounted) {
+                              context.push('/find-id-result', extra: viewModel.foundId);
+                            }
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.resolveWith((states) {
+                              return states.contains(WidgetState.pressed)
+                                  ? Colors.white
+                                  : const Color(0xFF5F97F7);
+                            }),
+                            foregroundColor: WidgetStateProperty.resolveWith((states) {
+                              return states.contains(WidgetState.pressed)
+                                  ? const Color(0xFF5F97F7)
+                                  : Colors.white;
+                            }),
+                            elevation: WidgetStateProperty.all(5),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            ),
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                          child: const Text(
+                            '아이디 찾기',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ),
-                      onPressed: () async {
-                        await viewModel.findId(
-                          name: nameController.text.trim(),
-                          phone: phoneController.text.trim(),
-                        );
-                        if (viewModel.foundId != null && context.mounted) {
-                          context.push('/find-id-result', extra: viewModel.foundId);
-                        }
-                      },
+                    const SizedBox(height: 30),
+                    if (viewModel.errorMessage != null)
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          key: const ValueKey('errorMessage'),
+                          viewModel.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFFF7070),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 30),
+                    TextButton(
+                      onPressed: () => context.go('/login'),
+                      style: TextButton.styleFrom(
+                        overlayColor: Colors.black12,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
                       child: const Text(
-                        '아이디 찾기',
+                        '로그인 화면으로 돌아가기',
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Color(0xFF3060C0),
+                          decoration: TextDecoration.underline,
+                          decorationColor: Color(0xFF3060C0),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  const SizedBox(height: 30),
-
-                  if (viewModel.errorMessage != null)
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(
-                        key: const ValueKey('errorMessage'),
-                        viewModel.errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFFFF7070),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(height: 60),
-                  TextButton(
-                    onPressed: () => context.go('/login'),
-                    style: TextButton.styleFrom(
-                      overlayColor: Colors.white.withOpacity(0.15),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                    child: const Text(
-                      '로그인 화면으로 돌아가기',
-                      style: TextStyle(
-                        color: Color(0xFF3060C0),
-                        decoration: TextDecoration.underline,
-                        decorationColor: Color(0xFF3060C0),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -228,50 +157,27 @@ class FindIdScreen extends StatelessWidget {
     TextInputType keyboardType = TextInputType.text,
     IconData? prefixIcon,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-          BoxShadow(
-            color: Colors.white.withOpacity(0.1),
-            spreadRadius: -2,
-            blurRadius: 5,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: labelText,
-          labelStyle: const TextStyle(color: Colors.white70, fontSize: 18),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.2),
-          prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.white70) : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15.0),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15.0),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.5), width: 1.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15.0),
-            borderSide: const BorderSide(color: Colors.white, width: 3.0),
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: const TextStyle(color: Colors.grey),
+        filled: true,
+        fillColor: const Color(0xFFF5F5F5),
+        prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: Colors.grey[700]) : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15.0),
+          borderSide: BorderSide.none,
         ),
-        keyboardType: keyboardType,
-        style: const TextStyle(color: Colors.white, fontSize: 19),
-        cursorColor: Colors.white,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15.0),
+          borderSide: const BorderSide(color: Color(0xFF5F97F7), width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
       ),
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.black87, fontSize: 16),
+      cursorColor: Colors.blue,
     );
   }
 }
