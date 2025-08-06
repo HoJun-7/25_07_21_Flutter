@@ -33,6 +33,7 @@ import '/presentation/screens/find_id_screen.dart';
 import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
+import '/presentation/screens/agreement_screen.dart'; // ✅ 약관 동의 추가
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -46,6 +47,10 @@ GoRouter createRouter(String baseUrl) {
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/agreement',
+        builder: (context, state) => AgreementScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/register',
@@ -363,3 +368,6 @@ GoRouter createRouter(String baseUrl) {
     ],
   );
 }
+
+
+
