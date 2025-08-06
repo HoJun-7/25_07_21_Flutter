@@ -193,6 +193,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final model1 = widget.modelInfos[1];
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
+    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -211,8 +212,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             _buildImageCard(),
             const SizedBox(height: 16),
             _buildSummaryCard(
-              model1Label: model1?['label'] ?? '감지되지 않음',
-              model1Confidence: model1?['confidence'] ?? 0.0,
+              model1DetectedLabels: model1DetectedLabels,
               model2Label: model2?['label'] ?? '감지되지 않음',
               model2Confidence: model2?['confidence'] ?? 0.0,
               model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
@@ -298,9 +298,32 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     );
   }
 
+  final Map<String, String> diseaseLabelMap = {
+    "충치 초기": "🔴",
+    "충치 중기": "🟢",
+    "충치 말기": "🔵",
+    "잇몸 염증 초기": "🟡",
+    "잇몸 염증 중기": "🟣",
+    "잇몸 염증 말기": "🟦",
+    "치주질환 초기": "🟧",
+    "치주질환 중기": "🟪",
+    "치주질환 말기": "⚫",
+  };
+
+  final Map<String, String> hygieneLabelMap = {
+    "아말감 (am)": "🔴",       // 진한 빨강 (눈에 띔)
+    "세라믹 (cecr)": "🟣",     // 보라색
+    "골드 (gcr)": "🟡",       // 노랑 (금 느낌)
+    "메탈크라운 (mcr)": "⚪", // 흰 원 (금속 느낌)
+    "교정장치 (ortho)": "⚫",  // 검정 원 (철 느낌)
+    "치석 단계1 (tar1)": "🟢", // 초록 (초기)
+    "치석 단계2 (tar2)": "🟠", // 주황 (중간)
+    "치석 단계3 (tar3)": "🔵", // 파랑 (심각)
+    "지르코니아 (zircr)": "🟤", // 갈색 (독립된 소재 느낌)
+  };
+
   Widget _buildSummaryCard({
-    required String model1Label,
-    required double model1Confidence,
+    required List<dynamic> model1DetectedLabels,
     required String model2Label,
     required double model2Confidence,
     required String model3ToothNumber,
@@ -319,9 +342,20 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
+
+            if (_showDisease) ...[
+              const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
+              ...model1DetectedLabels.map((label) {
+                final icon = diseaseLabelMap[label] ?? "❓";
+                return Text("$icon : $label", style: textTheme.bodyMedium);
+              }),
+              const SizedBox(height: 8),
+            ],
+            if (_showHygiene && hygieneLabelMap.containsKey(model2Label)) ...[
+              const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('${hygieneLabelMap[model2Label]} : $model2Label', style: textTheme.bodyMedium),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       );
