@@ -33,7 +33,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
 
     try {
-      // ✅ 진료 기록 URI
       final diagnosisUri = Uri.parse(
           '${widget.baseUrl}/inference_results?user_id=${user.registerId}&role=P');
       print('📡 진료 기록 URI: $diagnosisUri');
@@ -49,7 +48,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
         print('❌ 진료 기록 요청 실패');
       }
 
-      // ✅ 예약 내역 URI (user_id 포함)
       final reservationUri = Uri.parse(
           '${widget.baseUrl}/consult/list?user_id=${user.registerId}');
       print('📡 예약 내역 URI: $reservationUri');
@@ -66,6 +64,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         print('❌ 예약 내역 요청 실패');
       }
 
+      if (!mounted) return;
       setState(() {});
     } catch (e) {
       print('❌ 예외 발생: $e');
