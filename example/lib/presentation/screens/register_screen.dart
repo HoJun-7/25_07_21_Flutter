@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final userData = {
-      'register_id': _registerIdController.text.trim(), // ✅ 아이디
+      'username': _registerIdController.text.trim(), // ✅ 아이디
       'password': _passwordController.text.trim(),      // ✅ 비밀번호
       'name': _nameController.text.trim(),              // ✅ 이름
       'gender': _selectedGender,

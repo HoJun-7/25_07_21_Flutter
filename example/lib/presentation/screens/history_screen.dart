@@ -27,17 +27,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedIndex);
+    debugPrint('✅ HistoryScreen initState() 실행됨');
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final userId = context.read<AuthViewModel>().currentUser?.registerId;
+      debugPrint('✅ 사용자 ID 확인됨: $userId');
       if (userId != null) {
         await context.read<HistoryViewModel>().fetchRecords(userId);
+      } else {
+        debugPrint('⚠️ 사용자 ID가 null입니다.');
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('✅ HistoryScreen build() 실행됨');
+
     final viewModel = context.watch<HistoryViewModel>();
     final authViewModel = context.watch<AuthViewModel>();
     final currentUser = authViewModel.currentUser;
@@ -71,10 +77,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               onPageChanged: (index) => setState(() => _selectedIndex = index),
                               itemCount: statuses.length,
                               itemBuilder: (context, index) {
-                                final filtered = _filterRecords(
-                                  viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
-                                  statuses[index],
-                                );
+                                final userRecords = viewModel.records
+                                    .where((r) => r.userId.toString() == currentUser.registerId.toString())
+                                    .toList();
+                                final filtered = _filterRecords(userRecords, statuses[index]);
                                 return _buildRecordList(filtered, imageBaseUrl);
                               },
                             ),
@@ -86,6 +92,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   List<HistoryRecord> _filterRecords(List<HistoryRecord> all, String status) {
+    debugPrint('✅ 레코드 필터링: $status, 전체 ${all.length}개 중 필터링 시작');
+
     if (status == 'ALL') return all;
     if (status == '신청 안함') {
       return all.where((r) => r.isRequested == 'N').toList();
@@ -175,6 +183,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildRecordList(List<HistoryRecord> records, String imageBaseUrl) {
+    debugPrint('✅ _buildRecordList 호출됨: ${records.length}개 레코드 렌더링');
+
     records.sort((a, b) {
       final atime = _extractDateTimeFromFilename(a.originalImagePath);
       final btime = _extractDateTimeFromFilename(b.originalImagePath);
@@ -187,9 +197,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       itemBuilder: (context, index) {
         final record = records[index];
         final modelFilename = getModelFilename(record.originalImagePath);
-        final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(
-          _extractDateTimeFromFilename(record.originalImagePath),
-        );
+        final formattedTime = DateFormat('yyyy-MM-dd HH:mm')
+            .format(_extractDateTimeFromFilename(record.originalImagePath));
 
         final isXray = record.imageType == 'xray';
         final route = isXray ? '/history_xray_result_detail' : '/history_result_detail';
@@ -225,7 +234,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            title: Text('[$index] $formattedTime', style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text('[$index] $formattedTime',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -235,6 +245,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ],
             ),
             onTap: () {
+              debugPrint('🟦 진단 상세로 이동: ${record.id}, xray=${isXray}');
               context.push(
                 route,
                 extra: {
@@ -268,3 +279,4 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return path.split('/').last;
   }
 }
+

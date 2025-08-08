@@ -1,3 +1,4 @@
+// lib/services/router.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -16,9 +17,9 @@ import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
-import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/upload_xray_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
-import '/presentation/screens/history_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/history_xray_result_detail_screen.dart';
 import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
@@ -33,7 +34,7 @@ import '/presentation/screens/find_id_screen.dart';
 import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
-import '/presentation/screens/agreement_screen.dart'; // ✅ 약관 동의 추가
+import '/presentation/screens/agreement_screen.dart';
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -74,7 +75,7 @@ GoRouter createRouter(String baseUrl) {
         path: '/find_password',
         builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
-            GoRoute(
+      GoRoute(
         path: '/find-password-result',
         builder: (context, state) => const FindPasswordResultScreen(),
       ),
@@ -142,27 +143,39 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
-          GoRoute(
-            path: '/d_result_detail', // ✅ 이름 없이 path만 사용
-            builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
 
-              if (extra == null ||
-                  !extra.containsKey('userId') ||
-                  !extra.containsKey('imagePath') ||
-                  !extra.containsKey('baseUrl')) {
+          // ✅ 의사 진단 상세 (requestId 안전 파싱)
+          GoRoute(
+            path: '/d_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final userId = extra['userId']?.toString();
+              final imagePath = extra['imagePath']?.toString();
+              final requestId = extra['requestId'] == null
+                  ? null
+                  : int.tryParse(extra['requestId'].toString());
+
+              if (userId == null || imagePath == null || requestId == null) {
+                debugPrint('❌ /d_result_detail extra 누락/형식오류: $extra');
                 return const Scaffold(
                   body: Center(child: Text('잘못된 접근입니다')),
                 );
               }
 
+              // 의사 register_id는 로그인 사용자에서 가져옴
+              final auth = Provider.of<AuthViewModel>(context, listen: false);
+              final doctorRegisterId = auth.currentUser?.registerId ?? '';
+
               return DResultDetailScreen(
-                userId: extra['userId'] as String,
-                originalImageUrl: extra['imagePath'] as String,
-                baseUrl: extra['baseUrl'] as String,
+                userId: userId,
+                originalImageUrl: imagePath, // '/images/original/...'
+                baseUrl: baseUrl,            // 예: 'http://192.168.0.135:5000/api'
+                requestId: requestId,        // int
+                doctorRegisterId: doctorRegisterId,
               );
             },
           ),
+
           GoRoute(
             path: '/d_telemedicine_application',
             builder: (context, state) {
@@ -186,22 +199,24 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot', 
-          builder: (context, state) => const ChatbotScreen()
+          GoRoute(
+            path: '/chatbot',
+            builder: (context, state) => const ChatbotScreen(),
           ),
           GoRoute(
             path: '/multimodal_result',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
               final responseText = extra?['responseText'] ?? '응답이 없습니다.';
-              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
+              return MultimodalResponseScreen(responseText: responseText);
             },
           ),
           GoRoute(
             path: '/home',
             builder: (context, state) {
-              final authViewModel = state.extra as Map<String, dynamic>?;
-              final userId = authViewModel?['userId'] ?? 'guest';
+              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+              final currentUser = authViewModel.currentUser;
+              final userId = currentUser?.registerId ?? 'guest';
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
           ),
@@ -241,9 +256,9 @@ GoRouter createRouter(String baseUrl) {
             path: '/upload',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
-              final baseUrl = extra['baseUrl'] as String? ?? '';
+              final b = extra['baseUrl'] ?? '';
               final survey = extra['survey'] as Map<String, int>? ?? {};
-              return UploadScreen(baseUrl: baseUrl, survey: survey);
+              return UploadScreen(baseUrl: b, survey: survey);
             },
           ),
           GoRoute(
@@ -274,7 +289,10 @@ GoRouter createRouter(String baseUrl) {
               return ConsultResultScreen(type: type);
             },
           ),
-          GoRoute(path: '/clinics', builder: (context, state) => const ClinicsScreen()),
+          GoRoute(
+            path: '/clinics',
+            builder: (context, state) => const ClinicsScreen(),
+          ),
           GoRoute(
             path: '/camera',
             builder: (context, state) {
@@ -346,7 +364,6 @@ GoRouter createRouter(String baseUrl) {
                 (key, value) => MapEntry(int.parse(key.toString()), Map<String, dynamic>.from(value)),
               );
 
-              // ✅ 문자열로 명확히 변환
               final String isRequested = (extra['isRequested'] ?? 'N').toString();
               final String isReplied = (extra['isReplied'] ?? 'N').toString();
 
@@ -368,6 +385,7 @@ GoRouter createRouter(String baseUrl) {
     ],
   );
 }
+
 
 
 

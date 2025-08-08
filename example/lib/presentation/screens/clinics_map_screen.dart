@@ -24,14 +24,38 @@ class _ClinicsMapScreenState extends State<ClinicsMapScreen> {
 
   Future<void> _setCurrentLocation() async {
     final location = Location();
+
+    // 사용자에게 위치 권한 사용 안내 다이얼로그
+    final agree = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('위치 권한 요청'),
+        content: const Text('현재 위치를 기반으로 주변 치과를 추천합니다.\n위치 정보 사용에 동의하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('거부'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('허용'),
+          ),
+        ],
+      ),
+    );
+
+    if (agree != true) return; // 사용자가 동의하지 않으면 종료
+
     if (!await location.serviceEnabled()) {
       if (!await location.requestService()) return;
     }
+
     var permission = await location.hasPermission();
     if (permission == PermissionStatus.denied) {
       permission = await location.requestPermission();
       if (permission != PermissionStatus.granted) return;
     }
+
     final locData = await location.getLocation();
     setState(() {
       _initialCenter = LatLng(locData.latitude!, locData.longitude!);
@@ -86,66 +110,73 @@ class _ClinicsMapScreenState extends State<ClinicsMapScreen> {
       );
     }).toList();
 
-    return Container(
-      color: const Color(0xFFA9CCF7),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 2,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(center: _initialCenter, zoom: 13.0),
-                children: [
-                  TileLayer(
-                    urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    userAgentPackageName: 'com.example.toothapp',
-                  ),
-                  MarkerLayer(markers: markers),
-                ],
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _setCurrentLocation,
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.my_location),
+      ),
+      body: Container(
+        color: const Color(0xFFA9CCF7),
+        child: Column(
+          children: [
+            Expanded(
+              flex: 2,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(center: _initialCenter, zoom: 13.0),
+                  children: [
+                    TileLayer(
+                      urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      userAgentPackageName: 'com.example.toothapp',
+                    ),
+                    MarkerLayer(markers: markers),
+                  ],
+                ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: viewModel.clinics.length,
-              itemBuilder: (context, index) {
-                final clinic = viewModel.clinics[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.black12),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    title: Text(clinic.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(clinic.address),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      _mapController.move(LatLng(clinic.lat, clinic.lng), 15.0);
-                      _showClinicDetails(context, clinic);
-                    },
-                  ),
-                );
-              },
+            Expanded(
+              flex: 1,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: viewModel.clinics.length,
+                itemBuilder: (context, index) {
+                  final clinic = viewModel.clinics[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      title: Text(clinic.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(clinic.address),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        _mapController.move(LatLng(clinic.lat, clinic.lng), 15.0);
+                        _showClinicDetails(context, clinic);
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -198,7 +229,11 @@ class _ClinicsMapScreenState extends State<ClinicsMapScreen> {
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onPressed}) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
     return Column(
       children: [
         ElevatedButton(
@@ -217,3 +252,4 @@ class _ClinicsMapScreenState extends State<ClinicsMapScreen> {
     );
   }
 }
+

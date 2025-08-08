@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '/presentation/model/doctor/d_patient.dart'; // d_patient.dart 모델 임포트
 
+
 class DPatientViewModel with ChangeNotifier {
   final String _baseUrl;
   List<Patient> _patients = [];

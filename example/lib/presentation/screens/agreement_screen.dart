@@ -43,7 +43,7 @@ class _AgreementScreenState extends State<AgreementScreen>
 
   void _goToRegister() {
     if (isAllAgreed) {
-      context.go('/register'); // router.dart의 register 경로로 이동
+      context.go('/register');
     }
   }
 
@@ -58,45 +58,92 @@ class _AgreementScreenState extends State<AgreementScreen>
     required bool value,
     required Function(bool?) onChanged,
   }) {
-    return CheckboxListTile(
-      title: Text(label, style: const TextStyle(fontSize: 16)),
-      value: value,
-      onChanged: onChanged,
-      controlAffinity: ListTileControlAffinity.leading,
+    return Row(
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: onChanged,
+        ),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFE3F2FD), // 회원가입과 통일된 배경색
       appBar: AppBar(
+        backgroundColor: const Color(0xFF90CAF9),
         title: const Text('약관 동의'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '이용약관'),
-            Tab(text: '개인정보 수집·이용'),
-          ],
-        ),
+        centerTitle: true,
+        elevation: 0,
       ),
       body: Column(
         children: [
+          const SizedBox(height: 20),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                termsHtmlContent.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(child: Html(data: termsHtmlContent)),
-                appendixHtmlContent.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(child: Html(data: appendixHtmlContent)),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF0F4FF),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: Colors.black,
+                        labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        unselectedLabelColor: Colors.grey,
+                        tabs: const [
+                          Tab(text: '이용약관'),
+                          Tab(text: '개인정보 수집·이용'),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          termsHtmlContent.isEmpty
+                              ? const Center(child: CircularProgressIndicator())
+                              : Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: SingleChildScrollView(
+                                    child: Html(data: termsHtmlContent),
+                                  ),
+                                ),
+                          appendixHtmlContent.isEmpty
+                              ? const Center(child: CircularProgressIndicator())
+                              : Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: SingleChildScrollView(
+                                    child: Html(data: appendixHtmlContent),
+                                  ),
+                                ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const Divider(),
+          const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
                 _buildCheckboxTile(
@@ -109,15 +156,23 @@ class _AgreementScreenState extends State<AgreementScreen>
                   value: isPrivacyChecked,
                   onChanged: (val) => setState(() => isPrivacyChecked = val ?? false),
                 ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: isAllAgreed ? _goToRegister : null,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    backgroundColor: isAllAgreed ? Colors.blue : Colors.grey,
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: isAllAgreed ? _goToRegister : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isAllAgreed ? const Color(0xFF42A5F5) : Colors.grey.shade400,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('다음'),
                   ),
-                  child: const Text('다음'),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -126,4 +181,6 @@ class _AgreementScreenState extends State<AgreementScreen>
     );
   }
 }
+
+
 

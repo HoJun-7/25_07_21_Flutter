@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/model/doctor/d_history.dart';
 import 'doctor_drawer.dart';
@@ -53,7 +54,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     _pageController = PageController(initialPage: _selectedIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DoctorHistoryViewModel>().fetchConsultRecords(); // ✅ 수정됨
+      context.read<DoctorHistoryViewModel>().fetchConsultRecords();
 
       final extra = GoRouterState.of(context).extra;
       if (extra is Map && extra.containsKey('initialTab')) {
@@ -117,11 +118,11 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        context.go('/d_home'); // ✅ 뒤로가기 시 홈으로 이동
-        return false; // 뒤로가기 기본 동작 막기
+        context.go('/d_home');
+        return false;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false, // ✅ ← 이 줄을 여기 삽입
+        resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFAAD0F8),
         appBar: AppBar(
           title: const Text('비대면 진료 신청 현황'),
@@ -171,7 +172,6 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
       ),
     );
   }
-
 
   Widget _buildSearchBar() {
     return Container(
@@ -266,7 +266,11 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     );
   }
 
-  Widget _buildListView(List<DoctorHistoryRecord> records, List<DoctorHistoryRecord> paginated, int totalPages) {
+  Widget _buildListView(
+    List<DoctorHistoryRecord> records,
+    List<DoctorHistoryRecord> paginated,
+    int totalPages,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -290,14 +294,33 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                       final patient = paginated[i];
                       return InkWell(
                         onTap: () {
-                          print('🧪 userId: ${patient.userId}');
-                          print('🧪 imagePath: ${patient.originalImagePath}');
-                          print('🧪 baseUrl: ${widget.baseUrl}');
+                          // 안전한 경로 선택: consult/list와 inference 모두 커버
+                          final imgPath = patient.originalImagePath
+                              ?? patient.imagePath
+                              ?? patient.originalImageUrl
+                              ?? '';
+
+                          final reqId = patient.requestId;
+
+                          // 디버그 로그
+                          debugPrint('🧪 userId: ${patient.userId}');
+                          debugPrint('🧪 imagePath: $imgPath');
+                          debugPrint('🧪 baseUrl: ${widget.baseUrl}');
+                          debugPrint('🧪 requestId: $reqId');
+
+                          if (reqId == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('해당 항목에 requestId가 없어 상세로 이동할 수 없습니다.')),
+                            );
+                            return;
+                          }
+
                           context.push(
                             '/d_result_detail',
                             extra: {
                               'userId': patient.userId,
-                              'imagePath': patient.originalImagePath ?? '',
+                              'imagePath': imgPath,
+                              'requestId': reqId,       // ✅ 필수 추가
                               'baseUrl': widget.baseUrl,
                             },
                           );
@@ -308,7 +331,10 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                             children: [
                               const Icon(Icons.person_outline),
                               const SizedBox(width: 12),
-                              Text(patient.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(
+                                patient.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
                               const SizedBox(width: 12),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
