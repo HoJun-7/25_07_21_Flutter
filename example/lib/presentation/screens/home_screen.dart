@@ -46,22 +46,6 @@ class HomeScreen extends StatelessWidget {
         appBar: AppBar(
           title: Row(
             mainAxisSize: MainAxisSize.min, // Row의 크기를 자식 위젯에 맞게 최소화
-            children: [
-              // MediTooth 로고 이미지 (앱 바 타이틀 옆)
-              Image.asset(
-                'assets/images/meditooth_logo.png', // 로고 이미지 경로
-                height: 30, // 로고 높이 조정
-              ),
-              const SizedBox(width: 8), // 로고와 텍스트 사이 간격
-              const Text(
-                'MediTooth', // 앱 이름
-                style: TextStyle(
-                  fontWeight: FontWeight.bold, // 폰트 굵게
-                  color: Colors.white, // 텍스트 색상 흰색
-                  fontSize: 22, // 폰트 크기
-                ),
-              ),
-            ],
           ),
           centerTitle: true, // 제목을 앱 바 중앙에 배치
           backgroundColor: Colors.transparent, // 앱 바 배경색을 투명하게
@@ -101,7 +85,6 @@ class HomeScreen extends StatelessWidget {
                         Image.asset(
                           'assets/images/meditooth_logo.png', // 로고 이미지 경로
                           height: 120, // 로고 높이 증가
-                          color: Colors.white, // 로고 색상 흰색 (배경과 대비되도록)
                         ),
                         const SizedBox(height: 20), // 로고와 슬로건 사이 간격
                         const Text(

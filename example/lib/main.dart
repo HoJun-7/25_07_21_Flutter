@@ -18,9 +18,9 @@ import 'dart:io' if (dart.library.html) 'stub.dart'; // ✅ https, HttpOverrides
 import 'core/theme/app_theme.dart';
 
 void main() {
-  const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
+  //const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
   // const String globalBaseUrl = "https://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //flutter build Web 할때
-  // const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
+  const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
 
   if (!kIsWeb) {
     HttpOverrides.global = MyHttpOverrides(); // ✅ 웹이 아닐 때만 실행
