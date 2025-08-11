@@ -141,12 +141,23 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     }
   }
 
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb', // ← 로컬 에셋 경로로 변경
+    });
+  }
 
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
     final authViewModel = context.read<AuthViewModel>();
     final token = await authViewModel.getAccessToken();
-    if (token == null) return;
+    if (token == null) {
+      setState(() => _isLoadingGemini = false); // ← 추가
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('인증 토큰이 없습니다. 다시 로그인해주세요.')),
+      );
+      return;
+    }
 
     final model1 = widget.modelInfos[1];
     final model2 = widget.modelInfos[2];
@@ -231,6 +242,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest),
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
             ]
           ],
         ),

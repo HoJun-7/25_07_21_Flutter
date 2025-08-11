@@ -179,8 +179,9 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('그렇다', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+            // ← 왼쪽: 그렇지 않다 / 오른쪽: 그렇다
             Text('그렇지 않다', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            Text('그렇다', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
           ],
         ),
         const SizedBox(height: 10),
@@ -191,15 +192,17 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             children: [
               Positioned.fill(
                 child: CustomPaint(
+                  // 그라데이션도 좌→우 = 초록 → 노랑
                   painter: _GradientLinePainter(),
                 ),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(5, (index) {
-                  final value = index + 1;
+                  final value = index + 1; // 왼쪽 1 → 오른쪽 5
                   final isSelected = question.response == value;
-                  final color = Color.lerp(Colors.amber, Colors.green, index / 4)!;
+                  // 색상도 초록→노랑으로 진행
+                  final color = Color.lerp(Colors.green, Colors.amber, index / 4)!;
                   final size = outerSizes[index];
 
                   return GestureDetector(
@@ -266,16 +269,14 @@ class _GradientLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..shader = const LinearGradient(colors: [Colors.amber, Colors.green])
+      ..shader = const LinearGradient(colors: [Colors.green, Colors.amber])
           .createShader(Rect.fromLTWH(0, 0, size.width, 0))
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawLine(
-      Offset(14, size.height / 2),
-      Offset(size.width - 14, size.height / 2),
-      paint,
-    );
+    // ✅ 중앙 한 줄만 그림
+    final y = size.height / 2;
+    canvas.drawLine(Offset(14, y), Offset(size.width - 14, y), paint);
   }
 
   @override

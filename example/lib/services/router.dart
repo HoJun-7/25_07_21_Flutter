@@ -33,6 +33,7 @@ import '/presentation/screens/find_id_screen.dart';
 import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
+import '/presentation/screens/dental_viewer_screen.dart';
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -198,6 +199,15 @@ GoRouter createRouter(String baseUrl) {
               final authViewModel = state.extra as Map<String, dynamic>?;
               final userId = authViewModel?['userId'] ?? 'guest';
               return HomeScreen(baseUrl: baseUrl, userId: userId);
+            },
+          ),
+          GoRoute(
+            path: '/dental_viewer',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?; 
+              final glbUrl = extra?['glbUrl'] 
+                  ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
+              return DentalViewerScreen(glbUrl: glbUrl);
             },
           ),
           GoRoute(
