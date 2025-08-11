@@ -1,3 +1,5 @@
+// C:\Users\302-15\Desktop\25_07_21_Flutter-2\example\lib\presentation\viewmodel\doctor\d_dashboard_viewmodel.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -10,9 +12,8 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   String doctorName = '';
 
   List<FlSpot> _lineData = [];
-  Map<String, double> _categoryRatio = {};
 
-  Map<String, double> get categoryRatio => _categoryRatio;
+  List<FlSpot> get lineData => _lineData;
 
   List<LineChartBarData> get chartData => [
     LineChartBarData(
@@ -22,28 +23,9 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         colors: [Colors.blueAccent, Colors.lightBlueAccent],
       ),
       barWidth: 3,
-      dotData: FlDotData(show: false),
+      dotData: const FlDotData(show: true),
     ),
   ];
-
-  List<PieChartSectionData> get pieChartSections {
-    final total = _categoryRatio.values.fold(0.0, (a, b) => a + b);
-    if (total == 0) return [];
-
-    return _categoryRatio.entries.mapIndexed((i, entry) {
-      return PieChartSectionData(
-        color: getCategoryColor(i),
-        value: entry.value,
-        title: '${((entry.value / total) * 100).toStringAsFixed(1)}%',
-        radius: 50,
-        titleStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    }).toList();
-  }
 
   Future<void> loadDashboardData(String baseUrl) async {
     final today = DateTime.now();
@@ -62,35 +44,33 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         doctorName = '김닥터'; // TODO: 백엔드에서 닥터 이름도 전달하도록 개선
       } else {
         debugPrint("❌ 통계 데이터 로딩 실패: ${response.statusCode}");
+        requestsToday = 0;
+        answeredToday = 0;
+        unreadNotifications = 0;
       }
 
-      // 차트 데이터 및 카테고리도 추후 API 연동 예정 → 현재는 0으로 초기화
-      _lineData = [];
-      _categoryRatio = {};
+      // '오늘의 요청' 데이터를 기반으로 최근 7일 차트 데이터 생성
+      // 이 부분은 실제 API 연동 시 API 응답에 맞게 수정해야 합니다.
+      // 현재는 requestsToday 값을 사용하여 오늘의 데이터만 설정합니다.
+      _lineData = [
+        const FlSpot(0, 0), // 6일 전 (가상 데이터)
+        const FlSpot(1, 1), // 5일 전 (가상 데이터)
+        const FlSpot(2, 2), // 4일 전 (가상 데이터)
+        const FlSpot(3, 3), // 3일 전 (가상 데이터)
+        const FlSpot(4, 5), // 2일 전 (가상 데이터)
+        const FlSpot(5, 7), // 어제 (가상 데이터)
+        FlSpot(6, requestsToday.toDouble()), // 오늘 데이터 (오늘의 요청과 연동)
+      ];
 
       notifyListeners();
     } catch (e) {
       debugPrint("❌ loadDashboardData 예외 발생: $e");
+      // 예외 발생 시에도 기본값으로 초기화
+      requestsToday = 0;
+      answeredToday = 0;
+      unreadNotifications = 0;
+      _lineData = [];
+      notifyListeners();
     }
-  }
-
-  Color getCategoryColor(int index) {
-    const colors = [
-      Colors.blue,
-      Colors.orange,
-      Colors.green,
-      Colors.purple,
-      Colors.teal,
-      Colors.red,
-    ];
-    return colors[index % colors.length];
-  }
-}
-
-// mapIndexed 확장
-extension MapIndexedExtension<E> on Iterable<E> {
-  Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
-    int i = 0;
-    return map((e) => f(i++, e));
   }
 }

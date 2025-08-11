@@ -1,8 +1,10 @@
+// C:\Users\302-15\Desktop\25_07_21_Flutter-2\example\lib\presentation\screens\doctor\d_real_home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:collection/collection.dart'; // mapIndexed 사용을 위해 추가
+// import 'package:collection/collection.dart'; // mapIndexed 사용하지 않으므로 제거
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
 import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
@@ -48,47 +50,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
     return shouldExit ?? false;
   }
-
-  // 범례를 그리는 위젯
-  Widget _buildCategoryLegend(DoctorDashboardViewModel vm) {
-    // 범례를 흰색 네모 박스 안에 넣기 위해 Card 위젯 사용
-    return Card(
-      elevation: 4, // 그림자 효과
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 둥근 모서리
-      margin: const EdgeInsets.symmetric(horizontal: 0), // 좌우 마진 제거 (Center 위젯이 처리)
-      child: Padding(
-        padding: const EdgeInsets.all(16.0), // 내부 패딩
-        child: Wrap( // Wrap을 사용하여 공간이 부족할 경우 다음 줄로 넘어가도록
-          alignment: WrapAlignment.center, // 가운데 정렬
-          spacing: 16.0, // 각 항목 간 가로 간격
-          runSpacing: 8.0, // 각 줄 간 세로 간격
-          children: IterableExtension<MapEntry<String, double>>(vm.categoryRatio.entries).mapIndexed((index, entry) {
-            return Row(
-              mainAxisSize: MainAxisSize.min, // Row의 크기를 내용물에 맞춤
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: vm.getCategoryColor(index), // ViewModel에서 색상 가져오기
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${entry.key} (${((entry.value / vm.categoryRatio.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(1)}%)',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black87, // 범례 텍스트 색상을 흰색 배경에 어울리게 변경 (이미 검은색 계열)
-                        ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -197,35 +158,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       height: 200,
                       child: const _LineChartWidget(),
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      '진료 카테고리 비율',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      height: 200,
-                      child: const _PieChartWidget(),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: _buildCategoryLegend(vm),
-                    ),
+                    // 진료 카테고리 비율 섹션 제거
                   ],
                 ),
               ),
@@ -351,17 +284,11 @@ class _LineChartWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
+    final maxY = vm.lineData.isNotEmpty ? vm.lineData.map((e) => e.y).reduce((a, b) => a > b ? a : b) : 1;
+    
     return LineChart(
       LineChartData(
-        lineBarsData: vm.chartData.map((lineBarData) {
-          // 라인 색상 및 두께 조정 (예시)
-          return lineBarData.copyWith(
-            color: Colors.blueAccent, // 라인 차트 색상 변경
-            barWidth: 3,
-            isCurved: true, // 곡선 형태로 변경
-            dotData: const FlDotData(show: true), // 점 표시
-          );
-        }).toList(),
+        lineBarsData: vm.chartData,
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -388,7 +315,7 @@ class _LineChartWidget extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: 2,
+              interval: maxY > 5 ? (maxY / 5).ceilToDouble() : 1, // 최대값에 따라 간격 동적 조정
               getTitlesWidget: (value, meta) {
                 return Text(
                   value.toInt().toString(),
@@ -420,55 +347,7 @@ class _LineChartWidget extends StatelessWidget {
         minX: 0,
         maxX: 6,
         minY: 0,
-        maxY: 20,
-      ),
-    );
-  }
-}
-
-// -------------------------
-// Pie Chart Widget
-// -------------------------
-class _PieChartWidget extends StatelessWidget {
-  const _PieChartWidget({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final vm = Provider.of<DoctorDashboardViewModel>(context);
-
-    // 파이 차트 섹션의 색상 정의 (화면 배경과 어울리는 파스텔톤)
-    final List<Color> pieChartColors = [
-      Colors.lightBlue.shade300, // 연한 파랑
-      Colors.orange.shade300,    // 연한 주황
-      Colors.lightGreen.shade300, // 연한 초록
-      Colors.purple.shade300,    // 연한 보라
-      Colors.teal.shade300,      // 연한 청록 (기타 카테고리)
-    ];
-
-    return PieChart(
-      PieChartData(
-        sections: vm.pieChartSections.mapIndexed((index, section) {
-          // VM의 pieChartSections에는 이미 원본 데이터가 있으므로,
-          // 여기서는 색상만 새로 정의된 pieChartColors에서 가져와 덮어씌웁니다.
-          // 범위를 벗어나는 인덱스를 처리하기 위해 % 연산 사용.
-          final color = pieChartColors[index % pieChartColors.length];
-          return section.copyWith(
-            color: color, // 파이 차트 색상 수정 적용
-            titleStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.white, // 파이 차트 섹션 내부 텍스트는 흰색 유지 (색상 대비)
-              shadows: [Shadow(color: Colors.black, blurRadius: 2)],
-            ),
-          );
-        }).toList(),
-        centerSpaceRadius: 40,
-        sectionsSpace: 4,
-        borderData: FlBorderData(show: false),
-        // 터치 동작 추가 (선택 효과) - 필요시 구현
-        // pieTouchData: PieTouchData(touchCallback: (FlTouchEvent event, pieTouchResponse) {
-        //   // 터치 이벤트 처리 로직
-        // }),
+        maxY: maxY + (maxY * 0.1), // 최대값보다 조금 더 크게 설정하여 여백 확보
       ),
     );
   }
