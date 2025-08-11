@@ -194,6 +194,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
     final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
+    final List<String> model2DetectedLabels = (model2?['detected_labels'] as List? ?? []).map((e) => e.toString().trim()).toList(); // ← 여기에
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -213,11 +214,13 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             const SizedBox(height: 16),
             _buildSummaryCard(
               model1DetectedLabels: model1DetectedLabels,
+              model2DetectedLabels: model2DetectedLabels,   // ✅ 추가
+              textTheme: textTheme,
+              // 아래 3개는 안 쓸거면 지워도 됨(컴파일 영향 없게면 시그니처도 같이 정리)
               model2Label: model2?['label'] ?? '감지되지 않음',
               model2Confidence: model2?['confidence'] ?? 0.0,
               model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
               model3Confidence: model3?['confidence'] ?? 0.0,
-              textTheme: textTheme,
             ),
             const SizedBox(height: 24),
             if (currentUser?.role == 'P') ...[
@@ -255,11 +258,11 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               else
                 const Center(child: CircularProgressIndicator()),
               if (_showDisease && overlay1Bytes != null)
-                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay1Bytes!, fit: BoxFit.fill),
               if (_showHygiene && overlay2Bytes != null)
-                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay2Bytes!, fit: BoxFit.fill),
               if (_showToothNumber && overlay3Bytes != null)
-                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay3Bytes!, fit: BoxFit.fill),
             ],
           ),
         ),
@@ -299,66 +302,84 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   }
 
   final Map<String, String> diseaseLabelMap = {
-    "충치 초기": "🔴",
-    "충치 중기": "🟢",
-    "충치 말기": "🔵",
-    "잇몸 염증 초기": "🟡",
-    "잇몸 염증 중기": "🟣",
-    "잇몸 염증 말기": "🟦",
-    "치주질환 초기": "🟧",
-    "치주질환 중기": "🟪",
-    "치주질환 말기": "⚫",
+    "충치 초기": "🔴",       // 빨강
+    "충치 중기": "🟡",       // 노랑
+    "충치 말기": "🟠",       // 주황
+    "잇몸 염증 초기": "🔵",   // 파랑
+    "잇몸 염증 중기": "🟢",   // 초록
+    "잇몸 염증 말기": "⚪",   // 흰색
+    "치주질환 초기": "⚫",    // 검은색
+    "치주질환 중기": "🟩",    // 연두
+    "치주질환 말기": "🟣",    // 보라
   };
 
   final Map<String, String> hygieneLabelMap = {
-    "골드 (gcr)": "🔴",       // 진한 빨강 (눈에 띔)
-    "교정장치 (otrho)": "🟣",     // 보라색
-    "메탈크라운 (mcd)": "🟡",       // 노랑 (금 느낌)
-    "아말감 (am)": "⚪", // 흰 원 (금속 느낌)
-    "세라믹 (cecr)": "⚫",  // 검정 원 (철 느낌)
-    "지르코니아 (zircr)": "🟢", // 초록 (초기)
-    "치석 단계1 (tar1)": "🟠", // 주황 (중간)
-    "치석 단계2 (tar2)": "🔵", // 파랑 (심각)
-    "치석 단계3 (tar3)": "🟤", // 갈색 (독립된 소재 느낌)
+    "교정장치 (ortho)": "🔴",   // id 0 (crimson)
+    "골드 (gcr)": "🟣",        // id 1 (purple)
+    "메탈크라운 (mcr)": "🟡",  // id 2 (gold/yellow)
+    "세라믹 (cecr)": "⚪",      // id 3 (white)
+    "아말감 (am)": "⚫",        // id 4 (black)
+    "지르코니아 (zircr)": "🟢", // id 5 (green)
+    "치석 단계1 (tar1)": "🟠",  // id 6 (orange)
+    "치석 단계2 (tar2)": "🔵",  // id 7 (blue)
+    "치석 단계3 (tar3)": "🟤",  // id 8 (brown)
   };
 
   Widget _buildSummaryCard({
     required List<dynamic> model1DetectedLabels,
+    required List<dynamic> model2DetectedLabels, // ✅ 추가
     required String model2Label,
     required double model2Confidence,
     required String model3ToothNumber,
     required double model3Confidence,
     required TextTheme textTheme,
-  }) =>
-      Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+  }) {
+    final filteredDiseaseLabels = _showDisease ? model1DetectedLabels : <dynamic>[];
 
-            if (_showDisease) ...[
-              const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
-              ...model1DetectedLabels.map((label) {
-                final icon = diseaseLabelMap[label] ?? "❓";
-                return Text("$icon : $label", style: textTheme.bodyMedium);
-              }),
-              const SizedBox(height: 8),
-            ],
-            if (_showHygiene && hygieneLabelMap.containsKey(model2Label)) ...[
-              const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
-              Text('${hygieneLabelMap[model2Label]} : $model2Label', style: textTheme.bodyMedium),
-              const SizedBox(height: 8),
-            ],
+    // ✅ 모델2 다중 라벨 처리 + 중복 제거 + 맵에 있는 것만 표시
+    final List<String> hygieneLabels = _showHygiene
+        ? model2DetectedLabels
+            .whereType<String>()
+            .where((l) => hygieneLabelMap.containsKey(l))
+            .toSet() // 중복 제거
+            .toList()
+        : <String>[];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+
+          if (filteredDiseaseLabels.isNotEmpty) ...[
+            const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
+            ...filteredDiseaseLabels.map((label) {
+              final icon = diseaseLabelMap[label] ?? "❓";
+              return Text("$icon : $label", style: textTheme.bodyMedium);
+            }),
+            const SizedBox(height: 8),
           ],
-        ),
-      );
+
+          // ✅ 치석/보철물: 여러 라벨 나열
+          if (_showHygiene) ...[
+            const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (hygieneLabels.isNotEmpty)
+              ...hygieneLabels.map((l) => Text("${hygieneLabelMap[l]} : $l", style: textTheme.bodyMedium))
+            else
+              Text('감지되지 않음', style: textTheme.bodyMedium),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) {
     return ElevatedButton.icon(
