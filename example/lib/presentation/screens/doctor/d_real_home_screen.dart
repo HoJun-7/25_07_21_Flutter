@@ -4,10 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
-// import 'package:collection/collection.dart'; // mapIndexed 사용하지 않으므로 제거
-
-import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
-import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
+import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
+import '/presentation/screens/doctor/doctor_drawer.dart';
 
 // -------------------------
 // DRealHomeScreen (Dashboard Home)
@@ -53,24 +51,23 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 요청하신 배경색 고정
     const Color backgroundColor = Color(0xFFAAD0F8);
 
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: backgroundColor, // ✅ 배경 색상 고정 적용
+        backgroundColor: backgroundColor,
         drawer: DoctorDrawer(baseUrl: widget.baseUrl),
         appBar: AppBar(
           title: Consumer<DoctorDashboardViewModel>(
             builder: (_, vm, __) => Text(
               '${vm.doctorName} 대시보드',
-              style: const TextStyle(color: Colors.white), // 앱바 타이틀은 흰색 유지 (배경 대비)
+              style: const TextStyle(color: Colors.white),
             ),
           ),
-          iconTheme: const IconThemeData(color: Colors.white), // 햄버거 메뉴 아이콘은 흰색 유지 (배경 대비)
-          backgroundColor: Colors.transparent, // 앱바 배경 투명
-          elevation: 0, // 앱바 그림자 제거
+          iconTheme: const IconThemeData(color: Colors.white),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           actions: [
             Consumer<DoctorDashboardViewModel>(
               builder: (_, vm, __) => Stack(
@@ -81,7 +78,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       // TODO: 알림 화면 이동 처리
                     },
                     tooltip: '알림',
-                    color: Colors.white, // 알림 아이콘은 흰색 유지 (배경 대비)
+                    color: Colors.white,
                   ),
                   if (vm.unreadNotifications > 0)
                     Positioned(
@@ -158,7 +155,10 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       height: 200,
                       child: const _LineChartWidget(),
                     ),
-                    // 진료 카테고리 비율 섹션 제거
+                    const SizedBox(height: 24),
+                    _buildTodaysSchedule(vm),
+                    const SizedBox(height: 24),
+                    _buildRecentRequests(vm),
                   ],
                 ),
               ),
@@ -179,7 +179,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             count: vm.requestsToday,
             icon: Icons.request_page,
             color: Colors.blue.shade700,
-            tabFilter: 'ALL', // ✅
+            tabFilter: 'ALL',
           ),
         ),
         const SizedBox(width: 12),
@@ -189,7 +189,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             count: vm.unreadNotifications,
             icon: Icons.notifications_active,
             color: Colors.orange.shade700,
-            tabFilter: '진단 대기', // ✅
+            tabFilter: '진단 대기',
           ),
         ),
         const SizedBox(width: 12),
@@ -199,7 +199,122 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             count: vm.answeredToday,
             icon: Icons.done_all,
             color: Colors.green.shade700,
-            tabFilter: '진단 완료', // ✅
+            tabFilter: '진단 완료',
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ 수정된 오늘의 진료 스케줄 섹션
+  Widget _buildTodaysSchedule(DoctorDashboardViewModel vm) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '오늘의 진료 스케줄',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: () {
+            // ✅ 진료 캘린더 화면으로 이동하는 코드
+            context.push('/d_schedule');
+          },
+          child: Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month, size: 36, color: Colors.purple.shade700),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${vm.todaysScheduleCount}건의 스케줄이 예정되어 있습니다.',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '클릭하여 상세 스케줄을 확인하세요.',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // 최근 5건의 진료 요청 섹션
+  Widget _buildRecentRequests(DoctorDashboardViewModel vm) {
+    final dummyRequests = [
+      {'patient': '김철수', 'category': '치아 교정 상담', 'time': '10:30 AM'},
+      {'patient': '박영희', 'category': '잇몸 치료 문의', 'time': '11:15 AM'},
+      {'patient': '이민지', 'category': '충치 진단', 'time': '02:00 PM'},
+      {'patient': '최현우', 'category': '임플란트 문의', 'time': '03:45 PM'},
+      {'patient': '정다희', 'category': '스케일링 예약', 'time': '04:20 PM'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '최근 5건의 진료 요청',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: dummyRequests.length,
+            itemBuilder: (context, index) {
+              final request = dummyRequests[index];
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.person, color: Colors.grey),
+                    title: Text('${request['patient']} - ${request['category']}'),
+                    subtitle: Text('요청 시간: ${request['time']}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      // TODO: 해당 진료 요청 상세 화면으로 이동
+                      // context.push('/d_request_detail', extra: request);
+                    },
+                  ),
+                  if (index < dummyRequests.length - 1)
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -208,7 +323,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
 }
 
 // -------------------------
-// Summary Card Widget
+// Summary Card Widget (기존 코드와 동일)
 // -------------------------
 class _SummaryCard extends StatelessWidget {
   final String title;
@@ -228,7 +343,6 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ 탭 필터 → 인덱스로 매핑
     final tabIndexMap = {
       'ALL': 0,
       '진단 대기': 1,
@@ -274,9 +388,8 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-
 // -------------------------
-// Line Chart Widget
+// Line Chart Widget (기존 코드와 동일)
 // -------------------------
 class _LineChartWidget extends StatelessWidget {
   const _LineChartWidget({Key? key}) : super(key: key);
@@ -285,7 +398,7 @@ class _LineChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
     final maxY = vm.lineData.isNotEmpty ? vm.lineData.map((e) => e.y).reduce((a, b) => a > b ? a : b) : 1;
-    
+
     return LineChart(
       LineChartData(
         lineBarsData: vm.chartData,
@@ -305,7 +418,7 @@ class _LineChartWidget extends StatelessWidget {
                     angle: -0.785,
                     child: Text(
                       labels[index],
-                      style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
+                      style: const TextStyle(fontSize: 10, color: Colors.black87),
                     ),
                   ),
                 );
@@ -315,39 +428,39 @@ class _LineChartWidget extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: maxY > 5 ? (maxY / 5).ceilToDouble() : 1, // 최대값에 따라 간격 동적 조정
+              interval: maxY > 5 ? (maxY / 5).ceilToDouble() : 1,
               getTitlesWidget: (value, meta) {
                 return Text(
                   value.toInt().toString(),
-                  style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
+                  style: const TextStyle(fontSize: 10, color: Colors.black87),
                 );
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 상단 타이틀 제거
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 우측 타이틀 제거
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
           drawHorizontalLine: true,
           getDrawingHorizontalLine: (value) => const FlLine(
-            color: Colors.grey, // 그리드 라인 색상
+            color: Colors.grey,
             strokeWidth: 0.5,
           ),
           getDrawingVerticalLine: (value) => const FlLine(
-            color: Colors.grey, // 그리드 라인 색상
+            color: Colors.grey,
             strokeWidth: 0.5,
           ),
         ),
         borderData: FlBorderData(
           show: true,
-          border: Border.all(color: Colors.grey, width: 1), // 테두리 색상
+          border: Border.all(color: Colors.grey, width: 1),
         ),
         minX: 0,
         maxX: 6,
         minY: 0,
-        maxY: maxY + (maxY * 0.1), // 최대값보다 조금 더 크게 설정하여 여백 확보
+        maxY: maxY + (maxY * 0.1),
       ),
     );
   }

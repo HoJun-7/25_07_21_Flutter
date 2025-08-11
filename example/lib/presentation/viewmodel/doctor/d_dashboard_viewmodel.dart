@@ -1,5 +1,3 @@
-// C:\Users\302-15\Desktop\25_07_21_Flutter-2\example\lib\presentation\viewmodel\doctor\d_dashboard_viewmodel.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -11,8 +9,11 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   int unreadNotifications = 0;
   String doctorName = '';
 
-  List<FlSpot> _lineData = [];
+  // ✅ 오늘의 스케줄 수 변수 추가
+  int _todaysScheduleCount = 0;
+  int get todaysScheduleCount => _todaysScheduleCount;
 
+  List<FlSpot> _lineData = [];
   List<FlSpot> get lineData => _lineData;
 
   List<LineChartBarData> get chartData => [
@@ -41,7 +42,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         requestsToday = data['total'] ?? 0;
         answeredToday = data['completed'] ?? 0;
         unreadNotifications = requestsToday - answeredToday;
-        doctorName = '김닥터'; // TODO: 백엔드에서 닥터 이름도 전달하도록 개선
+        doctorName = '김닥터';
       } else {
         debugPrint("❌ 통계 데이터 로딩 실패: ${response.statusCode}");
         requestsToday = 0;
@@ -49,26 +50,27 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         unreadNotifications = 0;
       }
 
-      // '오늘의 요청' 데이터를 기반으로 최근 7일 차트 데이터 생성
-      // 이 부분은 실제 API 연동 시 API 응답에 맞게 수정해야 합니다.
-      // 현재는 requestsToday 값을 사용하여 오늘의 데이터만 설정합니다.
+      // ✅ todaysScheduleCount에 대한 데이터 설정 (임시)
+      // 실제 API 연동 시 백엔드에서 받은 값으로 대체해야 합니다.
+      _todaysScheduleCount = 3; 
+
       _lineData = [
-        const FlSpot(0, 0), // 6일 전 (가상 데이터)
-        const FlSpot(1, 1), // 5일 전 (가상 데이터)
-        const FlSpot(2, 2), // 4일 전 (가상 데이터)
-        const FlSpot(3, 3), // 3일 전 (가상 데이터)
-        const FlSpot(4, 5), // 2일 전 (가상 데이터)
-        const FlSpot(5, 7), // 어제 (가상 데이터)
-        FlSpot(6, requestsToday.toDouble()), // 오늘 데이터 (오늘의 요청과 연동)
+        const FlSpot(0, 0),
+        const FlSpot(1, 1),
+        const FlSpot(2, 2),
+        const FlSpot(3, 3),
+        const FlSpot(4, 5),
+        const FlSpot(5, 7),
+        FlSpot(6, requestsToday.toDouble()),
       ];
 
       notifyListeners();
     } catch (e) {
       debugPrint("❌ loadDashboardData 예외 발생: $e");
-      // 예외 발생 시에도 기본값으로 초기화
       requestsToday = 0;
       answeredToday = 0;
       unreadNotifications = 0;
+      _todaysScheduleCount = 0; // ✅ 예외 발생 시 초기화
       _lineData = [];
       notifyListeners();
     }
