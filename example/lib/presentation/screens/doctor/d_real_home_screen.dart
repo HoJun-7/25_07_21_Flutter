@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart'; // mapIndexed 사용을 위해 추가
+import 'dart:async'; // ⬅ 추가
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
 import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
@@ -18,13 +19,45 @@ class DRealHomeScreen extends StatefulWidget {
   State<DRealHomeScreen> createState() => _DRealHomeScreenState();
 }
 
-class _DRealHomeScreenState extends State<DRealHomeScreen> {
+class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingObserver {
+  Timer? _autoRefreshTimer; // ⬅ 타이머 변수
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DoctorDashboardViewModel>().loadDashboardData(widget.baseUrl);
+    WidgetsBinding.instance.addObserver(this);
+
+    // 첫 진입 시 데이터 로드
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vm = context.read<DoctorDashboardViewModel>();
+      await vm.loadDashboardData(widget.baseUrl);
+      await vm.loadRecent7DaysData(widget.baseUrl);
     });
+
+    // ⬅ 1분마다 자동 갱신 타이머 추가 (카드 + 그래프)
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        final vm = context.read<DoctorDashboardViewModel>();
+        vm.loadDashboardData(widget.baseUrl);   // ✅ 카드 갱신
+        vm.loadRecent7DaysData(widget.baseUrl); // ✅ 그래프 갱신
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefreshTimer?.cancel(); // ⬅ 타이머 해제
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final vm = context.read<DoctorDashboardViewModel>();
+      vm.loadDashboardData(widget.baseUrl);   // ✅ 상단 카드 갱신
+      vm.loadRecent7DaysData(widget.baseUrl); // ✅ 그래프 갱신
+    }
   }
 
   // 뒤로가기 시 앱 종료 팝업
@@ -351,76 +384,54 @@ class _LineChartWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
+
+    if (vm.recent7DaysCounts.isEmpty) {
+      return const Center(child: Text("데이터 없음", style: TextStyle(color: Colors.black87)));
+    }
+
     return LineChart(
       LineChartData(
-        lineBarsData: vm.chartData.map((lineBarData) {
-          // 라인 색상 및 두께 조정 (예시)
-          return lineBarData.copyWith(
-            color: Colors.blueAccent, // 라인 차트 색상 변경
+        lineBarsData: [
+          LineChartBarData(
+            spots: vm.recent7DaysCounts
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.toDouble()))
+                .toList(),
+            color: Colors.blueAccent,
             barWidth: 3,
-            isCurved: true, // 곡선 형태로 변경
-            dotData: const FlDotData(show: true), // 점 표시
-          );
-        }).toList(),
+            isCurved: true,
+            dotData: const FlDotData(show: true),
+          )
+        ],
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               interval: 1,
               getTitlesWidget: (value, meta) {
-                final labels = ['6일전', '5일전', '4일전', '3일전', '2일전', '어제', '오늘'];
-                final index = value.toInt();
-                if (index < 0 || index >= labels.length) return const SizedBox.shrink();
+                final labels = ['6일전','5일전','4일전','3일전','2일전','어제','오늘'];
+                if (value.toInt() < 0 || value.toInt() >= labels.length) return const SizedBox.shrink();
                 return SideTitleWidget(
                   axisSide: meta.axisSide,
-                  space: 8.0,
                   child: Transform.rotate(
                     angle: -0.785,
-                    child: Text(
-                      labels[index],
-                      style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
-                    ),
+                    child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
                   ),
                 );
               },
             ),
           ),
           leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 2,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: const TextStyle(fontSize: 10, color: Colors.black87), // 라벨 색상 변경 (이미 검은색 계열)
-                );
-              },
-            ),
+            sideTitles: SideTitles(showTitles: false),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 상단 타이틀 제거
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), // 우측 타이틀 제거
-        ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: true,
-          drawHorizontalLine: true,
-          getDrawingHorizontalLine: (value) => const FlLine(
-            color: Colors.grey, // 그리드 라인 색상
-            strokeWidth: 0.5,
-          ),
-          getDrawingVerticalLine: (value) => const FlLine(
-            color: Colors.grey, // 그리드 라인 색상
-            strokeWidth: 0.5,
-          ),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.grey, width: 1), // 테두리 색상
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         minX: 0,
         maxX: 6,
         minY: 0,
-        maxY: 20,
+        maxY: (vm.recent7DaysCounts.reduce((a, b) => a > b ? a : b) + 2).toDouble(),
       ),
     );
   }

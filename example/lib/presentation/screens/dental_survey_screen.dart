@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 감지를 위해 추가
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -208,34 +209,49 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              children: categories
-                  .map((category) => _buildCategoryTile(
-                        category,
-                        categorizedQuestions[category] ?? const [],
-                      ))
-                  .toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: _submitSurvey,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
-            ),
-          ),
-        ],
+      body: SafeArea(
+        // ✅ 웹이면 폭을 고정(예: 520px)하고 가운데 정렬
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: _buildMainBody(),
+                ),
+              )
+            : _buildMainBody(),
       ),
+    );
+  }
+
+  // ✅ 본문을 분리하여 웹/모바일에서 공통 사용
+  Widget _buildMainBody() {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            children: categories
+                .map((category) => _buildCategoryTile(
+                      category,
+                      categorizedQuestions[category] ?? const [],
+                    ))
+                .toList(),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: _submitSurvey,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -675,4 +691,3 @@ extension ColorUtils on Color {
     return hslDark.toColor();
   }
 }
-

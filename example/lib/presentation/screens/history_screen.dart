@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 화면 고정용
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -47,7 +48,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final viewModel = context.watch<HistoryViewModel>();
     final authViewModel = context.watch<AuthViewModel>();
     final currentUser = authViewModel.currentUser;
-    final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
     return WillPopScope(
       onWillPop: () async {
@@ -62,33 +62,52 @@ class _HistoryScreenState extends State<HistoryScreen> {
           foregroundColor: Colors.white,
         ),
         backgroundColor: const Color(0xFFDCE7F6),
-        body: viewModel.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : viewModel.error != null
-                ? Center(child: Text('오류: ${viewModel.error}'))
-                : currentUser == null
-                    ? const Center(child: Text('로그인이 필요합니다.'))
-                    : Column(
-                        children: [
-                          _buildStatusChips(),
-                          Expanded(
-                            child: PageView.builder(
-                              controller: _pageController,
-                              onPageChanged: (index) => setState(() => _selectedIndex = index),
-                              itemCount: statuses.length,
-                              itemBuilder: (context, index) {
-                                final filtered = _filterRecords(
-                                  viewModel.records.where((r) => r.userId == currentUser.registerId).toList(),
-                                  statuses[index],
-                                );
-                                return _buildRecordList(filtered, imageBaseUrl);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+        // ✅ 웹이면 폭 고정 + 가운데 정렬
+        body: SafeArea(
+          child: kIsWeb
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: _buildMainBody(viewModel, currentUser),
+                  ),
+                )
+              : _buildMainBody(viewModel, currentUser),
+        ),
       ),
     );
+  }
+
+  // ✅ 본문을 분리 (웹/모바일 공용)
+  Widget _buildMainBody(HistoryViewModel viewModel, dynamic currentUser) {
+    final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
+
+    return viewModel.isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : viewModel.error != null
+            ? Center(child: Text('오류: ${viewModel.error}'))
+            : currentUser == null
+                ? const Center(child: Text('로그인이 필요합니다.'))
+                : Column(
+                    children: [
+                      _buildStatusChips(),
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (index) => setState(() => _selectedIndex = index),
+                          itemCount: statuses.length,
+                          itemBuilder: (context, index) {
+                            final filtered = _filterRecords(
+                              viewModel.records
+                                  .where((r) => r.userId == currentUser.registerId)
+                                  .toList(),
+                              statuses[index],
+                            );
+                            return _buildRecordList(filtered, imageBaseUrl);
+                          },
+                        ),
+                      ),
+                    ],
+                  );
   }
 
   List<HistoryRecord> _filterRecords(List<HistoryRecord> all, String status) {
