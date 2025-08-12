@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 const kPrimary = Color(0xFF3869A8);
@@ -7,10 +8,12 @@ const kPrimary = Color(0xFF3869A8);
 // 공통 규격
 const double kAnswerHeight = 44;
 const double kAnswerSideInset = 12;
-const double kPillRadius = 12;
-const double kPillGap = 8;
-const double kMinPillWidth = 88;
-const double kMaxPillWidth = 140;
+
+// 알약(세그먼트) 스타일
+const double kSegHeight  = 36;   // 버튼 높이
+const double kSegHPad    = 16;   // 좌우 패딩
+const double kSegDivider = 1.0;  // 구분선 두께
+const double kSegRadius  = 22.0; // 모서리 반경
 
 // 점-스케일 라벨 텍스트
 const kScaleHint = TextStyle(
@@ -25,11 +28,11 @@ class SurveyQuestion {
   final String category;
   final String question;
   final SurveyType type;
-  final List<String>? options; // singleChoice/yes-no용
+  final List<String>? options;
 
   int? selectedIndex; // choice 계열
-  int? numberValue; // numeric
-  String? textValue; // text
+  int? numberValue;   // numeric
+  String? textValue;  // text
 
   SurveyQuestion({
     required this.category,
@@ -65,14 +68,15 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
   late final Map<String, List<SurveyQuestion>> categorizedQuestions;
   final Map<String, bool> _isExpanded = {};
 
+  // numeric 컨트롤러
+  final Map<String, TextEditingController> _numControllers = {};
+
   @override
   void initState() {
     super.initState();
 
     // 0~7회 (8개 점) 라벨
     final eightLabels = List<String>.generate(8, (i) => '${i}회');
-    // 만약 1~8회(8개 점)로 쓰고 싶다면:
-    // final eightLabels = List<String>.generate(8, (i) => '${i + 1}회');
 
     questions = [
       // (치과)병력과 증상
@@ -121,7 +125,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         options: const ['매우 좋다', '좋다', '보통이다', '나쁘다', '매우 나쁘다'],
       ),
 
-      // 흡연 — 예/아니요 UI
+      // 흡연
       SurveyQuestion(
         category: '흡연',
         question: '담배를 피웁니까?',
@@ -135,14 +139,12 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         question: '최근 일주일 동안, 하루 평균 치아를 몇 번 닦았습니까?',
         type: SurveyType.numeric,
       ),
-      // 잠자기 전 칫솔질 — 8개 점(0~7회)
       SurveyQuestion(
         category: '구강위생관리',
         question: '최근 일주일 동안, 잠자기 직전에 칫솔질을 몇 회 하였습니까?',
         type: SurveyType.singleChoice,
-        options: eightLabels, // ✅ 0~7회, 8개 점
+        options: eightLabels, // 0~7회
       ),
-      // 치실/치간칫솔 — 예/아니요 UI
       SurveyQuestion(
         category: '구강위생관리',
         question: '최근 일주일 동안, 치아를 닦을 때 치실 혹은 치간칫솔을 사용하였습니까?',
@@ -150,7 +152,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         options: const ['예', '아니요'],
       ),
 
-      // 불소이용 — 예/아니요 UI
+      // 불소이용
       SurveyQuestion(
         category: '불소이용',
         question: '현재 사용 중인 치약에 불소가 들어 있습니까?',
@@ -189,13 +191,21 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
   }
 
   @override
+  void dispose() {
+    for (final c in _numControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFA9C9F5),
       appBar: AppBar(
         title: const Text('치과 문진', style: TextStyle(color: Colors.white)),
         centerTitle: true,
-        backgroundColor: const Color(0xFF3869A8),
+        backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
@@ -216,7 +226,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             child: ElevatedButton(
               onPressed: _submitSurvey,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3869A8),
+                backgroundColor: kPrimary,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -237,7 +247,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.2),
+            color: Colors.grey.withOpacity(0.2),
             spreadRadius: 2,
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -245,15 +255,18 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         ],
       ),
       child: ExpansionTile(
-        key: ValueKey(category), // **GlobalKey 오류 해결**
+        key: ValueKey('cat-$category'), // GlobalKey 사용 안 함
         initiallyExpanded: _isExpanded[category] ?? false,
         onExpansionChanged: (isExpanded) => setState(() => _isExpanded[category] = isExpanded),
         tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(_getCategoryIcon(category), color: const Color(0xFF3869A8), size: 30),
-        title: Text(category, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+        leading: Icon(_getCategoryIcon(category), color: kPrimary, size: 30),
+        title: Text(
+          category,
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: Color(0xFF333333)),
+        ),
         collapsedIconColor: Colors.grey[600],
-        iconColor: const Color(0xFF3869A8),
+        iconColor: kPrimary,
         children: qs.map(_buildQuestionCard).toList(),
       ),
     );
@@ -261,7 +274,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   Widget _buildQuestionCard(SurveyQuestion q) {
     return Card(
-      key: ValueKey(q.question),
+      key: ValueKey('q-${q.question}'),
       elevation: 1,
       margin: const EdgeInsets.symmetric(vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -283,7 +296,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     switch (q.type) {
       case SurveyType.yesNo:
       case SurveyType.yesNoDontKnow:
-        return _choicePills(
+        return _segmentedChoice(
           items: q.options ?? const [],
           selectedIndex: q.selectedIndex,
           onSelect: (i) => setState(() => q.selectedIndex = i),
@@ -297,7 +310,23 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         );
 
       case SurveyType.numeric:
-        final value = q.numberValue ?? 0;
+        // 숫자 입력 + 스테퍼
+        final controller = _numControllers.putIfAbsent(
+          q.question,
+          () => TextEditingController(text: '${q.numberValue ?? 0}'),
+        );
+
+        void setNum(int v) {
+          final nv = v.clamp(0, 99);
+          q.numberValue = nv;
+          final s = nv.toString();
+          controller.value = TextEditingValue(
+            text: s,
+            selection: TextSelection.collapsed(offset: s.length),
+          );
+          setState(() {});
+        }
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: kAnswerSideInset),
           child: SizedBox(
@@ -306,19 +335,39 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () => setState(() => q.numberValue = ((value - 1).clamp(0, 99)).toInt()),
+                  tooltip: '감소',
+                  onPressed: () => setNum((q.numberValue ?? 0) - 1),
                   icon: const Icon(Icons.remove_circle_outline),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
+                SizedBox(
+                  width: 78,
+                  height: 36,
+                  child: TextField(
+                    key: ValueKey('num-${q.question}'),
+                    controller: controller,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      border: OutlineInputBorder(),
+                      suffixText: '회',
+                    ),
+                    onChanged: (v) {
+                      final n = int.tryParse(v);
+                      q.numberValue = (n ?? 0).clamp(0, 99);
+                      setState(() {});
+                    },
+                    onEditingComplete: () {
+                      final n = int.tryParse(controller.text) ?? 0;
+                      setNum(n);
+                    },
                   ),
-                  child: Text('$value 회', style: const TextStyle(fontSize: 16)),
                 ),
                 IconButton(
-                  onPressed: () => setState(() => q.numberValue = ((value + 1).clamp(0, 99)).toInt()),
+                  tooltip: '증가',
+                  onPressed: () => setNum((q.numberValue ?? 0) + 1),
                   icon: const Icon(Icons.add_circle_outline),
                 ),
               ],
@@ -328,78 +377,106 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
       case SurveyType.text:
         return TextFormField(
+          key: ValueKey('text-${q.question}'),
           initialValue: q.textValue ?? '',
           maxLines: 3,
-          decoration: const InputDecoration(hintText: '내용을 입력하세요', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            hintText: '내용을 입력하세요',
+            border: OutlineInputBorder(),
+          ),
           onChanged: (v) => q.textValue = v,
         );
     }
   }
 
-  // 예/아니요(및 3지) 알약 버튼
-  Widget _choicePills({
+  /// 왼쪽 정렬 + 동일 너비 알약(세그먼트)
+  Widget _segmentedChoice({
     required List<String> items,
     required int? selectedIndex,
     required ValueChanged<int> onSelect,
   }) {
+    final borderColor = const Color(0xFFE1E6EF);
+    final baseStyle = const TextStyle(fontSize: 14, fontWeight: FontWeight.w600);
+
+    double _measureTextWidth(String s) {
+      final tp = TextPainter(
+        text: TextSpan(text: s, style: baseStyle),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return tp.width;
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: kAnswerSideInset),
-      child: SizedBox(
-        height: kAnswerHeight,
-        width: double.infinity,
+      child: Align(
+        alignment: Alignment.centerLeft,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final double per =
-                (constraints.maxWidth - (items.length - 1) * kPillGap) / items.length;
-            final double pillW = per.clamp(kMinPillWidth, kMaxPillWidth);
+            // 자연 너비 = 가장 긴 텍스트 + 패딩
+            final maxTextW = items.isEmpty ? 0.0 : items.map(_measureTextWidth).reduce(math.max);
+            double pillW = maxTextW + kSegHPad * 2;
 
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(items.length, (i) {
-                final selected = selectedIndex == i;
-                return SizedBox(
-                  width: pillW,
-                  height: kAnswerHeight,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(kPillRadius),
-                    onTap: () => onSelect(i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: selected ? kPrimary.withValues(alpha: .08) : Colors.white,
-                        borderRadius: BorderRadius.circular(kPillRadius),
-                        border: Border.all(
-                          color: selected
-                              ? kPrimary.withValues(alpha: .35)
-                              : const Color(0xFFE1E6EF),
-                          width: 1.2,
+            // 화면을 넘기면 가용 폭에 맞춰 균등 분배
+            final totalSeparatorsW = (items.length - 1) * kSegDivider;
+            final maxAvail = constraints.maxWidth;
+            final naturalGroupW = pillW * items.length + totalSeparatorsW;
+
+            if (naturalGroupW > maxAvail) {
+              pillW = (maxAvail - totalSeparatorsW) / items.length;
+              pillW = pillW.clamp(68.0, 9999.0); // 최소 너비
+            }
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(kSegRadius),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: borderColor, width: 1.2),
+                  borderRadius: BorderRadius.circular(kSegRadius),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(items.length * 2 - 1, (j) {
+                    if (j.isOdd) {
+                      return Container(
+                        width: kSegDivider,
+                        height: kSegHeight - 8,
+                        color: borderColor,
+                      );
+                    }
+                    final i = j ~/ 2;
+                    final selected = selectedIndex == i;
+
+                    return InkWell(
+                      onTap: () => onSelect(i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        width: pillW,
+                        height: kSegHeight,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected ? kPrimary.withOpacity(.08) : Colors.white,
+                          borderRadius: BorderRadius.horizontal(
+                            left: i == 0 ? const Radius.circular(kSegRadius) : Radius.zero,
+                            right: i == items.length - 1
+                                ? const Radius.circular(kSegRadius)
+                                : Radius.zero,
+                          ),
+                        ),
+                        child: Text(
+                          items[i],
+                          style: baseStyle.copyWith(
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                            color: selected ? kPrimary : const Color(0xFF333333),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (selected) const Icon(Icons.check, size: 14, color: kPrimary),
-                          if (selected) const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              items[i],
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                                color: selected ? kPrimary : const Color(0xFF333333),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
+                    );
+                  }),
+                ),
+              ),
             );
           },
         ),
@@ -407,7 +484,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     );
   }
 
-  /// 점-스케일 – 끝점 정렬 + 하단 라벨(겹치지 않음)
+  /// 점-스케일 – 끝점 정렬 + 하단 라벨
   Widget _dotScaleCompact({
     required List<String> labels,
     required int? selectedIndex,
@@ -422,9 +499,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     final double maxDot = baseSizes.fold<double>(0, (p, e) => math.max(p, e)) + boost;
     final double safeInset = math.max(8.0, maxDot / 2 + 2); // 좌우 여유
 
-    // 라인/라벨 배치
-    const double lineTop = 8.0; // 위 여백
-    const double lineBottom = 18.0; // 아래(라벨 공간)
+    const double lineTop = 8.0;
+    const double lineBottom = 18.0;
     final double hitHeight = kAnswerHeight - lineTop - lineBottom;
 
     final leftText = labels.isNotEmpty ? labels.first : '';
@@ -452,7 +528,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                   ),
                 ),
 
-                // 점들(라인 영역 중앙에 정확히 위치)
+                // 점들
                 ...List.generate(count, (i) {
                   final t = count == 1 ? 0.0 : i / (count - 1);
                   final cx = safeInset + t * usableW;
@@ -476,9 +552,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                             shape: BoxShape.circle,
                             color: isSelected ? color : Colors.white,
                             border: Border.all(
-                              color: isSelected
-                                  ? color.darken(0.25)
-                                  : color.withValues(alpha: 0.35),
+                              color: isSelected ? color.darken(0.25) : color.withOpacity(0.35),
                               width: 1.8,
                             ),
                           ),
