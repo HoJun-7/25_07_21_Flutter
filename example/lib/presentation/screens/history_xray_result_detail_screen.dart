@@ -1,6 +1,7 @@
 // 생략된 import는 그대로 유지
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 화면 고정용 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -212,8 +213,6 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
   @override
   Widget build(BuildContext context) {
     final currentUser = context.read<AuthViewModel>().currentUser!;
-    final modelName = widget.model1Result['used_model'] ?? 'N/A';
-    final count = (widget.model1Result['predictions'] as List?)?.length ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -222,33 +221,51 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
         title: const Text('X-ray 진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildToggleCard(),
-            const SizedBox(height: 16),
-            _buildImageCard(),
-            const SizedBox(height: 16),
-            _buildXraySummaryCard(modelName, count),
-            const SizedBox(height: 24),
-            if (currentUser.role == 'P') ...[
-              _buildActionButton(Icons.download, '진단 결과 이미지 저장', _saveResultImage),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.image, '원본 이미지 저장', _saveOriginalImage),
-              const SizedBox(height: 12),
-              if (!_isRequested)
-                _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser))
-              else if (_isRequested && !_isReplied)
-                _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.chat, 'AI 소견 들어보기', _getGeminiOpinion),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
-            ]
-          ],
-        ),
+      // ✅ 웹이면 폭 고정 + 가운데 정렬
+      body: SafeArea(
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: _buildMainBody(currentUser),
+                ),
+              )
+            : _buildMainBody(currentUser),
+      ),
+    );
+  }
+
+  // ✅ 본문을 메서드로 분리 (웹/모바일 공용)
+  Widget _buildMainBody(User currentUser) {
+    final modelName = widget.model1Result['used_model'] ?? 'N/A';
+    final count = (widget.model1Result['predictions'] as List?)?.length ?? 0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildToggleCard(),
+          const SizedBox(height: 16),
+          _buildImageCard(),
+          const SizedBox(height: 16),
+          _buildXraySummaryCard(modelName, count),
+          const SizedBox(height: 24),
+          if (currentUser.role == 'P') ...[
+            _buildActionButton(Icons.download, '진단 결과 이미지 저장', _saveResultImage),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.image, '원본 이미지 저장', _saveOriginalImage),
+            const SizedBox(height: 12),
+            if (!_isRequested)
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser))
+            else if (_isRequested && !_isReplied)
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.chat, 'AI 소견 들어보기', _getGeminiOpinion),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
+          ]
+        ],
       ),
     );
   }

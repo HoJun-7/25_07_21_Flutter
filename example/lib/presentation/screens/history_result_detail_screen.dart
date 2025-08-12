@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 화면 고정용
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -138,7 +139,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           });
 
           context.push('/consult_success', extra: {'type': 'apply'});
-        }else {
+        } else {
         final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
         showDialog(
           context: context,
@@ -259,12 +260,6 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = context.read<AuthViewModel>().currentUser;
-    final textTheme = Theme.of(context).textTheme;
-
-    final model1 = widget.modelInfos[1];
-    final model2 = widget.modelInfos[2];
-    final model3 = widget.modelInfos[3];
-    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -273,39 +268,61 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildToggleCard(const Color(0xFFEAEAEA)),
-            const SizedBox(height: 16),
-            _buildImageCard(),
-            const SizedBox(height: 16),
-            _buildSummaryCard(
-              model1DetectedLabels: model1DetectedLabels,
-              model2Label: model2?['label'] ?? '감지되지 않음',
-              model2Confidence: model2?['confidence'] ?? 0.0,
-              textTheme: textTheme, // ✅ model3 인자 제거
-            ),
-            const SizedBox(height: 24),
-            if (currentUser?.role == 'P') ...[
-              _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
-              const SizedBox(height: 12),
-              if (!_isRequested)
-                _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest)
-              else if (_isRequested && !_isReplied)
-                _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
+      // ✅ 웹이면 폭 고정 + 가운데 정렬
+      body: SafeArea(
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: _buildMainBody(currentUser),
+                ),
+              )
+            : _buildMainBody(currentUser),
+      ),
+    );
+  }
 
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
-              const SizedBox(height: 12),
-              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
-            ]
-          ],
-        ),
+  // ✅ 본문을 메서드로 분리 (웹/모바일 공용)
+  Widget _buildMainBody(dynamic currentUser) {
+    final textTheme = Theme.of(context).textTheme;
+
+    final model1 = widget.modelInfos[1];
+    final model2 = widget.modelInfos[2];
+    final model3 = widget.modelInfos[3];
+    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildToggleCard(const Color(0xFFEAEAEA)),
+          const SizedBox(height: 16),
+          _buildImageCard(),
+          const SizedBox(height: 16),
+          _buildSummaryCard(
+            model1DetectedLabels: model1DetectedLabels,
+            model2Label: model2?['label'] ?? '감지되지 않음',
+            model2Confidence: model2?['confidence'] ?? 0.0,
+            textTheme: textTheme, // ✅ model3 인자 제거
+          ),
+          const SizedBox(height: 24),
+          if (currentUser?.role == 'P') ...[
+            _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
+            const SizedBox(height: 12),
+            if (!_isRequested)
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest)
+            else if (_isRequested && !_isReplied)
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
+
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
+          ]
+        ],
       ),
     );
   }

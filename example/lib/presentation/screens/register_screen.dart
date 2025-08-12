@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -185,7 +186,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/agreement'),
+          onPressed: () => context.pop(),
         ),
         /*actions: [
           PopupMenuButton<String>(
@@ -210,157 +211,169 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+          // ⬇⬇⬇ 여기서부터: 웹이면 폭을 450으로 고정해서 감싸준다 ⬇⬇⬇
+          child: kIsWeb
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 450),
+                  child: _buildFormCard(authViewModel),
+                )
+              : _buildFormCard(authViewModel),
+          // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
+        ),
+      ),
+    );
+  }
+
+  // 폼 카드 UI를 메서드로 분리 (웹/모바일에서 동일하게 사용)
+  Widget _buildFormCard(AuthViewModel authViewModel) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ✅ 사용자 유형 선택 (의사/환자)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ChoiceChip(
+                  label: const Text('환자'),
+                  selected: _selectedRole == 'P',
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedRole = 'P';
+                        _isIdChecked = false;
+                        _isDuplicate = true;
+                        _registerIdController.clear();
+                        context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                      });
+                    }
+                  },
+                  selectedColor: Colors.blueAccent,
+                ),
+                const SizedBox(width: 10),
+                ChoiceChip(
+                  label: const Text('의사'),
+                  selected: _selectedRole == 'D',
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedRole = 'D';
+                        _isIdChecked = false;
+                        _isDuplicate = true;
+                        _registerIdController.clear();
+                        context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                      });
+                    }
+                  },
+                  selectedColor: Colors.redAccent,
                 ),
               ],
             ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ✅ 사용자 유형 선택 (의사/환자)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('환자'),
-                        selected: _selectedRole == 'P',
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedRole = 'P';
-                              _isIdChecked = false;
-                              _isDuplicate = true;
-                              _registerIdController.clear();
-                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
-                            });
-                          }
-                        },
-                        selectedColor: Colors.blueAccent,
-                      ),
-                      const SizedBox(width: 10),
-                      ChoiceChip(
-                        label: const Text('의사'),
-                        selected: _selectedRole == 'D',
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedRole = 'D';
-                              _isIdChecked = false;
-                              _isDuplicate = true;
-                              _registerIdController.clear();
-                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
-                            });
-                          }
-                        },
-                        selectedColor: Colors.redAccent,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  _buildTextField(
-                    _nameController,
-                    '이름 (한글만)',
-                    inputFormatters: [_NameByteLimitFormatter()],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildGenderCardSelector(),
-                  Row(
-                    children: [
-                      Expanded(child: _buildYearDropdown()),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildMonthDropdown()),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildDayDropdown()),
-                    ],
-                  ),                  
-                  _buildTextField(
-                    _phoneController,
-                    '전화번호',
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(11),
-                      _PhoneNumberFormatter(),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          _registerIdController,
-                          '아이디 (4자 이상)',
-                          onChanged: (_) {
-                            setState(() {
-                              _isIdChecked = false;
-                              _isDuplicate = true;
-                              authViewModel.clearDuplicateCheckErrorMessage();
-                            });
-                          },
-                          errorText: authViewModel.duplicateCheckErrorMessage,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-                            LengthLimitingTextInputFormatter(20),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: authViewModel.isCheckingUserId ? null : _checkDuplicateId,
-                        child: authViewModel.isCheckingUserId
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('중복확인'),
-                      ),
-                    ],
-                  ),
-                  _buildTextField(
-                    _passwordController,
-                    '비밀번호 (6자 이상)',
-                    isPassword: true,
-                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
-                  ),
-                  _buildTextField(
-                    _confirmController,
-                    '비밀번호 확인',
-                    isPassword: true,
-                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
-                  ),
-                  const SizedBox(height: 25),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                      ),
-                      child: const Text(
-                        '회원가입 완료',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  )
-                ],
-              ),
+            SizedBox(height: 20),
+            _buildTextField(
+              _nameController,
+              '이름 (한글만)',
+              inputFormatters: [_NameByteLimitFormatter()],
             ),
-          ),
+            const SizedBox(height: 10),
+            _buildGenderCardSelector(),
+            Row(
+              children: [
+                Expanded(child: _buildYearDropdown()),
+                const SizedBox(width: 10),
+                Expanded(child: _buildMonthDropdown()),
+                const SizedBox(width: 10),
+                Expanded(child: _buildDayDropdown()),
+              ],
+            ),                  
+            _buildTextField(
+              _phoneController,
+              '전화번호',
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+                _PhoneNumberFormatter(),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    _registerIdController,
+                    '아이디 (4자 이상)',
+                    onChanged: (_) {
+                      setState(() {
+                        _isIdChecked = false;
+                        _isDuplicate = true;
+                        authViewModel.clearDuplicateCheckErrorMessage();
+                      });
+                    },
+                    errorText: authViewModel.duplicateCheckErrorMessage,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                      LengthLimitingTextInputFormatter(20),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: authViewModel.isCheckingUserId ? null : _checkDuplicateId,
+                  child: authViewModel.isCheckingUserId
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('중복확인'),
+                ),
+              ],
+            ),
+            _buildTextField(
+              _passwordController,
+              '비밀번호 (6자 이상)',
+              isPassword: true,
+              inputFormatters: [LengthLimitingTextInputFormatter(20)],
+            ),
+            _buildTextField(
+              _confirmController,
+              '비밀번호 확인',
+              isPassword: true,
+              inputFormatters: [LengthLimitingTextInputFormatter(20)],
+            ),
+            const SizedBox(height: 25),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                child: const Text(
+                  '회원가입 완료',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+          ],
         ),
       ),
     );
