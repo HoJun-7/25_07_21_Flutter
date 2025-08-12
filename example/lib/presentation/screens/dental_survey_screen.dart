@@ -176,7 +176,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
       // 기타(자유기술)
       SurveyQuestion(
-        category: '기타(자유기술)',
+        category: '기타',
         question: '특별한 증상 혹은 치과의사에게 묻고 싶은 말을 자유롭게 적어주세요.',
         type: SurveyType.text,
       ),
@@ -675,3 +675,4 @@ extension ColorUtils on Color {
     return hslDark.toColor();
   }
 }
+
