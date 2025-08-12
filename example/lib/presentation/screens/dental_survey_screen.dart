@@ -61,7 +61,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     '구강위생관리',
     '불소이용',
     '식습관',
-    '기타(자유기술)',
+    '기타',
   ];
 
   late final List<SurveyQuestion> questions;
@@ -607,7 +607,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         return Icons.water_drop_outlined;
       case '식습관':
         return Icons.restaurant_outlined;
-      case '기타(자유기술)':
+      case '기타':
         return Icons.notes_outlined;
       default:
         return Icons.category_outlined;
@@ -675,5 +675,6 @@ extension ColorUtils on Color {
     return hslDark.toColor();
   }
 }
+
 
 
