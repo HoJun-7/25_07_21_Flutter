@@ -15,7 +15,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
-  final Map<String, int> survey;
+  final Map<String, dynamic> survey;
 
   const UploadScreen({
     super.key,
