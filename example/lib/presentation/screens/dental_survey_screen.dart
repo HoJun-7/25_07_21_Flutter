@@ -174,7 +174,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         options: const ['먹지 않는다', '1번', '2번', '3번', '4번 이상'],
       ),
 
-      // 기타(자유기술)
+      // 기타
       SurveyQuestion(
         category: '기타',
         question: '특별한 증상 혹은 치과의사에게 묻고 싶은 말을 자유롭게 적어주세요.',
@@ -675,4 +675,5 @@ extension ColorUtils on Color {
     return hslDark.toColor();
   }
 }
+
 
