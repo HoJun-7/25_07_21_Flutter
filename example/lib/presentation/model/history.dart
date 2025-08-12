@@ -18,10 +18,8 @@ class HistoryRecord {
   final String source;
   final String isRequested;
   final String isReplied;
-  final String imageType;
 
-  final String? model3_1ImagePath; // ✅ 추가됨
-  final String? model3_2ImagePath; // ✅ 추가됨
+  final String imageType; // ✅ 추가: normal 또는 xray
 
   HistoryRecord({
     required this.id,
@@ -33,7 +31,7 @@ class HistoryRecord {
     required this.source,
     required this.isRequested,
     required this.isReplied,
-    required this.imageType,
+    required this.imageType, // ✅ 필수 파라미터
     this.confidence,
     this.modelUsed,
     this.className,
@@ -41,8 +39,6 @@ class HistoryRecord {
     this.model1InferenceResult,
     this.model2InferenceResult,
     this.model3InferenceResult,
-    this.model3_1ImagePath,
-    this.model3_2ImagePath,
   });
 
   factory HistoryRecord.fromJson(Map<String, dynamic> json) {
@@ -60,7 +56,7 @@ class HistoryRecord {
       source: json['source'] ?? 'AI',
       isRequested: json['is_requested'] ?? 'N',
       isReplied: json['is_replied'] ?? 'N',
-      imageType: json['image_type'] ?? 'normal',
+      imageType: json['image_type'] ?? 'normal', // ✅ 여기서 파싱
       confidence: (model1Inf['confidence'] as num?)?.toDouble(),
       modelUsed: model1Inf['used_model'] as String?,
       className: model1Inf['label'] as String?,
@@ -70,8 +66,6 @@ class HistoryRecord {
       model1InferenceResult: model1Inf,
       model2InferenceResult: model2Inf,
       model3InferenceResult: model3Inf,
-      model3_1ImagePath: json['model3_1_image_path'] as String?, // ✅ 새 필드
-      model3_2ImagePath: json['model3_2_image_path'] as String?, // ✅ 새 필드
     );
   }
 
@@ -89,7 +83,7 @@ class HistoryRecord {
       source: source,
       isRequested: isRequested ?? this.isRequested,
       isReplied: isReplied ?? this.isReplied,
-      imageType: imageType,
+      imageType: imageType, // ✅ 유지
       confidence: confidence,
       modelUsed: modelUsed,
       className: className,
@@ -97,8 +91,6 @@ class HistoryRecord {
       model1InferenceResult: model1InferenceResult,
       model2InferenceResult: model2InferenceResult,
       model3InferenceResult: model3InferenceResult,
-      model3_1ImagePath: model3_1ImagePath,
-      model3_2ImagePath: model3_2ImagePath,
     );
   }
 }

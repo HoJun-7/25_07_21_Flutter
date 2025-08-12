@@ -33,6 +33,9 @@ import '/presentation/screens/find_id_screen.dart';
 import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
+import '/presentation/screens/dental_viewer_screen.dart';
+import '/presentation/screens/agreement_screen.dart';
+
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -46,6 +49,10 @@ GoRouter createRouter(String baseUrl) {
       GoRoute(
         path: '/login',
         builder: (context, state) => LoginScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
+        path: '/agreement',
+        builder: (context, state) => AgreementScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/register',
@@ -201,6 +208,15 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
+            path: '/dental_viewer',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?; 
+              final glbUrl = extra?['glbUrl'] 
+                  ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
+              return DentalViewerScreen(glbUrl: glbUrl);
+            },
+          ),
+          GoRoute(
             path: '/mypage',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
@@ -237,7 +253,11 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final baseUrl = extra['baseUrl'] as String? ?? '';
-              final survey = extra['survey'] as Map<String, int>? ?? {};
+
+              // 중요: dynamic으로 안전 캐스팅
+              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>()
+                            ?? const <String, dynamic>{};
+
               return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),

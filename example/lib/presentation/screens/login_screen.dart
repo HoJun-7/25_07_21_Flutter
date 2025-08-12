@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () => context.push('/register'),
+              onPressed: () => context.push('/agreement'),
               style: ButtonStyle(
                 side: WidgetStateProperty.all(
                   const BorderSide(color: primaryBlue, width: 2),

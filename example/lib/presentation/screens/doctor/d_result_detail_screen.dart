@@ -110,7 +110,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
 
           overlay1Url = data['model1_image_path'];
           overlay2Url = data['model2_image_path'];
-          overlay3Url = data['model3_2_image_path'];
+          overlay3Url = data['model3_image_path'];
 
           // null 체크를 좀 더 명시적으로 강화
           className = data['model1_inference_result']?['label'] as String? ?? 'Unknown';
@@ -174,7 +174,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
 
       final requestBodyMap = {
-        'image_url': widget.originalImageUrl, // 현재는 상대 경로를 보내고 있음
+        'image_url': widget.baseUrl.replaceAll('/api', '') + widget.originalImageUrl, // 현재는 상대 경로를 보내고 있음
         'model1Label': className,
         'model1Confidence': confidence,
         'model2Label': model2Label,
@@ -183,7 +183,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
         'model3Confidence': model3Confidence,
         // 필요하다면 백엔드에서 분석 결과 조회를 위해 이 _id를 사용할 수 있습니다.
         // 백엔드 API 명세에 따라 추가하거나 제거하세요.
-        'inferenceResultId': inferenceResultId, // <-- 백엔드 디버깅을 위해 추가.
+        'inference_result_id': inferenceResultId,  // <-- 백엔드 디버깅을 위해 추가.
       };
       final requestBody = jsonEncode(requestBodyMap);
 

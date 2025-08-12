@@ -15,7 +15,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class UploadScreen extends StatefulWidget {
   final String baseUrl;
-  final Map<String, int> survey;
+  final Map<String, dynamic> survey;
 
   const UploadScreen({
     super.key,
@@ -164,12 +164,12 @@ class _UploadScreenState extends State<UploadScreen> {
             'processedImageUrls': {
               1: '$baseStaticUrl${responseData['model1_image_path']}',
               2: '$baseStaticUrl${responseData['model2_image_path']}',
-              3: '$baseStaticUrl${responseData['model3_2_image_path']}',
+              3: '$baseStaticUrl${responseData['model3_image_path']}',
             },
             'modelInfos': {
               1: responseData['model1_inference_result'],
               2: responseData['model2_inference_result'],
-              3: responseData['model3_2_inference_result'],
+              3: responseData['model3_inference_result'],
             },
             'userId': registerId,
             'inferenceResultId': inferenceResultId,

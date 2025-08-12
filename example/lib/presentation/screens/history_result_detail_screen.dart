@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 환경 감지를 위해 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -17,7 +16,7 @@ class HistoryResultDetailScreen extends StatefulWidget {
   final String inferenceResultId;
   final String baseUrl;
   final String isRequested;
-  final String isReplied;
+  final String isReplied; // ✅ 추가됨
 
   const HistoryResultDetailScreen({
     super.key,
@@ -42,7 +41,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   bool _isLoadingGemini = false;
 
   late bool _isRequested;
-  late bool _isReplied;
+  late bool _isReplied; // ✅ 상태로 추가됨
 
   Uint8List? originalImageBytes;
   Uint8List? overlay1Bytes;
@@ -66,7 +65,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       final original = await _loadImageWithAuth(widget.originalImageUrl, token);
       final ov1 = await _loadImageWithAuth(widget.processedImageUrls[1], token);
       final ov2 = await _loadImageWithAuth(widget.processedImageUrls[2], token);
-      final ov3 = await _loadImageWithAuth(widget.processedImageUrls[4], token);
+      final ov3 = await _loadImageWithAuth(widget.processedImageUrls[3], token);
 
       setState(() {
         originalImageBytes = original;
@@ -105,10 +104,12 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       return;
     }
 
+    // ✅ 백엔드 요구 형식: yyyyMMddHHmmss
     final now = DateTime.now();
     final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
-        "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
+                            "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
 
+    // ✅ 상대 경로 변환
     final relativePath = widget.originalImageUrl.replaceFirst(
       widget.baseUrl.replaceAll('/api', ''),
       '',
@@ -129,15 +130,15 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       );
 
       if (response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        final requestId = body['request_id'];
+          final body = jsonDecode(response.body);
+          final requestId = body['request_id']; // ← 서버 응답에 포함되어야 함
 
-        setState(() {
-          _isRequested = true;
-        });
+          setState(() {
+            _isRequested = true;
+          });
 
-        context.push('/consult_success', extra: {'type': 'apply'});
-      } else {
+          context.push('/consult_success', extra: {'type': 'apply'});
+        }else {
         final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
         showDialog(
           context: context,
@@ -189,6 +190,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           _isRequested = false;
         });
 
+        // ✅ consult_success 화면으로 이동하며 type='cancel' 전달
         context.push('/consult_success', extra: {'type': 'cancel'});
       } else {
         final msg = jsonDecode(response.body)['error'] ?? '신청 취소 실패';
@@ -202,6 +204,13 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
     }
+  }
+
+  // ✅ 3D 뷰어 열기
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+    });
   }
 
   Future<void> _getGeminiOpinion() async {
@@ -255,6 +264,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     final model1 = widget.modelInfos[1];
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
+    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -263,84 +273,72 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: Center( // ✅ Center 위젯 추가
-        child: Container(
-          constraints: kIsWeb ? const BoxConstraints(maxWidth: 800) : null, // ✅ 웹일 경우 최대 너비 지정
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildToggleCard(const Color(0xFFEAEAEA)),
-                const SizedBox(height: 16),
-                _buildImageCard(),
-                const SizedBox(height: 16),
-                _buildSummaryCard(
-                  model1Label: model1?['label'] ?? '감지되지 않음',
-                  model1Confidence: model1?['confidence'] ?? 0.0,
-                  model2Label: model2?['label'] ?? '감지되지 않음',
-                  model2Confidence: model2?['confidence'] ?? 0.0,
-                  model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
-                  model3Confidence: model3?['confidence'] ?? 0.0,
-                  textTheme: textTheme,
-                ),
-                const SizedBox(height: 24),
-                if (currentUser?.role == 'P') ...[
-                  _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
-                  const SizedBox(height: 12),
-                  if (!_isRequested)
-                    _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest)
-                  else if (_isRequested && !_isReplied)
-                    _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
-                ],
-              ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildToggleCard(const Color(0xFFEAEAEA)),
+            const SizedBox(height: 16),
+            _buildImageCard(),
+            const SizedBox(height: 16),
+            _buildSummaryCard(
+              model1DetectedLabels: model1DetectedLabels,
+              model2Label: model2?['label'] ?? '감지되지 않음',
+              model2Confidence: model2?['confidence'] ?? 0.0,
+              textTheme: textTheme, // ✅ model3 인자 제거
             ),
-          ),
+            const SizedBox(height: 24),
+            if (currentUser?.role == 'P') ...[
+              _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
+              const SizedBox(height: 12),
+              if (!_isRequested)
+                _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest)
+              else if (_isRequested && !_isReplied)
+                _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
+
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
+            ]
+          ],
         ),
       ),
     );
   }
 
   Widget _buildImageCard() {
-    return LayoutBuilder( // ✅ LayoutBuilder 추가
-      builder: (context, constraints) {
-        final isWideScreen = constraints.maxWidth > 600; // ✅ 넓은 화면 기준
-        final aspectRatio = isWideScreen && kIsWeb ? 3 / 2 : 4 / 3; // ✅ 웹에서 넓은 화면일 때 비율 조정
-
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F0),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (originalImageBytes != null)
+                Image.memory(originalImageBytes!, fit: BoxFit.fill)
+              else
+                const Center(child: CircularProgressIndicator()),
+              if (_showDisease && overlay1Bytes != null)
+                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+              if (_showHygiene && overlay2Bytes != null)
+                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+              if (_showToothNumber && overlay3Bytes != null)
+                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+            ],
           ),
-          padding: const EdgeInsets.all(16),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (originalImageBytes != null)
-                    Image.memory(originalImageBytes!, fit: BoxFit.fill)
-                  else
-                    const Center(child: CircularProgressIndicator()),
-                  if (_showDisease && overlay1Bytes != null)
-                    Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                  if (_showHygiene && overlay2Bytes != null)
-                    Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                  if (_showToothNumber && overlay3Bytes != null)
-                    Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -375,14 +373,35 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     );
   }
 
+  final Map<String, String> diseaseLabelMap = {
+    "충치 초기": "🔴",
+    "충치 중기": "🟢",
+    "충치 말기": "🔵",
+    "잇몸 염증 초기": "🟡",
+    "잇몸 염증 중기": "🟣",
+    "잇몸 염증 말기": "🟦",
+    "치주질환 초기": "🟧",
+    "치주질환 중기": "🟪",
+    "치주질환 말기": "⚫",
+  };
+
+  final Map<String, String> hygieneLabelMap = {
+    "아말감 (am)": "🔴",       // 진한 빨강 (눈에 띔)
+    "세라믹 (cecr)": "🟣",     // 보라색
+    "골드 (gcr)": "🟡",       // 노랑 (금 느낌)
+    "메탈크라운 (mcr)": "⚪", // 흰 원 (금속 느낌)
+    "교정장치 (ortho)": "⚫",  // 검정 원 (철 느낌)
+    "치석 단계1 (tar1)": "🟢", // 초록 (초기)
+    "치석 단계2 (tar2)": "🟠", // 주황 (중간)
+    "치석 단계3 (tar3)": "🔵", // 파랑 (심각)
+    "지르코니아 (zircr)": "🟤", // 갈색 (독립된 소재 느낌)
+  };
+
   Widget _buildSummaryCard({
-    required String model1Label,
-    required double model1Confidence,
+    required List<dynamic> model1DetectedLabels,
     required String model2Label,
     required double model2Confidence,
-    required String model3ToothNumber,
-    required double model3Confidence,
-    required TextTheme textTheme,
+    required TextTheme textTheme, // ✅ model3 관련 인자 제거
   }) =>
       Container(
         decoration: BoxDecoration(
@@ -396,9 +415,23 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
+
+            // ✅ 모델1 진단 리스트 (질병)
+            if (_showDisease) ...[
+              const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
+              ...model1DetectedLabels.map((label) {
+                final icon = diseaseLabelMap[label] ?? "❓";
+                return Text("$icon : $label", style: textTheme.bodyMedium);
+              }),
+              const SizedBox(height: 8),
+            ],
+
+            // ✅ 모델2 단일 위생 진단
+            if (_showHygiene && hygieneLabelMap.containsKey(model2Label)) ...[
+              const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('${hygieneLabelMap[model2Label]} : $model2Label', style: textTheme.bodyMedium),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       );
