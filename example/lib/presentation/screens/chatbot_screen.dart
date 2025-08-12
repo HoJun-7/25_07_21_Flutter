@@ -1,3 +1,4 @@
+// chatbot_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -20,6 +21,15 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   late Animation<double> _sendBtnScale;
 
   static const double profileImageSize = 40.0;
+
+  // 마스킹 스위치 상태를 관리할 Map 추가
+  // 모든 스위치 기본값을 false로 설정하여, 아무것도 선택되지 않았을 때 원본 이미지가 보이도록 합니다.
+  final Map<String, bool> _currentMaskSettings = {
+    '충치/치아/위생 관련': false,
+    '치석/보철물': false,
+    '치아번호': false,
+  };
+
 
   @override
   void initState() {
@@ -101,10 +111,36 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
+  // ✅ 마스크 설정 스위치 UI를 만드는 위젯
+  Widget _buildMaskSettingSwitch(String label, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.notoSansKr(fontSize: 14, color: Colors.grey[700])),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFFADD8E6), // 활성 색상
+            inactiveThumbColor: Colors.grey[300], // 비활성 시 엄지 색상
+            inactiveTrackColor: Colors.grey[200], // 비활성 시 트랙 색상
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final messages = context.watch<ChatbotViewModel>().messages;
     final isLoading = context.watch<ChatbotViewModel>().isLoading;
+
+    // 화면 너비의 절반을 계산 (예: 챗봇 말풍선의 최대 너비가 화면의 70-80% 정도라면, 그 절반)
+    // 정확한 말풍선 너비를 알 수 없으므로, 대략적인 화면 너비의 비율로 설정합니다.
+    // 여기서는 화면 너비의 60%를 이미지 컨테이너의 최대 너비로 설정해 보겠습니다.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final imageContainerWidth = screenWidth * 0.6; // 화면 너비의 60%
 
     return PopScope(
       canPop: false,
@@ -179,6 +215,38 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                 itemBuilder: (_, idx) {
                   final msg = messages[idx];
                   final isUser = msg.role == 'user';
+
+                  // ✅ 이미지 URL을 결정하는 로직을 수정합니다.
+                  String? imageUrlToDisplay;
+                  if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
+                    print('수신된 메시지의 imageUrls: ${msg.imageUrls}');
+                    print('현재 충치/치아/위생 관련 마스크 설정: ${_currentMaskSettings['충치/치아/위생 관련']}');
+                    print('현재 치석/보철물 마스크 설정: ${_currentMaskSettings['치석/보철물']}');
+                    print('현재 치아번호 마스크 설정: ${_currentMaskSettings['치아번호']}');
+
+                    if (_currentMaskSettings['충치/치아/위생 관련'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model1'];
+                      print('--> 모델1 이미지 (충치/치아/위생) 선택: $imageUrlToDisplay');
+                    } else if (_currentMaskSettings['치석/보철물'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model2'];
+                      print('--> 모델2 이미지 (치석/보철물) 선택: $imageUrlToDisplay');
+                    } else if (_currentMaskSettings['치아번호'] == true) {
+                      imageUrlToDisplay = msg.imageUrls!['model3'];
+                      print('--> 모델3 이미지 (치아번호) 선택: $imageUrlToDisplay');
+                    }
+
+                    // 선택된 마스크 이미지가 없거나 해당 URL이 null이면 원본 이미지 사용
+                    imageUrlToDisplay ??= msg.imageUrls!['original'];
+                    print('--> 원본 이미지 (original) 선택: $imageUrlToDisplay');
+                    
+                    // 그럼에도 불구하고 null이면, 맵의 첫 번째 이미지 표시 (최후의 fallback)
+                    imageUrlToDisplay ??= msg.imageUrls!.values.first;
+                    if (imageUrlToDisplay == msg.imageUrls!.values.first && imageUrlToDisplay != msg.imageUrls!['original'] && imageUrlToDisplay != msg.imageUrls!['model1'] && imageUrlToDisplay != msg.imageUrls!['model2'] && imageUrlToDisplay != msg.imageUrls!['model3']) {
+                        print('--> Fallback 이미지 선택 (최후): $imageUrlToDisplay');
+                    }
+                  }
+
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(
                         vertical: 6, horizontal: 12),
@@ -213,26 +281,126 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                             if (isUser) _buildProfileAvatar(isUser: true),
                           ],
                         ),
-                        if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: msg.imageUrls!.entries.map((entry) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        entry.value,
-                                        width: 200,
-                                        height: 200,
-                                        fit: BoxFit.cover,
-                                      ),
+                        // ✅ 이미지 및 마스킹 설정 UI 추가
+                        if (imageUrlToDisplay != null) // Display image if URL is determined
+                          Align( // 이미지와 마스킹 UI를 가운데 정렬 또는 봇 메시지 위치에 맞춤
+                            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              // ✅ 너비 제약 추가
+                              width: imageContainerWidth, // 계산된 너비 적용
+                              margin: EdgeInsets.only(
+                                  top: 10,
+                                  left: isUser ? 0 : profileImageSize + 8, // 봇 프로필 아바타 공간 고려
+                                  right: isUser ? profileImageSize + 8 : 0, // 사용자 프로필 아바타 공간 고려
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFC0E6FF), width: 1),
+                                boxShadow: const [ // prefer_const_constructors 경고 해결
+                                  BoxShadow(
+                                    color: Color.fromARGB(13, 0, 0, 0),
+                                    blurRadius: 5,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '진단 사진 (${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일 ${DateTime.now().hour}시 ${DateTime.now().minute}분 촬영)', // 실제 촬영 시간으로 변경 필요
+                                    style: GoogleFonts.notoSansKr(
+                                        fontSize: 13, color: Colors.grey[600]),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // 이미지 표시
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      imageUrlToDisplay, // Use the determined image URL
+                                      width: imageContainerWidth - 24, // 컨테이너 패딩 제외
+                                      height: imageContainerWidth - 24, // 1:1 비율 유지를 위해 너비와 동일하게 설정
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return SizedBox(
+                                          width: imageContainerWidth - 24,
+                                          height: imageContainerWidth - 24,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return SizedBox(
+                                          width: imageContainerWidth - 24,
+                                          height: imageContainerWidth - 24,
+                                          child: Center(
+                                            child: Icon(Icons.broken_image, color: Colors.grey[400], size: 50),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                }).toList(),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  // 마스크 설정 섹션
+                                  Text(
+                                    '마스크 설정',
+                                    style: GoogleFonts.notoSansKr(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blueGrey[800]),
+                                  ),
+                                  const Divider(color: Colors.grey, thickness: 0.5),
+                                  _buildMaskSettingSwitch(
+                                    '충치/치아/위생 관련',
+                                    _currentMaskSettings['충치/치아/위생 관련']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['충치/치아/위생 관련'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['치석/보철물'] = false;
+                                          _currentMaskSettings['치아번호'] = false;
+                                        }
+                                        print('충치/치아/위생 관련 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                  _buildMaskSettingSwitch(
+                                    '치석/보철물',
+                                    _currentMaskSettings['치석/보철물']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['치석/보철물'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                          _currentMaskSettings['치아번호'] = false;
+                                        }
+                                        print('치석/보철물 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                  _buildMaskSettingSwitch(
+                                    '치아번호',
+                                    _currentMaskSettings['치아번호']!,
+                                    (bool newValue) {
+                                      setState(() {
+                                        _currentMaskSettings['치아번호'] = newValue;
+                                        if (newValue) { // 활성화 시 다른 스위치 비활성화
+                                          _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                          _currentMaskSettings['치석/보철물'] = false;
+                                        }
+                                        print('치아번호 스위치 상태: $newValue');
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -314,10 +482,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                               shape: BoxShape.circle,
                               color: Color(0xFFADD8E6),
                               boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2)),
+                                BoxShadow( // prefer_const_constructors 경고 해결
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2)),
                               ]),
                           padding: const EdgeInsets.all(12),
                           child: const Icon(Icons.send,

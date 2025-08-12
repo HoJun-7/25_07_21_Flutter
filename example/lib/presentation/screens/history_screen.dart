@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 
 import '/presentation/viewmodel/history_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -20,6 +22,10 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<String> statuses = ['ALL', '신청 안함', '응답 대기중', '응답 완료'];
+  
+  final _dateFmt = DateFormat('yyyy-MM-dd');
+  final _timeFmt = DateFormat('HH:mm');
+
   int _selectedIndex = 0;
   late PageController _pageController;
 
@@ -175,83 +181,109 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildRecordList(List<HistoryRecord> records, String imageBaseUrl) {
-    records.sort((a, b) {
-      final atime = _extractDateTimeFromFilename(a.originalImagePath);
-      final btime = _extractDateTimeFromFilename(b.originalImagePath);
-      return btime.compareTo(atime);
+    // 1) 최신순 정렬 (파일명 안의 타임스탬프 기준)
+    final sorted = [...records]..sort((a, b) {
+      final at = _extractDateTimeFromFilename(a.originalImagePath);
+      final bt = _extractDateTimeFromFilename(b.originalImagePath);
+      return bt.compareTo(at); // desc
     });
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: records.length,
-      itemBuilder: (context, index) {
-        final record = records[index];
-        final modelFilename = getModelFilename(record.originalImagePath);
-        final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(
-          _extractDateTimeFromFilename(record.originalImagePath),
-        );
+    // 2) 날짜 헤더 + 아이템을 순서대로 플랫하게 만든다
+    final List<Widget> children = [];
+    String? currentDate;
 
-        final isXray = record.imageType == 'xray';
-        final route = isXray ? '/history_xray_result_detail' : '/history_result_detail';
+    for (final record in sorted) {
+      final dt = _extractDateTimeFromFilename(record.originalImagePath);
+      final dateStr = _dateFmt.format(dt);
+      final timeStr = _timeFmt.format(dt);
 
-        final modelUrls = isXray
-            ? {
-                1: '$imageBaseUrl/images/xmodel1/$modelFilename',
-                2: '$imageBaseUrl/images/xmodel2/$modelFilename',
-              }
-            : {
-                1: '$imageBaseUrl/images/model1/$modelFilename',
-                2: '$imageBaseUrl/images/model2/$modelFilename',
-                3: '$imageBaseUrl/images/model3/$modelFilename',
-              };
-
-        final modelData = isXray
-            ? {
-                1: record.model1InferenceResult ?? {},
-                2: record.model2InferenceResult ?? {},
-              }
-            : {
-                1: record.model1InferenceResult ?? {},
-                2: record.model2InferenceResult ?? {},
-                3: record.model3InferenceResult ?? {},
-              };
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      // 날짜가 바뀌면 헤더 추가
+      if (currentDate != dateStr) {
+        currentDate = dateStr;
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Text(
+              dateStr,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF3869A8)),
+            ),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            title: Text('[$index] $formattedTime', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      }
+
+      final isXray = record.imageType == 'xray';
+      final route = isXray ? '/history_xray_result_detail' : '/history_result_detail';
+
+      final modelFilename = getModelFilename(record.originalImagePath);
+      final modelUrls = isXray
+          ? {
+              1: '$imageBaseUrl/images/xmodel1/$modelFilename',
+              2: '$imageBaseUrl/images/xmodel2/$modelFilename',
+            }
+          : {
+              1: '$imageBaseUrl/images/model1/$modelFilename',
+              2: '$imageBaseUrl/images/model2/$modelFilename',
+              3: '$imageBaseUrl/images/model3/$modelFilename',
+            };
+
+      final modelData = isXray
+          ? {
+              1: record.model1InferenceResult ?? {},
+              2: record.model2InferenceResult ?? {},
+            }
+          : {
+              1: record.model1InferenceResult ?? {},
+              2: record.model2InferenceResult ?? {},
+              3: record.model3InferenceResult ?? {},
+            };
+
+      // 3) "시간  썸네일(원본)" 한 줄
+      children.add(
+        InkWell(
+          onTap: () {
+            context.push(
+              route,
+              extra: {
+                'originalImageUrl': '$imageBaseUrl${record.originalImagePath}',
+                'processedImageUrls': modelUrls,
+                'modelInfos': modelData,
+                'userId': record.userId,
+                'inferenceResultId': record.id,
+                'baseUrl': widget.baseUrl,
+                'isRequested': record.isRequested == 'Y' ? 'Y' : 'N',
+                'isReplied': record.isReplied == 'Y' ? 'Y' : 'N',
+              },
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
               children: [
-                const SizedBox(height: 6),
-                Text('사용자 ID: ${record.userId}'),
-                Text('파일명: $modelFilename'),
+                // 시간
+                SizedBox(
+                  width: 52,
+                  child: Text(
+                    timeStr,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // 썸네일(원본)
+                _AuthThumb(
+                  url: '$imageBaseUrl${record.originalImagePath}',
+                  baseUrl: widget.baseUrl,
+                  size: 72,
+                ),
               ],
             ),
-            onTap: () {
-              context.push(
-                route,
-                extra: {
-                  'originalImageUrl': '$imageBaseUrl${record.originalImagePath}',
-                  'processedImageUrls': modelUrls,
-                  'modelInfos': modelData,
-                  'userId': record.userId,
-                  'inferenceResultId': record.id,
-                  'baseUrl': widget.baseUrl,
-                  'isRequested': record.isRequested == 'Y' ? 'Y' : 'N',
-                  'isReplied': record.isReplied == 'Y' ? 'Y' : 'N',
-                },
-              );
-            },
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: children,
     );
   }
 
@@ -266,5 +298,79 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   String getModelFilename(String path) {
     return path.split('/').last;
+  }
+}
+
+class _AuthThumb extends StatefulWidget {
+  final String url;       // 절대 URL (imageBaseUrl + path)
+  final String baseUrl;   // api base
+  final double size;
+
+  const _AuthThumb({
+    super.key,
+    required this.url,
+    required this.baseUrl,
+    this.size = 56,
+  });
+
+  @override
+  State<_AuthThumb> createState() => _AuthThumbState();
+}
+
+class _AuthThumbState extends State<_AuthThumb> {
+  Uint8List? _bytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (!mounted) return;
+    if (token == null) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    try {
+      final res = await http.get(
+        Uri.parse(widget.url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (!mounted) return;
+      setState(() {
+        _bytes = res.statusCode == 200 ? res.bodyBytes : null;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final border = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+      side: const BorderSide(color: Color(0xFF3869A8), width: 1),
+    );
+
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: ShapeDecoration(
+        color: const Color(0xFFF3F6FB),
+        shape: border,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _loading
+          ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+          : (_bytes != null
+              ? Image.memory(_bytes!, fit: BoxFit.cover)
+              : const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
+    );
   }
 }

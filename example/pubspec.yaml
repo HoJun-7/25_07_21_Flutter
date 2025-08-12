@@ -33,7 +33,8 @@ dependencies:
   image_gallery_saver:
     path: packages/image_gallery_saver
   smooth_page_indicator: ^1.1.0   # ✅ 추가
-  
+  model_viewer_plus: ^1.9.3
+  flutter_html: ^3.0.0
 
 dev_dependencies:
   integration_test:
@@ -56,6 +57,10 @@ flutter:
     - assets/applogo.png
     - assets/splash.png
     - assets/models/dental_best_float32.tflite
+    - assets/web/model/open_mouth.glb
+    - assets/web/
+    - assets/web/model/
+    - assets/html/
 
 flutter_launcher_icons:
   android: true

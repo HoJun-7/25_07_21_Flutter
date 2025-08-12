@@ -206,7 +206,12 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
-
+  // ✅ 3D 뷰어 열기
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+    });
+  }
 
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
@@ -259,6 +264,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     final model1 = widget.modelInfos[1];
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
+    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
@@ -277,13 +283,10 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
             _buildImageCard(),
             const SizedBox(height: 16),
             _buildSummaryCard(
-              model1Label: model1?['label'] ?? '감지되지 않음',
-              model1Confidence: model1?['confidence'] ?? 0.0,
+              model1DetectedLabels: model1DetectedLabels,
               model2Label: model2?['label'] ?? '감지되지 않음',
               model2Confidence: model2?['confidence'] ?? 0.0,
-              model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
-              model3Confidence: model3?['confidence'] ?? 0.0,
-              textTheme: textTheme,
+              textTheme: textTheme, // ✅ model3 인자 제거
             ),
             const SizedBox(height: 24),
             if (currentUser?.role == 'P') ...[
@@ -298,6 +301,8 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
 
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
             ]
           ],
         ),
@@ -368,14 +373,35 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     );
   }
 
+  final Map<String, String> diseaseLabelMap = {
+    "충치 초기": "🔴",
+    "충치 중기": "🟢",
+    "충치 말기": "🔵",
+    "잇몸 염증 초기": "🟡",
+    "잇몸 염증 중기": "🟣",
+    "잇몸 염증 말기": "🟦",
+    "치주질환 초기": "🟧",
+    "치주질환 중기": "🟪",
+    "치주질환 말기": "⚫",
+  };
+
+  final Map<String, String> hygieneLabelMap = {
+    "아말감 (am)": "🔴",       // 진한 빨강 (눈에 띔)
+    "세라믹 (cecr)": "🟣",     // 보라색
+    "골드 (gcr)": "🟡",       // 노랑 (금 느낌)
+    "메탈크라운 (mcr)": "⚪", // 흰 원 (금속 느낌)
+    "교정장치 (ortho)": "⚫",  // 검정 원 (철 느낌)
+    "치석 단계1 (tar1)": "🟢", // 초록 (초기)
+    "치석 단계2 (tar2)": "🟠", // 주황 (중간)
+    "치석 단계3 (tar3)": "🔵", // 파랑 (심각)
+    "지르코니아 (zircr)": "🟤", // 갈색 (독립된 소재 느낌)
+  };
+
   Widget _buildSummaryCard({
-    required String model1Label,
-    required double model1Confidence,
+    required List<dynamic> model1DetectedLabels,
     required String model2Label,
     required double model2Confidence,
-    required String model3ToothNumber,
-    required double model3Confidence,
-    required TextTheme textTheme,
+    required TextTheme textTheme, // ✅ model3 관련 인자 제거
   }) =>
       Container(
         decoration: BoxDecoration(
@@ -389,9 +415,23 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
           children: [
             const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Text('모델1 (질병): $model1Label, ${(model1Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
-            Text('모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%', style: textTheme.bodyMedium),
+
+            // ✅ 모델1 진단 리스트 (질병)
+            if (_showDisease) ...[
+              const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
+              ...model1DetectedLabels.map((label) {
+                final icon = diseaseLabelMap[label] ?? "❓";
+                return Text("$icon : $label", style: textTheme.bodyMedium);
+              }),
+              const SizedBox(height: 8),
+            ],
+
+            // ✅ 모델2 단일 위생 진단
+            if (_showHygiene && hygieneLabelMap.containsKey(model2Label)) ...[
+              const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text('${hygieneLabelMap[model2Label]} : $model2Label', style: textTheme.bodyMedium),
+              const SizedBox(height: 8),
+            ],
           ],
         ),
       );

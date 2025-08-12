@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
+import 'dart:convert'; // ✅ utf8 사용을 위한 import
 
 class RegisterScreen extends StatefulWidget {
   final String baseUrl;
@@ -16,13 +17,17 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _birthController = TextEditingController();
   final _phoneController = TextEditingController();
   final _registerIdController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   String _selectedGender = 'M';
   String _selectedRole = 'P';
+  int? _selectedYear;
+  int? _selectedMonth;
+  int? _selectedDay;
+  List<int> _years = List.generate(141, (index) => DateTime.now().year - index);
+  List<int> _months = List.generate(12, (index) => index + 1);
 
   bool _isDuplicate = true;
   bool _isIdChecked = false;
@@ -33,7 +38,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _birthController.dispose();
     _phoneController.dispose();
     _registerIdController.dispose();
     _passwordController.dispose();
@@ -70,11 +74,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    String? _validateBirth() {
+      if (_selectedYear == null || _selectedMonth == null || _selectedDay == null) {
+        return '생년월일을 모두 선택해주세요';
+      }
+      final birthDate = DateTime(_selectedYear!, _selectedMonth!, _selectedDay!);
+      final now = DateTime.now();
+      final oldest = DateTime(now.year - 125, now.month, now.day);
+      if (birthDate.isBefore(oldest) || birthDate.isAfter(now)) {
+        return '유효한 생년월일을 입력해주세요';
+      }
+      return null;
+    }
+
     if (!_formKey.currentState!.validate()) {
       _showSnack('모든 필드를 올바르게 입력해주세요.');
       return;
     }
-
+    final birthError = _validateBirth();
+      if (birthError != null) {
+        _showSnack(birthError);
+        return;
+      }
     if (!_isIdChecked || _isDuplicate) {
       _showSnack('아이디 중복 확인을 완료해주세요.');
       return;
@@ -85,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'password': _passwordController.text.trim(),      // ✅ 비밀번호
       'name': _nameController.text.trim(),              // ✅ 이름
       'gender': _selectedGender,
-      'birth': _birthController.text.trim(),
+      'birth': '${_selectedYear!}-${_selectedMonth!.toString().padLeft(2, '0')}-${_selectedDay!.toString().padLeft(2, '0')}',
       'phone': _phoneController.text.trim(),
       'role': _selectedRole,
     };
@@ -105,6 +126,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Widget _buildYearDropdown() {
+    return DropdownButtonFormField<int>(
+      value: _selectedYear,
+      decoration: const InputDecoration(labelText: '연도'),
+      items: _years.map((year) {
+        return DropdownMenuItem(value: year, child: Text('$year'));
+      }).toList(),
+      onChanged: (val) => setState(() => _selectedYear = val),
+      validator: (val) => val == null ? '연도를 선택해주세요' : null,
+    );
+  }
+
+  Widget _buildMonthDropdown() {
+    return DropdownButtonFormField<int>(
+      value: _selectedMonth,
+      decoration: const InputDecoration(labelText: '월'),
+      items: _months.map((month) {
+        return DropdownMenuItem(value: month, child: Text('$month'));
+      }).toList(),
+      onChanged: (val) {
+        setState(() {
+          _selectedMonth = val;
+          _selectedDay = null; // 월 바뀌면 일 초기화
+        });
+      },
+      validator: (val) => val == null ? '월을 선택해주세요' : null,
+    );
+  }
+
+  Widget _buildDayDropdown() {
+    int maxDay = 31;
+    if (_selectedYear != null && _selectedMonth != null) {
+      maxDay = DateTime(_selectedYear!, _selectedMonth! + 1, 0).day;
+    }
+    final days = List.generate(maxDay, (index) => index + 1);
+
+    return DropdownButtonFormField<int>(
+      value: _selectedDay,
+      decoration: const InputDecoration(labelText: '일'),
+      items: days.map((day) {
+        return DropdownMenuItem(value: day, child: Text('$day'));
+      }).toList(),
+      onChanged: (val) => setState(() => _selectedDay = val),
+      validator: (val) => val == null ? '일을 선택해주세요' : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authViewModel = context.watch<AuthViewModel>();
@@ -117,9 +185,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/login'),
+          onPressed: () => context.go('/agreement'),
         ),
-        actions: [
+        /*actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
               setState(() {
@@ -137,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             icon: const Icon(Icons.account_circle),
             tooltip: '사용자 유형 선택',
           ),
-        ],
+        ],*/
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -160,19 +228,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildTextField(_nameController, '이름 (한글만)'),
-                  const SizedBox(height: 10),
-                  _buildGenderCardSelector(),
-                  _buildTextField(
-                    _birthController,
-                    '생년월일 (YYYY-MM-DD)',
-                    keyboardType: TextInputType.datetime,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
-                      LengthLimitingTextInputFormatter(10),
-                      _DateFormatter(),
+                  // ✅ 사용자 유형 선택 (의사/환자)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('환자'),
+                        selected: _selectedRole == 'P',
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedRole = 'P';
+                              _isIdChecked = false;
+                              _isDuplicate = true;
+                              _registerIdController.clear();
+                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                            });
+                          }
+                        },
+                        selectedColor: Colors.blueAccent,
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text('의사'),
+                        selected: _selectedRole == 'D',
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedRole = 'D';
+                              _isIdChecked = false;
+                              _isDuplicate = true;
+                              _registerIdController.clear();
+                              context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+                            });
+                          }
+                        },
+                        selectedColor: Colors.redAccent,
+                      ),
                     ],
                   ),
+                  SizedBox(height: 20),
+                  _buildTextField(
+                    _nameController,
+                    '이름 (한글만)',
+                    inputFormatters: [_NameByteLimitFormatter()],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGenderCardSelector(),
+                  Row(
+                    children: [
+                      Expanded(child: _buildYearDropdown()),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildMonthDropdown()),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildDayDropdown()),
+                    ],
+                  ),                  
                   _buildTextField(
                     _phoneController,
                     '전화번호',
@@ -197,6 +308,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             });
                           },
                           errorText: authViewModel.duplicateCheckErrorMessage,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                            LengthLimitingTextInputFormatter(20),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -212,8 +327,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  _buildTextField(_passwordController, '비밀번호 (6자 이상)', isPassword: true),
-                  _buildTextField(_confirmController, '비밀번호 확인', isPassword: true),
+                  _buildTextField(
+                    _passwordController,
+                    '비밀번호 (6자 이상)',
+                    isPassword: true,
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                  ),
+                  _buildTextField(
+                    _confirmController,
+                    '비밀번호 확인',
+                    isPassword: true,
+                    inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                  ),
                   const SizedBox(height: 25),
                   SizedBox(
                     width: double.infinity,
@@ -273,6 +398,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           if (value == null || value.trim().isEmpty) return '$label을 입력해주세요';
           if (label == '비밀번호 확인' && value != _passwordController.text) {
             return '비밀번호가 일치하지 않습니다';
+          }
+          if (label == '이름 (한글만)' && !RegExp(r'^[가-힣]+$').hasMatch(value)) {
+            return '이름은 한글만 입력해주세요';
           }
           return null;
         },
@@ -340,17 +468,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
+class _NameByteLimitFormatter extends TextInputFormatter {
+  final int maxBytes;
+  _NameByteLimitFormatter({this.maxBytes = 18}); // 이름 필드 18Byte 입력제한(현행법상 성 포함 6글자까지. 1글자=3Byte)
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final newText = newValue.text;
+    final bytes = utf8.encode(newText);
+    if (bytes.length <= maxBytes) return newValue;
+
+    // 바이트 수 초과 시 앞에서부터 유효한 범위까지만 자르기
+    int byteCount = 0;
+    int cutoffIndex = 0;
+    for (int i = 0; i < newText.length; i++) {
+      final char = newText[i];
+      final charBytes = utf8.encode(char);
+      if (byteCount + charBytes.length > maxBytes) break;
+      byteCount += charBytes.length;
+      cutoffIndex = i + 1;
+    }
+
+    final truncated = newText.substring(0, cutoffIndex);
+    return TextEditingValue(
+      text: truncated,
+      selection: TextSelection.collapsed(offset: truncated.length),
+    );
+  }
+}
+
 class _DateFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final text = newValue.text.replaceAll('-', '');
-    if (text.length > 8) return oldValue;
+    final newText = newValue.text.replaceAll('-', '');
+
+    if (newText.length < oldValue.text.replaceAll('-', '').length) {
+      // ✅ 백스페이스 동작 허용
+      return newValue;
+    }
+
+    if (newText.length > 8) return oldValue;
+
     final buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
+    for (int i = 0; i < newText.length; i++) {
+      buffer.write(newText[i]);
       if (i == 3 || i == 5) buffer.write('-');
     }
-    return newValue.copyWith(
+
+    return TextEditingValue(
       text: buffer.toString(),
       selection: TextSelection.collapsed(offset: buffer.length),
     );
