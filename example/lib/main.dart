@@ -24,7 +24,7 @@ void main() {
   // const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; 
   // const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
   //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
-  const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
+  //const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
   //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
 
   if (!kIsWeb) {
