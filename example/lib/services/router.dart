@@ -242,7 +242,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final baseUrl = extra['baseUrl'] as String? ?? '';
-              final survey = extra['survey'] as Map<String, int>? ?? {};
+              final survey = extra['survey'] as Map<String, dynamic>? ?? {};
               return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
