@@ -40,10 +40,20 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   bool _isLoading = true;
   String? _error;
 
+  final TextEditingController _commentController = TextEditingController();
+  bool _isSendingComment = false;
+  String? _commentSendError;
+
   @override
   void initState() {
     super.initState();
     _fetchInferenceResult();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchInferenceResult() async {
@@ -103,6 +113,64 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     }
   }
 
+  Future<void> _sendComment() async {
+    final comment = _commentController.text.trim();
+    if (comment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('코멘트를 입력해주세요')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSendingComment = true;
+      _commentSendError = null;
+    });
+
+    try {
+      final authViewModel = context.read<AuthViewModel>();
+      final accessToken = await authViewModel.getAccessToken();
+      if (accessToken == null) {
+        setState(() {
+          _commentSendError = '토큰이 없습니다.';
+          _isSendingComment = false;
+        });
+        return;
+      }
+
+      final uri = Uri.parse('${widget.baseUrl}/comments/send');
+      final response = await http.post(uri,
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'user_id': widget.userId,
+            'comment': comment,
+          }));
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isSendingComment = false;
+          _commentController.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('코멘트가 성공적으로 전송되었습니다.')),
+        );
+      } else {
+        setState(() {
+          _commentSendError = '전송 실패: ${response.statusCode}';
+          _isSendingComment = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _commentSendError = '오류 발생: $e';
+        _isSendingComment = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color outerBackground = Color(0xFFE7F0FF);
@@ -129,6 +197,8 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
                       _buildFixedImageCard(widget.originalImageUrl),
                       const SizedBox(height: 16),
                       _buildSummaryCard(),
+                      const SizedBox(height: 24),
+                      _buildCommentInputCard(),
                     ],
                   ),
                 ),
@@ -233,6 +303,56 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
             Text("모델1 (질병): $className, ${(confidence * 100).toStringAsFixed(1)}%"),
             Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
             Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
+          ],
+        ),
+      );
+
+  Widget _buildCommentInputCard() => Container(
+        decoration: _cardDecoration(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '의사 코멘트 작성',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _commentController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: '여기에 코멘트를 입력하세요.',
+              ),
+            ),
+            if (_commentSendError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _commentSendError!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSendingComment ? null : _sendComment,
+                child: _isSendingComment
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('환자에게 코멘트 보내기'),
+              ),
+            ),
           ],
         ),
       );
