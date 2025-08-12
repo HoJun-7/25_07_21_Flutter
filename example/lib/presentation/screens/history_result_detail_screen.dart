@@ -206,7 +206,12 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     }
   }
 
-
+  // ✅ 3D 뷰어 열기
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+    });
+  }
 
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
@@ -296,6 +301,8 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
 
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
             ]
           ],
         ),

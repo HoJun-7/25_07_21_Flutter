@@ -107,6 +107,13 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
     }
   }
 
+  // ✅ 3D 뷰어 열기
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+    });
+  }
+
   Future<Uint8List?> _loadImageWithAuth(String url, String token) async {
     final String resolvedUrl = url.startsWith('http')
         ? url
@@ -237,6 +244,8 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
                 _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
               const SizedBox(height: 12),
               _buildActionButton(Icons.chat, 'AI 소견 들어보기', _getGeminiOpinion),
+              const SizedBox(height: 12),
+              _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
             ]
           ],
         ),

@@ -71,6 +71,13 @@
       }
     }
 
+    // ✅ 3D 뷰어 열기
+    void _open3DViewer() {
+      context.push('/dental_viewer', extra: {
+        'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+      });
+    }
+  
     Future<Uint8List?> _loadImage(String url, String token) async {
       final res = await http.get(Uri.parse(url), headers: {
         'Authorization': 'Bearer $token',
@@ -200,6 +207,8 @@
                     _showErrorDialog("AI 소견 요청에 실패했습니다.");
                   }
                 }),
+                const SizedBox(height: 12),
+                _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
               ]
             ],
           ),
