@@ -48,6 +48,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         print('❌ 진료 기록 요청 실패');
       }
 
+      // -------------------- [여기부터 변경] 예약 내역은 '내 것만' 필터 --------------------
       final reservationUri = Uri.parse(
           '${widget.baseUrl}/consult/list?user_id=${user.registerId}');
       print('📡 예약 내역 URI: $reservationUri');
@@ -56,13 +57,49 @@ class _MyPageScreenState extends State<MyPageScreen> {
       print('📥 예약 응답 내용: ${reservationResponse.body}');
 
       if (reservationResponse.statusCode == 200) {
-        final Map<String, dynamic> decoded = jsonDecode(reservationResponse.body);
-        final List<dynamic> reservations = decoded['consults'] ?? [];
-        print('✅ 예약 내역 개수: ${reservations.length}');
-        _reservationCount = reservations.length;
+        final Map<String, dynamic> decoded =
+            jsonDecode(reservationResponse.body);
+        final List<dynamic> allReservations = decoded['consults'] ?? [];
+
+        // 현재 로그인한 내 ID
+        final myId = user.registerId.toString();
+
+        // 다양한 응답 스키마(키 이름/중첩)의 경우를 커버하는 로컬 필터 함수
+        bool isMine(dynamic item) {
+          if (item is! Map) return false;
+          final map = item as Map<String, dynamic>;
+
+          // 1) 평면 키들에서 먼저 찾아보기
+          final flatId = (map['user_id'] ??
+                  map['userId'] ??
+                  map['patient_id'] ??
+                  map['patientId'] ??
+                  map['register_id'] ??
+                  map['registerId'])
+              ?.toString();
+
+          // 2) 중첩 객체에서 찾아보기 (예: patient / user)
+          String? nestedId;
+          final patient = map['patient'];
+          if (patient is Map) {
+            nestedId = (patient['id'] ?? patient['registerId'])?.toString();
+          }
+          final userObj = map['user'];
+          if (userObj is Map && nestedId == null) {
+            nestedId = (userObj['id'] ?? userObj['registerId'])?.toString();
+          }
+
+          final candidate = flatId ?? nestedId;
+          return candidate == myId;
+        }
+
+        final myReservations = allReservations.where(isMine).toList();
+        print('✅ 전체 예약 ${allReservations.length}건 중 내 예약 ${myReservations.length}건');
+        _reservationCount = myReservations.length;
       } else {
         print('❌ 예약 내역 요청 실패');
       }
+      // -------------------- [변경 끝] --------------------
 
       if (!mounted) return;
       setState(() {});
