@@ -56,7 +56,6 @@ flutter:
     - assets/logo.png
     - assets/applogo.png
     - assets/splash.png
-    - assets/models/dental_best_float32.tflite
     - assets/web/model/open_mouth.glb
     - assets/web/
     - assets/web/model/
