@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:provider/provider'; // ✅ 이 줄을 주석 처리합니다.
+import 'package:provider/provider.dart';
 
 // Screens
 import '/presentation/screens/doctor/d_real_home_screen.dart';
@@ -16,7 +16,9 @@ import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
+import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
 import '/presentation/screens/history_result_detail_screen.dart';
+import '/presentation/screens/history_xray_result_detail_screen.dart'; // ✅ 추가
 import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
@@ -31,6 +33,9 @@ import '/presentation/screens/find_id_screen.dart';
 import '/presentation/screens/find_id_result.dart';
 import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
+import '/presentation/screens/dental_viewer_screen.dart';
+import '/presentation/screens/agreement_screen.dart';
+
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -46,17 +51,19 @@ GoRouter createRouter(String baseUrl) {
         builder: (context, state) => LoginScreen(baseUrl: baseUrl),
       ),
       GoRoute(
+        path: '/agreement',
+        builder: (context, state) => AgreementScreen(baseUrl: baseUrl),
+      ),
+      GoRoute(
         path: '/register',
         builder: (context, state) => RegisterScreen(baseUrl: baseUrl),
       ),
       GoRoute(
         path: '/find_id',
-        builder: (context, state) =>
-            // ChangeNotifierProvider( // ✅ 이 부분을 주석 처리합니다.
-            // create: (_) => FindIdViewModel(baseUrl: baseUrl),
-            // child:
-            FindIdScreen(baseUrl: baseUrl),
-        // ), // ✅ 이 부분을 주석 처리합니다.
+        builder: (context, state) => ChangeNotifierProvider(
+          create: (_) => FindIdViewModel(baseUrl: baseUrl),
+          child: FindIdScreen(baseUrl: baseUrl),
+        ),
       ),
       GoRoute(
         path: '/find-id-result',
@@ -69,7 +76,7 @@ GoRouter createRouter(String baseUrl) {
         path: '/find_password',
         builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
-      GoRoute(
+            GoRoute(
         path: '/find-password-result',
         builder: (context, state) => const FindPasswordResultScreen(),
       ),
@@ -86,13 +93,10 @@ GoRouter createRouter(String baseUrl) {
             path: '/d_home',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return (
-                  // ChangeNotifierProvider( // ✅ 이 부분을 주석 처리합니다.
-                  // create: (_) => DoctorDashboardViewModel(),
-                  // child:
-                  DRealHomeScreen(baseUrl: passedBaseUrl)
-                  // ), // ✅ 이 부분을 주석 처리합니다.
-                  );
+              return ChangeNotifierProvider(
+                create: (_) => DoctorDashboardViewModel(),
+                child: DRealHomeScreen(baseUrl: passedBaseUrl),
+              );
             },
           ),
           GoRoute(
@@ -112,13 +116,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return Scaffold(
-                appBar: AppBar(
-                  title: const Text('예약 현황'),
-                  backgroundColor: const Color(0xFF3869A8), // 색상 적용
-                  foregroundColor: Colors.white, // 텍스트 및 아이콘 색상 적용
-                  centerTitle: true,
-                  elevation: 0,
-                ),
+                appBar: AppBar(title: const Text('예약 현황')),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const Center(child: Text('예약 현황 화면입니다.')),
               );
@@ -129,47 +127,14 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return Scaffold(
-                appBar: AppBar(
-                  title: const Text('진료 캘린더'),
-                  backgroundColor: const Color(0xFF3869A8), // ✅ 여기를 수정했습니다.
-                  foregroundColor: Colors.white, // ✅ 여기를 추가했습니다.
-                  centerTitle: true, // ✅ 여기를 추가했습니다.
-                  elevation: 0, // ✅ 여기를 추가했습니다.
-                ),
+                appBar: AppBar(title: const Text('진료 일정'),
+                centerTitle: true,
+                backgroundColor: const Color.fromARGB(255, 92, 179, 250),
+                surfaceTintColor :Colors.transparent,
+                scrolledUnderElevation: 0,
+                 ),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const DCalendarScreen(),
-                floatingActionButton: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    FloatingActionButton.extended(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('예약 추가 화면으로 이동합니다.')),
-                        );
-                      },
-                      label: const Text('예약 추가', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      backgroundColor: const Color(0xFF3869A8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      elevation: 6,
-                      heroTag: 'addAppointmentRouter',
-                    ),
-                    const SizedBox(height: 10),
-                    FloatingActionButton.extended(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('예약 삭제 기능을 구현해야 합니다.')),
-                        );
-                      },
-                      label: const Text('예약 삭제', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      icon: const Icon(Icons.delete, color: Colors.white),
-                      backgroundColor: Colors.redAccent.shade700,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      elevation: 6,
-                      heroTag: 'deleteAppointmentRouter',
-                    ),
-                  ],
-                ),
               );
             },
           ),
@@ -178,13 +143,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return Scaffold(
-                appBar: AppBar(
-                  title: const Text('환자 목록'),
-                  backgroundColor: const Color(0xFF3869A8), // 색상 적용
-                  foregroundColor: Colors.white, // 텍스트 및 아이콘 색상 적용
-                  centerTitle: true,
-                  elevation: 0,
-                ),
+                appBar: AppBar(title: const Text('환자 목록')),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const Center(child: Text('환자 목록 화면입니다.')),
               );
@@ -234,7 +193,7 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot',
+          GoRoute(path: '/chatbot', 
           builder: (context, state) => const ChatbotScreen()
           ),
           GoRoute(
@@ -242,7 +201,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
               final responseText = extra?['responseText'] ?? '응답이 없습니다.';
-              return MultimodalResponseScreen(responseText: responseText);   // ✅ 이 부분만 multimodal로
+              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
             },
           ),
           GoRoute(
@@ -253,9 +212,30 @@ GoRouter createRouter(String baseUrl) {
               return HomeScreen(baseUrl: baseUrl, userId: userId);
             },
           ),
-          GoRoute(path: '/mypage', builder: (context, state) => const MyPageScreen()),
-          GoRoute(path: '/reauth', builder: (context, state) => const ReauthScreen()),
-          GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
+          GoRoute(
+            path: '/dental_viewer',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?; 
+              final glbUrl = extra?['glbUrl'] 
+                  ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
+              return DentalViewerScreen(glbUrl: glbUrl);
+            },
+          ),
+          GoRoute(
+            path: '/mypage',
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return MyPageScreen(baseUrl: passedBaseUrl);
+            },
+          ),
+          GoRoute(
+            path: '/reauth',
+            builder: (context, state) => const ReauthScreen(),
+          ),
+          GoRoute(
+            path: '/edit-profile',
+            builder: (context, state) => const EditProfileScreen(),
+          ),
           GoRoute(
             path: '/edit_profile_result',
             builder: (context, state) {
@@ -268,14 +248,22 @@ GoRouter createRouter(String baseUrl) {
           ),
           GoRoute(
             path: '/survey',
-            name: 'survey',
-            builder: (context, state) => const DentalSurveyScreen(),
+            builder: (context, state) {
+              final passedBaseUrl = state.extra as String? ?? baseUrl;
+              return DentalSurveyScreen(baseUrl: passedBaseUrl);
+            },
           ),
           GoRoute(
             path: '/upload',
             builder: (context, state) {
-              final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return UploadScreen(baseUrl: passedBaseUrl);
+              final extra = state.extra as Map<String, dynamic>? ?? {};
+              final baseUrl = extra['baseUrl'] as String? ?? '';
+
+              // 중요: dynamic으로 안전 캐스팅
+              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>()
+                            ?? const <String, dynamic>{};
+
+              return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
           GoRoute(
@@ -288,9 +276,9 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/diagnosis/realtime',
             builder: (context, state) {
-              // final authViewModel = Provider.of<AuthViewModel>(context, listen: false); // ✅ 이 줄을 주석 처리합니다.
-              // final currentUser = authViewModel.currentUser; // ✅ 이 줄을 주석 처리합니다.
-              final realUserId = 'guest'; // ✅ 기본값으로 설정합니다.
+              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+              final currentUser = authViewModel.currentUser;
+              final realUserId = currentUser?.registerId ?? 'guest';
               final data = state.extra as Map<String, dynamic>? ?? {};
               final baseUrlFromData = data['baseUrl'] ?? '';
               return CameraInferenceScreen(
@@ -326,7 +314,22 @@ GoRouter createRouter(String baseUrl) {
                 processedImageUrls: Map<int, String>.from(extra['processedImageUrls']),
                 modelInfos: Map<int, Map<String, dynamic>>.from(extra['modelInfos']),
                 userId: extra['userId'],
-                inferenceResultId: extra['userId'], // Assuming inferenceResultId is userId based on context
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/upload_xray_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+              return UploadXrayResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                model1ImageUrl: extra['model1ImageUrl'],
+                model2ImageUrl: extra['model2ImageUrl'],
+                model1Result: Map<String, dynamic>.from(extra['model1Result']),
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
                 baseUrl: extra['baseUrl'],
               );
             },
@@ -344,6 +347,39 @@ GoRouter createRouter(String baseUrl) {
                 baseUrl: extra['baseUrl'],
                 isRequested: extra['isRequested'],
                 isReplied: extra['isReplied'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/history_xray_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>;
+
+              final processedImageUrlsRaw = extra['processedImageUrls'] as Map;
+              final modelInfosRaw = extra['modelInfos'] as Map;
+
+              final processedImageUrls = processedImageUrlsRaw.map<int, String>(
+                (key, value) => MapEntry(int.parse(key.toString()), value.toString()),
+              );
+
+              final modelInfos = modelInfosRaw.map<int, Map<String, dynamic>>(
+                (key, value) => MapEntry(int.parse(key.toString()), Map<String, dynamic>.from(value)),
+              );
+
+              // ✅ 문자열로 명확히 변환
+              final String isRequested = (extra['isRequested'] ?? 'N').toString();
+              final String isReplied = (extra['isReplied'] ?? 'N').toString();
+
+              return HistoryXrayResultDetailScreen(
+                originalImageUrl: extra['originalImageUrl'],
+                model1ImageUrl: processedImageUrls[1] ?? '',
+                model2ImageUrl: processedImageUrls[2] ?? '',
+                model1Result: modelInfos[1] ?? {},
+                userId: extra['userId'],
+                inferenceResultId: extra['inferenceResultId'],
+                baseUrl: extra['baseUrl'],
+                isRequested: isRequested,
+                isReplied: isReplied,
               );
             },
           ),
