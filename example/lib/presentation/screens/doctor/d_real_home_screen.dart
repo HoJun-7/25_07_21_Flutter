@@ -1,5 +1,3 @@
-// C:\Users\302-15\Desktop\25_07_21_Flutter-2\example\lib\presentation\screens\doctor\d_real_home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -86,6 +84,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     const Color backgroundColor = Color(0xFFAAD0F8);
 
+    // 웹 환경이거나 가로 모드일 때 Row 레이아웃을 사용
+    final isDesktopOrLandscape = kIsWeb || MediaQuery.of(context).orientation == Orientation.landscape;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -143,16 +144,133 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
           ],
         ),
         body: SafeArea(
-          child: kIsWeb
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: _buildScrollableBody(context),
-                  ),
-                )
-              : _buildScrollableBody(context),
+          child: isDesktopOrLandscape
+              ? _buildDesktopLayout(context)
+              : _buildMobileLayout(context),
         ),
       ),
+    );
+  }
+
+  // 모바일/세로 모드 레이아웃
+  Widget _buildMobileLayout(BuildContext context) {
+    return _buildScrollableBody(context);
+  }
+
+  // 웹/가로 모드 레이아웃 (이미지 도면과 유사)
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Consumer<DoctorDashboardViewModel>(
+      builder: (context, vm, child) {
+        return RefreshIndicator(
+          onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+          color: Colors.white,
+          backgroundColor: Colors.blueAccent,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '안녕하세요, ${vm.doctorName}님',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSummaryCards(vm),
+                      const SizedBox(height: 24),
+                      Text(
+                        '최근 7일 신청 건수',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        height: 200,
+                        child: const _LineChartWidget(),
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        height: 200, // 그래프와 동일한 높이
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '그래프',
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black54),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '사진 / x-ray',
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -172,9 +290,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
                 Text(
                   '안녕하세요, ${vm.doctorName}님',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const SizedBox(height: 16),
                 _buildSummaryCards(vm),
@@ -182,9 +300,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
                 Text(
                   '최근 7일 신청 건수',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const SizedBox(height: 16),
                 Container(
@@ -203,36 +321,61 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
                   height: 200,
                   child: const _LineChartWidget(),
                 ),
+                const SizedBox(height: 24),
+                // "그래프" 박스 추가
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '그래프',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black54),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // "사진 / x-ray" 박스 추가
+                Container(
+                  height: 300,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '사진 / x-ray',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black54),
+                    ),
+                  ),
+                ),
                 // ⬇⬇⬇ '진료 카테고리 비율' 관련 위젯 삭제 ⬇⬇⬇
-                // const SizedBox(height: 24),
-                // Text(
-                //   '진료 카테고리 비율',
-                //   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                //       color: Colors.white,
-                //       fontWeight: FontWeight.bold,
-                //   ),
-                // ),
-                // const SizedBox(height: 16),
-                // Container(
-                //   padding: const EdgeInsets.all(8),
-                //   decoration: BoxDecoration(
-                //     color: Colors.white.withOpacity(0.9),
-                //     borderRadius: BorderRadius.circular(12),
-                //     boxShadow: [
-                //       BoxShadow(
-                //         color: Colors.black.withOpacity(0.1),
-                //         blurRadius: 8,
-                //         offset: const Offset(0, 4),
-                //       ),
-                //     ],
-                //   ),
-                //   height: 200,
-                //   child: const _PieChartWidget(),
-                // ),
-                // const SizedBox(height: 16),
-                // Center(
-                //   child: _buildCategoryLegend(vm),
-                // ),
                 // ⬆⬆⬆ '진료 카테고리 비율' 관련 위젯 삭제 ⬆⬆⬆
               ],
             ),
