@@ -44,6 +44,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<HistoryViewModel>();
     final authViewModel = context.watch<AuthViewModel>();
@@ -56,7 +62,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('이전 진단 기록'),
+          title: const Text('진료 기록'),
           centerTitle: true,
           backgroundColor: const Color(0xFF3869A8),
           foregroundColor: Colors.white,
@@ -170,7 +176,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 children: List.generate(statuses.length, (index) {
                   return GestureDetector(
                     onTap: () {
-                      setState(() => _selectedIndex = index);
                       _pageController.animateToPage(
                         index,
                         duration: const Duration(milliseconds: 300),
@@ -224,7 +229,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
             child: Text(
               dateStr,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF3869A8)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3869A8)),
             ),
           ),
         );
@@ -256,7 +261,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               3: record.model3InferenceResult ?? {},
             };
 
-      // 3) "시간  썸네일(원본)" 한 줄
+      // 3) 더 단순하고 보기 편하게 수정된 목록 항목
       children.add(
         InkWell(
           onTap: () {
@@ -274,25 +279,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
               },
             );
           },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // 시간
                 SizedBox(
-                  width: 52,
+                  width: 50,
                   child: Text(
                     timeStr,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 // 썸네일(원본)
                 _AuthThumb(
                   url: '$imageBaseUrl${record.originalImagePath}',
                   baseUrl: widget.baseUrl,
-                  size: 72,
+                  size: 64, // 썸네일 크기 조정
                 ),
+                const Spacer(),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
               ],
             ),
           ),
@@ -321,8 +335,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _AuthThumb extends StatefulWidget {
-  final String url;       // 절대 URL (imageBaseUrl + path)
-  final String baseUrl;   // api base
+  final String url; // 절대 URL (imageBaseUrl + path)
+  final String baseUrl; // api base
   final double size;
 
   const _AuthThumb({
@@ -346,7 +360,19 @@ class _AuthThumbState extends State<_AuthThumb> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant _AuthThumb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _bytes = null;
+    });
     final token = await context.read<AuthViewModel>().getAccessToken();
     if (!mounted) return;
     if (token == null) {
@@ -372,17 +398,13 @@ class _AuthThumbState extends State<_AuthThumb> {
 
   @override
   Widget build(BuildContext context) {
-    final border = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(10),
-      side: const BorderSide(color: Color(0xFF3869A8), width: 1),
-    );
-
     return Container(
       width: widget.size,
       height: widget.size,
-      decoration: ShapeDecoration(
+      decoration: BoxDecoration(
         color: const Color(0xFFF3F6FB),
-        shape: border,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade400, width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: _loading

@@ -56,7 +56,7 @@ class ConsultResultScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text(
-                  '이전 진단 기록 돌아가기',
+                  '진료 기록 돌아가기',
                   style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
