@@ -61,7 +61,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     '구강위생관리',
     '불소이용',
     '식습관',
-    '기타',
+    //'기타',
   ];
 
   late final List<SurveyQuestion> questions;
@@ -122,7 +122,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         category: '구강건강 삶의 질과 인식',
         question: '스스로 생각할 때, 자신의 구강건강은 어떤 편이라고 생각합니까?',
         type: SurveyType.singleChoice,
-        options: const ['매우 좋다', '좋다', '보통이다', '나쁘다', '매우 나쁘다'],
+        options: const ['매우 나쁘다', '나쁘다', '보통이다', '좋다', '매우 좋다'],
       ),
 
       // 흡연
@@ -165,22 +165,16 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         category: '식습관',
         question: '하루에 달거나 끈적한 간식(과자, 사탕, 케이크 등)을 얼마나 먹습니까?',
         type: SurveyType.singleChoice,
-        options: const ['먹지 않는다', '1번', '2번', '3번', '4번 이상'],
+        options: const ['4번 이상', '3번', '2번', '1번', '0번'],
       ),
       SurveyQuestion(
         category: '식습관',
         question: '하루에 과일주스나 당분이 첨가된 음료(탄산음료, 스포츠음료 등)를 얼마나 먹습니까?',
         type: SurveyType.singleChoice,
-        options: const ['먹지 않는다', '1번', '2번', '3번', '4번 이상'],
+        options: const ['4번이상', '3번', '2번', '1번', '0번'],
       ),
+    ];  
 
-      // 기타
-      SurveyQuestion(
-        category: '기타',
-        question: '특별한 증상 혹은 치과의사에게 묻고 싶은 말을 자유롭게 적어주세요.',
-        type: SurveyType.text,
-      ),
-    ];
 
     categorizedQuestions = {
       for (final c in categories) c: questions.where((q) => q.category == c).toList(),
@@ -607,8 +601,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         return Icons.water_drop_outlined;
       case '식습관':
         return Icons.restaurant_outlined;
-      case '기타':
-        return Icons.notes_outlined;
+      //case '기타':
+        //return Icons.notes_outlined;
       default:
         return Icons.category_outlined;
     }
@@ -675,6 +669,8 @@ extension ColorUtils on Color {
     return hslDark.toColor();
   }
 }
+
+
 
 
 
