@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 고정용 추가
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/model/user.dart';
@@ -67,7 +68,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     };
 
     final result = await authViewModel.updateProfile(updatedData);
-
     if (!mounted) return;
 
     context.push('/edit_profile_result', extra: {
@@ -90,93 +90,108 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return raw;
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: const Color(0xFFEAF4FF),
-    resizeToAvoidBottomInset: true, // 💡 키보드 대응
-    appBar: AppBar(
-      title: const Text('프로필 수정'),
-      backgroundColor: const Color(0xFF3F8CD4),
-      foregroundColor: Colors.white,
-      elevation: 0,
-    ),
-    body: SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Form(
-                  key: _formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        _buildRoundedField(_nameController, '이름 (한글만)', keyboardType: TextInputType.name),
-                        const SizedBox(height: 16),
-                        _buildGenderButtons(),
-                        const SizedBox(height: 16),
-                        _buildRoundedField(_passwordController, '비밀번호 (6자 이상)', isPassword: true, minLength: 6),
-                        const SizedBox(height: 16),
-                        _buildRoundedField(
-                          _birthController,
-                          '생년월일 (YYYY-MM-DD)',
-                          maxLength: 10,
-                          keyboardType: TextInputType.datetime,
-                          inputFormatters: [DateInputFormatter()],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildRoundedField(
-                          _phoneController,
-                          '전화번호',
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(11),
-                            _PhoneNumberFormatter(),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3F8CD4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text('저장', style: TextStyle(fontSize: 16)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFEAF4FF),
+      resizeToAvoidBottomInset: true, // 💡 키보드 대응
+      appBar: AppBar(
+        title: const Text('프로필 수정'),
+        backgroundColor: const Color(0xFF3F8CD4),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center( // ⬅ 세로/가로 가운데 정렬
+                  child: kIsWeb
+                      ? ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 600), // ⬅ 웹에서 폭 고정
+                          child: _buildFormCard(),
+                        )
+                      : _buildFormCard(),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
+  /// 카드 형태의 폼 UI (기존 기능 그대로)
+  Widget _buildFormCard() {
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildRoundedField(_nameController, '이름 (한글만)', keyboardType: TextInputType.name),
+            const SizedBox(height: 16),
+            _buildGenderButtons(),
+            const SizedBox(height: 16),
+            _buildRoundedField(
+              _passwordController,
+              '비밀번호 (6자 이상)',
+              isPassword: true,
+              minLength: 6,
+            ),
+            const SizedBox(height: 16),
+            _buildRoundedField(
+              _birthController,
+              '생년월일 (YYYY-MM-DD)',
+              maxLength: 10,
+              keyboardType: TextInputType.datetime,
+              inputFormatters: [DateInputFormatter()],
+            ),
+            const SizedBox(height: 16),
+            _buildRoundedField(
+              _phoneController,
+              '전화번호',
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+                _PhoneNumberFormatter(),
+              ],
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3F8CD4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('저장', style: TextStyle(fontSize: 16, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildRoundedField(
     TextEditingController controller,

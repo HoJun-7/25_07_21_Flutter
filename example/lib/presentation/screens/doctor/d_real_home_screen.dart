@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart'; // mapIndexed 사용을 위해 추가
 import 'dart:async'; // ⬅ 추가
+import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 폭 고정용 추가
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart'; // ViewModel은 여기서 import만!
 import '/presentation/screens/doctor/doctor_drawer.dart'; // DoctorDrawer는 여기서 import만!
@@ -184,88 +185,104 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
             )
           ],
         ),
-        body: Consumer<DoctorDashboardViewModel>(
-          builder: (context, vm, child) {
-            return RefreshIndicator(
-              onRefresh: () => vm.loadDashboardData(widget.baseUrl),
-              color: Colors.white,
-              backgroundColor: Colors.blueAccent,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '안녕하세요, ${vm.doctorName}님',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSummaryCards(vm),
-                    const SizedBox(height: 24),
-                    Text(
-                      '최근 7일 신청 건수',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      height: 200,
-                      child: const _LineChartWidget(),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      '진료 카테고리 비율',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      height: 200,
-                      child: const _PieChartWidget(),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: _buildCategoryLegend(vm),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600) ⬇⬇⬇
+        body: SafeArea(
+          child: kIsWeb
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: _buildScrollableBody(context),
+                  ),
+                )
+              : _buildScrollableBody(context),
         ),
+        // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
       ),
+    );
+  }
+
+  // 본문을 메서드로 분리 (웹/모바일 공통 사용)
+  Widget _buildScrollableBody(BuildContext context) {
+    return Consumer<DoctorDashboardViewModel>(
+      builder: (context, vm, child) {
+        return RefreshIndicator(
+          onRefresh: () => vm.loadDashboardData(widget.baseUrl),
+          color: Colors.white,
+          backgroundColor: Colors.blueAccent,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '안녕하세요, ${vm.doctorName}님',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCards(vm),
+                const SizedBox(height: 24),
+                Text(
+                  '최근 7일 신청 건수',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  height: 200,
+                  child: const _LineChartWidget(),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  '진료 카테고리 비율',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  height: 200,
+                  child: const _PieChartWidget(),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: _buildCategoryLegend(vm),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

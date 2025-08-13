@@ -1,7 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'dart:typed_data';
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 폭 고정용
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+
 import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class DResultDetailScreen extends StatefulWidget {
@@ -294,28 +299,44 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
         title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildToggleCard(),
-                      const SizedBox(height: 16),
-                      _buildFixedImageCard(widget.originalImageUrl),
-                      const SizedBox(height: 16),
-                      _buildSummaryCard(),
-                      const SizedBox(height: 16),
-                      _buildAiOpinionCard(),
-                      const SizedBox(height: 16),
-                      _buildDoctorOpinionCard(),
-                    ],
-                  ),
+      // ⬇⬇⬇ 여기부터: 웹이면 폭을 고정(최대 600)해서 가운데 정렬 ⬇⬇⬇
+      body: SafeArea(
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: _buildBodyContent(),
                 ),
+              )
+            : _buildBodyContent(),
+      ),
+      // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
     );
+  }
+
+  // 본문(이전 로직 그대로) – 웹/모바일 공통으로 사용
+  Widget _buildBodyContent() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : (_error != null
+            ? Center(child: Text(_error!))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildToggleCard(),
+                    const SizedBox(height: 16),
+                    _buildFixedImageCard(widget.originalImageUrl),
+                    const SizedBox(height: 16),
+                    _buildSummaryCard(),
+                    const SizedBox(height: 16),
+                    _buildAiOpinionCard(),
+                    const SizedBox(height: 16),
+                    _buildDoctorOpinionCard(),
+                  ],
+                ),
+              ));
   }
 
   Widget _buildAiOpinionCard() => Container(
