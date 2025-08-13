@@ -17,14 +17,26 @@ import 'dart:io' if (dart.library.html) 'stub.dart'; // ✅ https, HttpOverrides
 
 import 'core/theme/app_theme.dart';
 
-void main() {
+// ======================= ▼ 추가: 로케일/intl 초기화 관련 =======================
+import 'package:flutter_localizations/flutter_localizations.dart'; // ✅ 로컬라이제이션 델리게이트
+import 'package:intl/intl.dart'; // ✅ Intl.defaultLocale
+import 'package:intl/date_symbol_data_local.dart'; // ✅ initializeDateFormatting
+// ============================================================================
+
+Future<void> main() async {
+  // --------------------- ▼ intl 로케일 초기화 (에러 원인 해결) ---------------------
+  WidgetsFlutterBinding.ensureInitialized();
+  Intl.defaultLocale = 'ko_KR';
+  await initializeDateFormatting('ko_KR', null);
+  // -----------------------------------------------------------------------------
+
   //const String globalBaseUrl = "http://127.0.0.1:5000/api";
-  //const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
+  const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
   // const String globalBaseUrl = "https://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //flutter build Web 할때
   // const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; 
   // const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
   //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
-  const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
+  //const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
   //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
 
   if (!kIsWeb) {
@@ -92,6 +104,19 @@ class YOLOExampleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       routerConfig: createRouter(baseUrl),
       theme: AppTheme.lightTheme,
+
+      // ================= ▼ 추가: 로케일 설정 (TableCalendar/DatePicker/Intl 모두 OK) =================
+      locale: const Locale('ko', 'KR'), // ✅ 기본 로케일
+      supportedLocales: const [
+        Locale('ko', 'KR'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,   // ✅ 머티리얼 위젯 현지화
+        GlobalWidgetsLocalizations.delegate,    // ✅ 기본 위젯 현지화
+        GlobalCupertinoLocalizations.delegate,  // ✅ 쿠퍼티노 위젯 현지화
+      ],
+      // ================================================================================================
     );
   }
 }

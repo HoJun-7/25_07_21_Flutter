@@ -61,6 +61,7 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
       final overlay1 = await _loadImage(widget.model1ImageUrl, token);
       final overlay2 = await _loadImage(widget.model2ImageUrl, token);
 
+      if (!mounted) return;
       setState(() {
         _originalImageBytes = original;
         _model1Bytes = overlay1;
@@ -104,6 +105,7 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final results = List<Map<String, dynamic>>.from(data['results']);
+        if (!mounted) return;
         setState(() {
           _implantResults = results;
         });
@@ -120,17 +122,76 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
     final formatted = DateFormat('yyyyMMddHHmmss').format(now);
     final httpService = HttpService(baseUrl: widget.baseUrl);
 
-    final response = await httpService.post('/consult', {
-      'user_id': widget.userId,
-      'original_image_url': _relativePath,
-      'request_datetime': formatted,
-    });
+    try {
+      final response = await httpService.post('/consult', {
+        'user_id': widget.userId,
+        'original_image_url': _relativePath,
+        'request_datetime': formatted,
+      });
 
-    if (response.statusCode == 201) {
-      context.push('/consult_success');
-    } else {
-      final msg = jsonDecode(response.body)['error'] ?? '신청 실패';
-      _showErrorDialog(msg);
+      // ✅ 정상 신청: 성공 화면으로 이동
+      if (response.statusCode == 201) {
+        if (!mounted) return;
+        context.push('/consult_success');
+        return;
+      }
+
+      // --- 에러 처리 ---
+      String? serverMsg;
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) {
+          serverMsg = body['error'] as String?;
+        }
+      } catch (_) { /* ignore */ }
+
+      final alreadyRequested =
+          response.statusCode == 409 ||
+          (serverMsg != null && serverMsg.contains('이미 신청'));
+
+      if (alreadyRequested) {
+        if (!mounted) return;
+        // ❗버튼 상태 변경 없음. 팝업 확인 후 이전 화면으로 이동
+        await showDialog(
+          context: context,
+          useRootNavigator: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('알림'),
+            content: Text(serverMsg ?? '이미 신청 중인 진료가 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        context.pop(); // 이전 화면으로 돌아가기
+        return;
+      }
+
+      // 그 외 에러: 팝업만 닫고 현재 화면 유지
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('신청 실패'),
+          content: Text(serverMsg ?? '신청에 실패했습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
+      );
     }
   }
 

@@ -58,6 +58,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       final ov2 = await _loadImageWithAuth(widget.processedImageUrls[2], token);
       final ov3 = await _loadImageWithAuth(widget.processedImageUrls[3], token);
 
+      if (!mounted) return;
       setState(() {
         originalImageBytes = original;
         overlay1Bytes = ov1;
@@ -89,6 +90,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final authViewModel = context.read<AuthViewModel>();
     final token = await authViewModel.getAccessToken();
     if (token == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('인증 토큰이 없습니다. 다시 로그인해주세요.')),
       );
@@ -119,21 +121,65 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         }),
       );
 
+      // ✅ 정상 신청: 상태 변경 없이 성공 화면으로 이동
       if (response.statusCode == 201) {
+        if (!mounted) return;
         context.push('/consult_success');
-      } else {
-        final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
-        showDialog(
+        return;
+      }
+
+      // --- 에러 처리 ---
+      String? serverMsg;
+      try {
+        final body = jsonDecode(response.body);
+        serverMsg = body is Map<String, dynamic> ? body['error'] as String? : null;
+      } catch (_) { /* ignore */ }
+
+      final alreadyRequested =
+          response.statusCode == 409 ||
+          (serverMsg != null && serverMsg.contains('이미 신청'));
+
+      if (alreadyRequested) {
+        if (!mounted) return;
+        // ❗버튼 상태 변경 없음. 팝업 확인 후 이전 화면으로 이동
+        await showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('신청 실패'),
-            content: Text(msg),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
+          useRootNavigator: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('알림'),
+            content: Text(serverMsg ?? '이미 신청 중인 진료가 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
+        if (!mounted) return;
+        context.pop(); // ← 이전 화면으로 이동
+        return;
       }
+
+      // 그 외 에러: 팝업만 닫고 현재 화면 유지
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('신청 실패'),
+          content: Text(serverMsg ?? '신청에 실패했습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
@@ -152,6 +198,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final token = await authViewModel.getAccessToken();
     if (token == null) {
       setState(() => _isLoadingGemini = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('인증 토큰이 없습니다. 다시 로그인해주세요.')),
       );
@@ -185,8 +232,10 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     if (response.statusCode == 200) {
       final result = jsonDecode(response.body);
       final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
+      if (!mounted) return;
       context.push('/multimodal_result', extra: {'responseText': message});
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('AI 소견 요청 실패: ${response.statusCode}')),
       );

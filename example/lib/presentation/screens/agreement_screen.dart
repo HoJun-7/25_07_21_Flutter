@@ -25,6 +25,11 @@ class _AgreementScreenState extends State<AgreementScreen>
 
   bool get isAllAgreed => isTermsChecked && isPrivacyChecked;
 
+  // ▼ 첫 번째 UI와 동일 톤
+  static const Color primaryBlue = Color(0xFF5F97F7);
+  static const Color lightBlueBackground = Color(0xFFB4D4FF);
+  static const Color cardTopBg = Colors.white;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +69,7 @@ class _AgreementScreenState extends State<AgreementScreen>
         Checkbox(
           value: value,
           onChanged: onChanged,
+          activeColor: primaryBlue, // ▶ 체크 색상 통일
         ),
         Expanded(
           child: Text(
@@ -90,16 +96,19 @@ class _AgreementScreenState extends State<AgreementScreen>
               ),
               child: Column(
                 children: [
+                  // ▶ 카드 상단은 흰색 + Tab 스타일만 파란톤
                   Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF0F4FF),
+                      color: Colors.white,
                       borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                     ),
                     child: TabBar(
                       controller: _tabController,
-                      labelColor: Colors.black,
-                      labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      labelColor: primaryBlue, // ▶ 선택 라벨
                       unselectedLabelColor: Colors.grey,
+                      labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      indicatorColor: primaryBlue, // ▶ 인디케이터 컬러
+                      indicatorWeight: 3,
                       tabs: const [
                         Tab(text: '이용약관'),
                         Tab(text: '개인정보 수집·이용'),
@@ -156,11 +165,13 @@ class _AgreementScreenState extends State<AgreementScreen>
                 child: ElevatedButton(
                   onPressed: isAllAgreed ? _goToRegister : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isAllAgreed ? const Color(0xFF42A5F5) : Colors.grey.shade400,
+                    backgroundColor:
+                        isAllAgreed ? primaryBlue : Colors.grey.shade400, // ▶ 버튼 컬러 통일
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    elevation: isAllAgreed ? 2 : 0,
                   ),
                   child: const Text('다음'),
                 ),
@@ -173,12 +184,13 @@ class _AgreementScreenState extends State<AgreementScreen>
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
+      backgroundColor: lightBlueBackground, // ▶ 배경 컬러 통일
       appBar: AppBar(
-        backgroundColor: const Color(0xFF90CAF9),
+        backgroundColor: primaryBlue, // ▶ 상단 바 컬러 통일
         title: const Text('약관 동의'),
         centerTitle: true,
         elevation: 0,
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
         child: kIsWeb

@@ -68,6 +68,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       final ov2 = await _loadImageWithAuth(widget.processedImageUrls[2], token);
       final ov3 = await _loadImageWithAuth(widget.processedImageUrls[3], token);
 
+      if (!mounted) return;
       setState(() {
         originalImageBytes = original;
         overlay1Bytes = ov1;
@@ -99,18 +100,18 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
     final authViewModel = context.read<AuthViewModel>();
     final token = await authViewModel.getAccessToken();
     if (token == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('인증 토큰이 없습니다. 다시 로그인해주세요.')),
       );
       return;
     }
 
-    // ✅ 백엔드 요구 형식: yyyyMMddHHmmss
     final now = DateTime.now();
-    final requestDatetime = "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
-                            "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
+    final requestDatetime =
+        "${now.year}${_twoDigits(now.month)}${_twoDigits(now.day)}"
+        "${_twoDigits(now.hour)}${_twoDigits(now.minute)}${_twoDigits(now.second)}";
 
-    // ✅ 상대 경로 변환
     final relativePath = widget.originalImageUrl.replaceFirst(
       widget.baseUrl.replaceAll('/api', ''),
       '',
@@ -130,28 +131,68 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         }),
       );
 
+      // ✅ 정상 신청
       if (response.statusCode == 201) {
-          final body = jsonDecode(response.body);
-          final requestId = body['request_id']; // ← 서버 응답에 포함되어야 함
+        if (!mounted) return;
+        // 상태는 건드리지 않고 성공 화면으로 이동
+        context.push('/consult_success', extra: {'type': 'apply'});
+        return;
+      }
 
-          setState(() {
-            _isRequested = true;
-          });
+      // --- 에러 처리 ---
+      String? serverMsg;
+      try {
+        final body = jsonDecode(response.body);
+        serverMsg = body is Map<String, dynamic> ? body['error'] as String? : null;
+      } catch (_) { /* ignore */ }
 
-          context.push('/consult_success', extra: {'type': 'apply'});
-        } else {
-        final msg = jsonDecode(response.body)['error'] ?? '신청에 실패했습니다.';
-        showDialog(
+      final alreadyRequested =
+          response.statusCode == 409 ||
+          (serverMsg != null && serverMsg.contains('이미 신청'));
+
+      if (alreadyRequested) {
+        if (!mounted) return;
+        // ❗버튼 상태 변경 없음
+        // 팝업 닫힌 뒤 현재 화면 pop (이전 화면으로)
+        await showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('신청 실패'),
-            content: Text(msg),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
+          useRootNavigator: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('알림'),
+            content: Text(serverMsg ?? '이미 신청 중인 진료가 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(dialogContext, rootNavigator: true).pop(),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
+        if (!mounted) return;
+        context.pop(); // ← 이전 화면으로 이동
+        return;
       }
+
+      // 그 외 에러: 팝업만 닫고 현재 화면 유지
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('신청 실패'),
+          content: Text(serverMsg ?? '신청에 실패했습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext, rootNavigator: true).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
-      print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
@@ -187,11 +228,10 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       );
 
       if (response.statusCode == 200) {
+        if (!mounted) return;
         setState(() {
           _isRequested = false;
         });
-
-        // ✅ consult_success 화면으로 이동하며 type='cancel' 전달
         context.push('/consult_success', extra: {'type': 'cancel'});
       } else {
         final msg = jsonDecode(response.body)['error'] ?? '신청 취소 실패';
@@ -201,6 +241,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       }
     } catch (e) {
       print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
@@ -242,6 +283,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
       }),
     );
 
+    if (!mounted) return;
     setState(() => _isLoadingGemini = false);
 
     if (response.statusCode == 200) {
@@ -316,7 +358,6 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest)
             else if (_isRequested && !_isReplied)
               _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
-
             const SizedBox(height: 12),
             _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : _getGeminiOpinion),
             const SizedBox(height: 12),
@@ -360,23 +401,23 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   }
 
   Widget _buildToggleCard(Color toggleBg) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-    ),
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-        _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
-        _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
-      ],
-    ),
-  );
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+            _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+            _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
+          ],
+        ),
+      );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged, Color bgColor) {
     return Container(

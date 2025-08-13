@@ -79,6 +79,7 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final results = List<Map<String, dynamic>>.from(data['results']);
+        if (!mounted) return;
         setState(() {
           _implantResults = results;
         });
@@ -98,6 +99,7 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
       final original = await _loadImageWithAuth(widget.originalImageUrl, token);
       final ov1 = await _loadImageWithAuth(widget.model1ImageUrl, token);
       final ov2 = await _loadImageWithAuth(widget.model2ImageUrl, token);
+      if (!mounted) return;
       setState(() {
         originalImageBytes = original;
         overlay1Bytes = ov1;
@@ -150,24 +152,82 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
 
     final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
 
-    final response = await http.post(
-      Uri.parse('${widget.baseUrl}/consult'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'user_id': widget.userId,
-        'original_image_url': relativePath,
-        'request_datetime': datetime,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/consult'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': widget.userId,
+          'original_image_url': relativePath,
+          'request_datetime': datetime,
+        }),
+      );
 
-    if (response.statusCode == 201) {
-      setState(() => _isRequested = true);
-      context.push('/consult_success', extra: {'type': 'apply'});
-    } else {
-      _showErrorDialog(jsonDecode(response.body)['error'] ?? '신청 실패');
+      // ✅ 정상 신청: 상태 변경 없이 성공 화면으로 이동
+      if (response.statusCode == 201) {
+        if (!mounted) return;
+        context.push('/consult_success', extra: {'type': 'apply'});
+        return;
+      }
+
+      // --- 에러 처리 ---
+      String? serverMsg;
+      try {
+        final body = jsonDecode(response.body);
+        serverMsg = body is Map<String, dynamic> ? body['error'] as String? : null;
+      } catch (_) { /* ignore */ }
+
+      final alreadyRequested =
+          response.statusCode == 409 ||
+          (serverMsg != null && serverMsg.contains('이미 신청'));
+
+      if (alreadyRequested) {
+        if (!mounted) return;
+        // ❗버튼 상태 변경 없음. 팝업 확인 후 이전 화면으로 이동
+        await showDialog(
+          context: context,
+          useRootNavigator: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('알림'),
+            content: Text(serverMsg ?? '이미 신청 중인 진료가 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        context.pop(); // ← 이전 화면으로
+        return;
+      }
+
+      // 그 외 에러: 팝업만 닫고 현재 화면 유지
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('신청 실패'),
+          content: Text(serverMsg ?? '신청 실패'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
+      );
     }
   }
 
@@ -177,23 +237,33 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
 
     final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
 
-    final response = await http.post(
-      Uri.parse('${widget.baseUrl}/consult/cancel'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'user_id': widget.userId,
-        'original_image_url': relativePath,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/consult/cancel'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': widget.userId,
+          'original_image_url': relativePath,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      setState(() => _isRequested = false);
-      context.push('/consult_success', extra: {'type': 'cancel'});
-    } else {
-      _showErrorDialog(jsonDecode(response.body)['error'] ?? '취소 실패');
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        setState(() => _isRequested = false);
+        context.push('/consult_success', extra: {'type': 'cancel'});
+      } else {
+        final msg = jsonDecode(response.body)['error'] ?? '취소 실패';
+        _showErrorDialog(msg);
+      }
+    } catch (e) {
+      print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
+      );
     }
   }
 
