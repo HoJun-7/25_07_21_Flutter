@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 폭 고정용
 import 'package:go_router/go_router.dart'; // ✅ go_router 추가
 import 'package:table_calendar/table_calendar.dart';
 
@@ -25,7 +26,7 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     return _appointments[_normalizeDate(day)] ?? [];
   }
 
-  // TODO: 예약 추가 기능 (예시)
+// TODO: 예약 추가 기능 (예시)
   void _addAppointment() {
     // 실제 예약 추가 로직 구현 (예: 다이얼로그를 띄워 예약 정보 입력받기)
     ScaffoldMessenger.of(context).showSnackBar(
@@ -63,132 +64,146 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
   Widget build(BuildContext context) {
     final selectedDate = _selectedDay ?? _focusedDay;
 
-    return WillPopScope( // ✅ 뒤로가기 처리 추가
+    // ⬇⬇⬇ 웹 고정 폭(600px) 적용: 세로는 부모 제약 유지, 가로만 고정 ⬇⬇⬇
+    Widget content = Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: TableCalendar(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            eventLoader: _getEventsForDay,
+            calendarStyle: const CalendarStyle(
+              todayDecoration: BoxDecoration(
+                color: Colors.blueAccent,
+                shape: BoxShape.circle,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: Colors.deepPurple,
+                shape: BoxShape.circle,
+              ),
+              defaultTextStyle: TextStyle(color: Colors.black),
+              weekendTextStyle: TextStyle(color: Colors.black),
+              outsideTextStyle: TextStyle(color: Colors.grey),
+            ),
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, date, events) {
+                if (events.isNotEmpty) {
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: TextStyle(fontSize: 18),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${selectedDate.year}년 ${selectedDate.month}월 ${selectedDate.day}일 예약 목록',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Expanded(
+          child: _getEventsForDay(selectedDate).isEmpty
+              ? const Center(
+                  child: Text(
+                    '예약이 없습니다.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _getEventsForDay(selectedDate).length,
+                  itemBuilder: (context, index) {
+                    final event = _getEventsForDay(selectedDate)[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      elevation: 2,
+                      child: ListTile(
+                        leading: const Icon(Icons.access_time),
+                        title: Text(
+                          event,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        onTap: () {
+                          // TODO: 예약 상세 페이지로 이동
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+    // ⬆⬆⬆ 웹 고정 폭(600px) 적용 끝 ⬆⬆⬆
+
+    if (kIsWeb) {
+      content = Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: 600, // ✅ EditProfileResultScreen과 동일한 600px
+          child: content,
+        ),
+      );
+    }
+
+    return WillPopScope( // ✅ 뒤로가기 처리
       onWillPop: () async {
         context.go('/d_home'); // 뒤로가기 시 홈으로 이동
         return false;
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFAAD0F8), // 배경색 추가
-        // 요청에 따라 AppBar 섹션 전체가 삭제되었습니다.
-        body: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-                },
-                eventLoader: _getEventsForDay,
-                calendarStyle: const CalendarStyle(
-                  todayDecoration: BoxDecoration(
-                    color: Colors.blueAccent,
-                    shape: BoxShape.circle,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.deepPurple,
-                    shape: BoxShape.circle,
-                  ),
-                  defaultTextStyle: TextStyle(color: Colors.black),
-                  weekendTextStyle: TextStyle(color: Colors.black),
-                  outsideTextStyle: TextStyle(color: Colors.grey),
-                ),
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    if (events.isNotEmpty) {
-                      return Positioned(
-                        bottom: 1,
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                headerStyle: const HeaderStyle(
-                  formatButtonVisible: false,
-                  titleCentered: true,
-                  titleTextStyle: TextStyle(fontSize: 18),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${selectedDate.year}년 ${selectedDate.month}월 ${selectedDate.day}일 예약 목록',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Expanded(
-              child: _getEventsForDay(selectedDate).isEmpty
-                  ? const Center(
-                      child: Text(
-                        '예약이 없습니다.',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _getEventsForDay(selectedDate).length,
-                      itemBuilder: (context, index) {
-                        final event = _getEventsForDay(selectedDate)[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          elevation: 2,
-                          child: ListTile(
-                            leading: const Icon(Icons.access_time),
-                            title: Text(
-                              event,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            onTap: () {
-                              // TODO: 예약 상세 페이지로 이동
-                            },
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+        // 요청에 따라 AppBar 섹션 전체가 없음
+        body: SafeArea(child: content),
         floatingActionButton: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [

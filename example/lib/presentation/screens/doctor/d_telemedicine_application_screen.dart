@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 화면 고정용 추가
 import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/model/doctor/d_history.dart';
 import 'doctor_drawer.dart';
@@ -135,43 +136,58 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
           centerTitle: true,
         ),
         drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        body: Consumer<DoctorHistoryViewModel>(
-          builder: (context, viewModel, _) {
-            final allRecords = viewModel.records;
-
-            return Column(
-              children: [
-                const SizedBox(height: 12),
-                _buildSearchBar(),
-                _buildStatusChips(),
-                Expanded(
-                  child: viewModel.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : PageView.builder(
-                          controller: _pageController,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _selectedIndex = index;
-                              _currentPage = 0;
-                            });
-                          },
-                          itemCount: statuses.length,
-                          itemBuilder: (context, index) {
-                            final filtered = _getFilteredRecords(allRecords, statuses[index]);
-                            final paginated = _getPaginatedRecords(filtered);
-                            final totalPages = _getTotalPages(filtered);
-                            return _buildListView(filtered, paginated, totalPages);
-                          },
-                        ),
-                ),
-              ],
-            );
-          },
+        // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600) ⬇⬇⬇
+        body: SafeArea(
+          child: kIsWeb
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: _buildMainBody(),
+                  ),
+                )
+              : _buildMainBody(),
         ),
+        // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
       ),
     );
   }
 
+  // 본문을 메서드로 분리 (웹/모바일 공통 사용)
+  Widget _buildMainBody() {
+    return Consumer<DoctorHistoryViewModel>(
+      builder: (context, viewModel, _) {
+        final allRecords = viewModel.records;
+
+        return Column(
+          children: [
+            const SizedBox(height: 12),
+            _buildSearchBar(),
+            _buildStatusChips(),
+            Expanded(
+              child: viewModel.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _selectedIndex = index;
+                          _currentPage = 0;
+                        });
+                      },
+                      itemCount: statuses.length,
+                      itemBuilder: (context, index) {
+                        final filtered = _getFilteredRecords(allRecords, statuses[index]);
+                        final paginated = _getPaginatedRecords(filtered);
+                        final totalPages = _getTotalPages(filtered);
+                        return _buildListView(filtered, paginated, totalPages);
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildSearchBar() {
     return Container(
