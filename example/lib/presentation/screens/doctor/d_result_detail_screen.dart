@@ -69,12 +69,13 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       if (res.statusCode == 200) {
         final m = json.decode(res.body);
         final id = m['request_id'];
-        // ⬅ is_replied 상태도 여기서 가져옵니다.
         final String isRepliedStatus = m['is_replied'] ?? 'N';
+        final String? commentFromDb = m['doctor_comment']; // DB에서 의사 소견 받아오기
+
         setState(() {
           _isReplied = (isRepliedStatus == 'Y');
-          // 의사 코멘트도 함께 불러옵니다.
-          _doctorCommentFromDb = m['doctor_comment'];
+          _doctorCommentFromDb = commentFromDb;
+          // DB에서 불러온 코멘트가 있다면 컨트롤러에 설정
           if (_isReplied && _doctorCommentFromDb != null) {
             _doctorOpinionController.text = _doctorCommentFromDb!;
           }
@@ -91,7 +92,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchRequestIdIfNull().then((_) { // 먼저 requestId와 is_replied 상태를 가져옵니다.
+    _fetchRequestIdIfNull().then((_) {
       _fetchInferenceResult().then((_) {
         if (_error == null && !_isLoading) {
           _fetchGeminiOpinion();
@@ -310,11 +311,10 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
 
       if (!mounted) return;
       if (res.statusCode == 200) {
-        // 성공적으로 제출되면 is_replied 상태를 업데이트하고,
-        // _doctorCommentFromDb에 현재 제출된 의견을 저장합니다.
         setState(() {
           _isReplied = true;
-          _doctorCommentFromDb = opinionText;
+          _doctorCommentFromDb = opinionText; // 현재 제출된 의견을 저장
+          _doctorOpinionController.text = opinionText; // 컨트롤러 텍스트를 최신 의견으로 업데이트
         });
 
         showDialog(
@@ -326,8 +326,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // 팝업창 닫기
-                  // ⭐ 이전 화면(목록)으로 돌아가면서 새로고침 신호 전달 ⭐
-                  context.pop(true);
+                  context.pop(true); // 이전 화면(목록)으로 돌아가면서 새로고침 신호 전달
                 },
                 child: const Text('확인'),
               ),
@@ -376,6 +375,17 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   );
 
   Widget _buildDoctorOpinionCard() {
+    // 힌트 텍스트를 결정합니다.
+    String currentHintText = '환자에게 전달할 진단 결과 및 조언을 작성하세요.';
+    // _isReplied가 true이고, 컨트롤러에 텍스트가 이미 있다면 힌트를 표시하지 않습니다.
+    // 이는 컨트롤러의 텍스트가 실제 값이고 힌트가 필요 없음을 의미합니다.
+    if (_isReplied && _doctorOpinionController.text.isNotEmpty) {
+      currentHintText = '';
+    } else if (_isReplied) {
+      // 답변 완료되었지만, 컨트롤러가 비어있는 경우 (초기 로딩 시)
+      currentHintText = '작성 완료된 의사 소견입니다.';
+    }
+
     return Container(
       decoration: _cardDecoration(),
       padding: const EdgeInsets.all(16),
@@ -387,10 +397,9 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           TextField(
             controller: _doctorOpinionController,
             maxLines: 5,
-            // ⭐ is_replied 상태에 따라 TextField 활성화/비활성화 ⭐
-            enabled: !_isReplied,
+            enabled: !_isReplied, // 답변 완료되면 비활성화
             decoration: InputDecoration(
-              hintText: _isReplied ? '작성 완료된 의사 소견입니다.' : '환자에게 전달할 진단 결과 및 조언을 작성하세요.',
+              hintText: currentHintText, // 동적으로 힌트 텍스트 설정
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: const Color(0xFFF5F5F5),
@@ -398,7 +407,6 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            // ⭐ is_replied 상태에 따라 버튼 활성화/비활성화 ⭐
             onPressed: (_isSubmittingOpinion || _isReplied) ? null : _submitDoctorOpinion,
             icon: _isSubmittingOpinion
                 ? const SizedBox(
