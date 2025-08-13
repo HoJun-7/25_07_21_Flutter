@@ -12,9 +12,11 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http; // Import for HTTP requests
+import 'package:http/http.dart' as http;
+// Import for HTTP requests
 import 'dart:convert'; // ✅ 추가
-import '/data/service/http_service.dart'; // ✅ HttpService 사용 위해 추가
+import '/data/service/http_service.dart';
+// ✅ HttpService 사용 위해 추가
 
 // Alpha 값 상수화
 const int _kAlpha80Percent = 204; // 0.8 * 255
@@ -22,6 +24,7 @@ const int _kAlpha50Percent = 127; // 0.5 * 255
 const int _kAlpha20Percent = 51; // 0.2 * 255
 const int _kAlpha60Percent = 153; // 0.6 * 255
 const int _kAlpha30Percent = 76; // 0.3 * 255 (for inactive track color)
+const int _kAlpha0Percent = 0; // 0.3 * 255 (for inactive track color)
 
 int _captureIndex = 1;
 DateTime? _lastCaptureDate;
@@ -31,13 +34,11 @@ DateTime? _lastCaptureDate;
 class CameraInferenceScreen extends StatefulWidget {
   final String userId;
   final String baseUrl;
-
   const CameraInferenceScreen({
     Key? key,
     required this.userId,
     required this.baseUrl,
   }) : super(key: key);
-
   @override
   CameraInferenceScreenState createState() => CameraInferenceScreenState();
 }
@@ -64,12 +65,10 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
   final _yoloController = YOLOViewController();
   final _yoloViewKey = GlobalKey<YOLOViewState>();
   final bool _useController = true;
-
   late final ModelManager _modelManager;
 
   // ✅ YOLO 추리 결과 저장 변수
   List<YOLOResult> _latestResults = [];
-
   // ✅ YOLOResult -> JSON 질리토클 함수
   List<Map<String, dynamic>> _serializeYOLOResults(List<YOLOResult> results) {
     return results.map((r) => {
@@ -83,7 +82,6 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
   @override
   void initState() {
     super.initState();
-
     // Initialize ModelManager
     _modelManager = ModelManager(
       onDownloadProgress: (progress) {
@@ -101,7 +99,6 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         }
       },
     );
-
     // Load initial model
     _loadModelForPlatform();
 
@@ -178,23 +175,19 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
 
       final viewKey = _yoloViewKey.currentState;
       viewKey?.setVisibility(false);
-
       setState(() {
         _isModelLoading = true;
         _loadingMessage = '원본 이미지 캡처 중...';
       });
-
       Uint8List? imageData;
       const maxWait = Duration(seconds: 1);
       final start = DateTime.now();
-
       while (imageData == null && DateTime.now().difference(start) < maxWait) {
         imageData = await _yoloController.captureRawFrame();
         await Future.delayed(const Duration(milliseconds: 100));
       }
 
       viewKey?.setVisibility(true);
-
       if (imageData == null) {
         throw Exception('이미지 캡처에 실패했습니다.');
       }
@@ -214,7 +207,6 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         name: galleryFilename.split('.').first,
         quality: 100,
       );
-
       if (result['isSuccess'] == true) {
         debugPrint('✅ 갤러리에 저장 성공: $result');
         if (mounted) {
@@ -242,7 +234,6 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
         filename: filename,
         yoloResultsJson: yoloJson,
       );
-
       if (response.statusCode == 200) {
         debugPrint('📤 $filename 업로드 성공!');
         if (mounted) {
@@ -331,7 +322,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
                         'assets/logo.png',
                         width: 120,
                         height: 120,
-                        color: Colors.white.withAlpha(_kAlpha80Percent),
+                        color: Colors.white.withAlpha(_kAlpha0Percent),
                       ),
                       const SizedBox(height: 32),
                       // 로딩 메시지
@@ -422,7 +413,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // 모델 선택기 - REMOVED
-                // _buildModelSelector(),
+                _buildModelSelector(),
                 SizedBox(height: isLandscape ? 8 : 12),
                 IgnorePointer(
                   child: Row(
@@ -473,7 +464,7 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
                     heightFactor: isLandscape ? 0.3 : 0.5,
                     child: Image.asset(
                       'assets/logo.png',
-                      color: Colors.white.withAlpha(_kAlpha50Percent),
+                      color: Colors.white.withAlpha(_kAlpha0Percent),
                     ),
                   ),
                 ),
@@ -745,7 +736,15 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
   /// 모델 선택기 위젯을 빌드합니다. (이전 요청에서 제거됨)
   ///
   /// 이 메서드는 제거되었으므로 더 이상 사용되지 않습니다.
+  // 모델 선택기 위젯을 빌드합니다.
   Widget _buildModelSelector() {
+    // 표시하고 싶은 모델 타입만 포함하는 새로운 리스트
+    final List<ModelType> visibleModels = [
+      ModelType.detect,
+      ModelType.segment,
+      // ModelType.classify, // ✅ CLASSIFY 제거
+    ];
+
     return Container(
       height: 36,
       padding: const EdgeInsets.all(2),
@@ -755,7 +754,8 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: ModelType.values.map((model) {
+        // 수정된 리스트를 순회
+        children: visibleModels.map((model) {
           final isSelected = _selectedModel == model;
           return GestureDetector(
             onTap: () {
@@ -794,11 +794,11 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
   String _getModelFileName(ModelType modelType) {
     switch (modelType) {
       case ModelType.detect:
-        return 'best_8n_float16.tflite';
+        return 'xray_detect_n_mute_f32.tflite'; // xray 실시간
       case ModelType.segment:
-        return 'dental_best_float32.tflite'; // 이 모델만 사용될 것
+        return 'number_n_f32.tflite'; // 맨처음부터 쓰던 실시간
       case ModelType.classify:
-        return 'yolo11n-cls.tflite';
+        return 'detect_n_f32.tflite';
       case ModelType.pose: // pose 모델 추가 (만약 있다면)
         return 'yolo11n-pose.tflite';
       case ModelType.obb: // obb 모델 추가 (만약 있다면)
@@ -823,11 +823,9 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       _frameCount = 0;
       _lastFpsUpdate = DateTime.now();
     });
-
     try {
       final fileName = _getModelFileName(_selectedModel);
       final ByteData data = await rootBundle.load('assets/models/$fileName');
-
       final Directory appDir = await getApplicationDocumentsDirectory();
       final Directory modelDir = Directory('${appDir.path}/assets/models');
       if (!await modelDir.exists()) {
@@ -841,7 +839,6 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
       }
 
       final modelPath = file.path;
-
       if (mounted) {
         setState(() {
           _modelPath = modelPath; // 실제 로드된 모델 경로 설정
@@ -849,11 +846,10 @@ class CameraInferenceScreenState extends State<CameraInferenceScreen> {
           _loadingMessage = '';
           _downloadProgress = 0.0;
         });
-
         debugPrint('CameraInferenceScreen: 모델 경로 설정: $modelPath');
 
         // YOLOViewController에 새 모델 경로와 작업 유형을 전달하여 모델 전환
-        await _yoloController.switchModel(modelPath, _selectedModel.task);
+        // await _yoloController.switchModel(modelPath, _selectedModel.task);
       }
     } catch (e) {
       debugPrint('모델 로드 오류: $e');
