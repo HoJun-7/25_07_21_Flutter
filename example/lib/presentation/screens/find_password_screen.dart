@@ -27,6 +27,10 @@ class _FindPasswordForm extends StatelessWidget {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
 
+    // ✅ 로고 선명도 향상용 DPR
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    const double logoSize = 150.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFB4D4FF),
       appBar: AppBar(
@@ -61,8 +65,21 @@ class _FindPasswordForm extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/images/tooth_character.png', height: 150),
+                    // ✅ 로고 품질 개선: SizedBox + 고품질 리샘플링 + cacheWidth/Height
+                    SizedBox(
+                      width: logoSize,
+                      height: logoSize,
+                      child: Image.asset(
+                        'assets/images/tooth_character.png',
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        isAntiAlias: true,
+                        cacheWidth: (logoSize * dpr).round(),
+                        cacheHeight: (logoSize * dpr).round(),
+                      ),
+                    ),
                     const SizedBox(height: 30),
+
                     _buildInputField(
                       controller: nameController,
                       labelText: '이름',
@@ -77,6 +94,7 @@ class _FindPasswordForm extends StatelessWidget {
                       prefixIcon: Icons.phone_outlined,
                     ),
                     const SizedBox(height: 30),
+
                     if (viewModel.isLoading)
                       const Center(child: CircularProgressIndicator(color: Colors.blue))
                     else
@@ -117,7 +135,9 @@ class _FindPasswordForm extends StatelessWidget {
                           ),
                         ),
                       ),
+
                     const SizedBox(height: 30),
+
                     if (viewModel.successMessage != null)
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
@@ -146,7 +166,9 @@ class _FindPasswordForm extends StatelessWidget {
                           ),
                         ),
                       ),
+
                     const SizedBox(height: 30),
+
                     TextButton(
                       onPressed: () => context.go('/login'),
                       style: TextButton.styleFrom(

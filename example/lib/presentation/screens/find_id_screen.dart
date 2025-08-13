@@ -15,6 +15,10 @@ class FindIdScreen extends StatelessWidget {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
 
+    // DPR 반영해서 로고를 선명하게 디코딩
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    const double logoSize = 150.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFB4D4FF),
       appBar: AppBar(
@@ -49,8 +53,21 @@ class FindIdScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/images/tooth_character.png', height: 150),
+                    // ✅ 로고 품질 개선: SizedBox + 고품질 리샘플링 + cacheWidth/Height
+                    SizedBox(
+                      width: logoSize,
+                      height: logoSize,
+                      child: Image.asset(
+                        'assets/images/tooth_character.png',
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        isAntiAlias: true,
+                        cacheWidth: (logoSize * dpr).round(),
+                        cacheHeight: (logoSize * dpr).round(),
+                      ),
+                    ),
                     const SizedBox(height: 30),
+
                     _buildInputField(
                       context,
                       controller: nameController,
@@ -67,6 +84,7 @@ class FindIdScreen extends StatelessWidget {
                       prefixIcon: Icons.phone_outlined,
                     ),
                     const SizedBox(height: 30),
+
                     if (viewModel.isLoading)
                       const Center(child: CircularProgressIndicator(color: Colors.blue))
                     else
@@ -107,7 +125,9 @@ class FindIdScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+
                     const SizedBox(height: 30),
+
                     if (viewModel.errorMessage != null)
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
@@ -122,7 +142,9 @@ class FindIdScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+
                     const SizedBox(height: 30),
+
                     TextButton(
                       onPressed: () => context.go('/login'),
                       style: TextButton.styleFrom(
