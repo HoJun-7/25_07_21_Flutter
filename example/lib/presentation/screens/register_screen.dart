@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
-import 'dart:convert'; // ✅ utf8 사용을 위한 import
+import 'dart:convert';
 
 class RegisterScreen extends StatefulWidget {
   final String baseUrl;
@@ -93,19 +93,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     final birthError = _validateBirth();
-      if (birthError != null) {
-        _showSnack(birthError);
-        return;
-      }
+    if (birthError != null) {
+      _showSnack(birthError);
+      return;
+    }
     if (!_isIdChecked || _isDuplicate) {
       _showSnack('아이디 중복 확인을 완료해주세요.');
       return;
     }
 
     final userData = {
-      'register_id': _registerIdController.text.trim(), // ✅ 아이디
-      'password': _passwordController.text.trim(),      // ✅ 비밀번호
-      'name': _nameController.text.trim(),              // ✅ 이름
+      'register_id': _registerIdController.text.trim(),
+      'password': _passwordController.text.trim(),
+      'name': _nameController.text.trim(),
       'gender': _selectedGender,
       'birth': '${_selectedYear!}-${_selectedMonth!.toString().padLeft(2, '0')}-${_selectedDay!.toString().padLeft(2, '0')}',
       'phone': _phoneController.text.trim(),
@@ -149,7 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       onChanged: (val) {
         setState(() {
           _selectedMonth = val;
-          _selectedDay = null; // 월 바뀌면 일 초기화
+          _selectedDay = null;
         });
       },
       validator: (val) => val == null ? '월을 선택해주세요' : null,
@@ -188,43 +188,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        /*actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _selectedRole = value;
-                _isIdChecked = false;
-                _isDuplicate = true;
-                _registerIdController.clear();
-                authViewModel.clearDuplicateCheckErrorMessage();
-              });
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'P', child: Text('환자')),
-              const PopupMenuItem(value: 'D', child: Text('의사')),
-            ],
-            icon: const Icon(Icons.account_circle),
-            tooltip: '사용자 유형 선택',
-          ),
-        ],*/
       ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          // ⬇⬇⬇ 여기서부터: 웹이면 폭을 450으로 고정해서 감싸준다 ⬇⬇⬇
           child: kIsWeb
               ? ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 450),
                   child: _buildFormCard(authViewModel),
                 )
               : _buildFormCard(authViewModel),
-          // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
         ),
       ),
     );
   }
 
-  // 폼 카드 UI를 메서드로 분리 (웹/모바일에서 동일하게 사용)
   Widget _buildFormCard(AuthViewModel authViewModel) {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -244,53 +222,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ✅ 사용자 유형 선택 (의사/환자)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ChoiceChip(
-                  label: const Text('환자'),
-                  selected: _selectedRole == 'P',
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedRole = 'P';
-                        _isIdChecked = false;
-                        _isDuplicate = true;
-                        _registerIdController.clear();
-                        context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
-                      });
-                    }
-                  },
-                  selectedColor: Colors.blueAccent,
-                ),
+                _roleSelectionButton('환자', 'P', Colors.blueAccent),
                 const SizedBox(width: 10),
-                ChoiceChip(
-                  label: const Text('의사'),
-                  selected: _selectedRole == 'D',
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedRole = 'D';
-                        _isIdChecked = false;
-                        _isDuplicate = true;
-                        _registerIdController.clear();
-                        context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
-                      });
-                    }
-                  },
-                  selectedColor: Colors.redAccent,
-                ),
+                _roleSelectionButton('의사', 'D', Colors.redAccent),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildTextField(
               _nameController,
               '이름 (한글만)',
               inputFormatters: [_NameByteLimitFormatter()],
             ),
             const SizedBox(height: 10),
-            _buildGenderCardSelector(),
+            _buildGenderSelectionButtons(), // 수정된 위젯
             Row(
               children: [
                 Expanded(child: _buildYearDropdown()),
@@ -299,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(width: 10),
                 Expanded(child: _buildDayDropdown()),
               ],
-            ),                  
+            ),
             _buildTextField(
               _phoneController,
               '전화번호',
@@ -421,60 +368,81 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildGenderCardSelector() {
+  // ✅ 환자/의사 선택 버튼 위젯 (체크 아이콘 추가)
+  Widget _roleSelectionButton(String label, String roleValue, Color color) {
+    final isSelected = _selectedRole == roleValue;
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() {
+            _selectedRole = roleValue;
+            _isIdChecked = false;
+            _isDuplicate = true;
+            _registerIdController.clear();
+            context.read<AuthViewModel>().clearDuplicateCheckErrorMessage();
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSelected ? color : Colors.grey[300],
+          foregroundColor: isSelected ? Colors.white : Colors.black87,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isSelected) const Icon(Icons.check, size: 20),
+            if (isSelected) const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // ✅ 성별 선택 버튼 위젯 (환자/의사 선택 버튼과 동일한 디자인으로 변경)
+  Widget _buildGenderSelectionButtons() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _genderCard('남', 'M', Colors.blue[700]!),
-          const SizedBox(width: 16),
-          _genderCard('여', 'F', Colors.red[400]!),
+          _genderSelectionButton('남', 'M', Colors.blue[700]!),
+          const SizedBox(width: 10),
+          _genderSelectionButton('여', 'F', Colors.red[400]!),
         ],
       ),
     );
   }
 
-  Widget _genderCard(String label, String genderValue, Color color) {
+  Widget _genderSelectionButton(String label, String genderValue, Color color) {
     final isSelected = _selectedGender == genderValue;
-
     return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedGender = genderValue),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            color: isSelected ? color : Colors.grey[300],
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withOpacity(0.5),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    )
-                  ]
-                : [],
+      child: ElevatedButton(
+        onPressed: () => setState(() => _selectedGender = genderValue),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSelected ? color : Colors.grey[300],
+          foregroundColor: isSelected ? Colors.white : Colors.black87,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
-          child: Column(
-            children: [
-              Icon(
-                genderValue == 'M' ? Icons.male : Icons.female,
-                size: 40,
-                color: isSelected ? Colors.white : Colors.black54,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isSelected) const Icon(Icons.check, size: 20),
+            if (isSelected) const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
     );
@@ -483,7 +451,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 class _NameByteLimitFormatter extends TextInputFormatter {
   final int maxBytes;
-  _NameByteLimitFormatter({this.maxBytes = 18}); // 이름 필드 18Byte 입력제한(현행법상 성 포함 6글자까지. 1글자=3Byte)
+  _NameByteLimitFormatter({this.maxBytes = 18});
 
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
@@ -491,7 +459,6 @@ class _NameByteLimitFormatter extends TextInputFormatter {
     final bytes = utf8.encode(newText);
     if (bytes.length <= maxBytes) return newValue;
 
-    // 바이트 수 초과 시 앞에서부터 유효한 범위까지만 자르기
     int byteCount = 0;
     int cutoffIndex = 0;
     for (int i = 0; i < newText.length; i++) {
@@ -516,7 +483,6 @@ class _DateFormatter extends TextInputFormatter {
     final newText = newValue.text.replaceAll('-', '');
 
     if (newText.length < oldValue.text.replaceAll('-', '').length) {
-      // ✅ 백스페이스 동작 허용
       return newValue;
     }
 
