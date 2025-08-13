@@ -113,6 +113,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginCard() {
+    // 디스플레이 크기에 맞춰 선명하게 디코딩하도록 DPR 반영
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    const logoSize = 150.0;
+
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
@@ -129,7 +133,18 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/icon/cdss-icon_500.png', width: 120, height: 120),
+          SizedBox(
+            width: logoSize,
+            height: logoSize,
+            child: Image.asset(
+              'assets/icon/cdss-icon_500.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              isAntiAlias: true,
+              cacheWidth: (logoSize * dpr).round(),
+              cacheHeight: (logoSize * dpr).round(),
+            ),
+          ),
           const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

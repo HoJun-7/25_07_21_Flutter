@@ -23,6 +23,25 @@ class DRealHomeScreen extends StatefulWidget {
 class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingObserver {
   Timer? _autoRefreshTimer; // ⬅ 타이머 변수
 
+  // ====== HomeScreen의 알림 팝업 로직 이식 ======
+  bool _isNotificationPopupVisible = false;
+  final List<String> _notifications = const [
+    '새로운 진단 결과가 도착했습니다.',
+    '예약이 내일로 예정되어 있습니다.',
+    '프로필 업데이트를 완료해주세요.',
+  ];
+
+  void _toggleNotificationPopup() {
+    setState(() => _isNotificationPopupVisible = !_isNotificationPopupVisible);
+  }
+
+  void _closeNotificationPopup() {
+    if (_isNotificationPopupVisible) {
+      setState(() => _isNotificationPopupVisible = false);
+    }
+  }
+  // ========================================
+
   @override
   void initState() {
     super.initState();
@@ -35,12 +54,12 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
       await vm.loadRecent7DaysData(widget.baseUrl);
     });
 
-    // ⬅ 1분마다 자동 갱신 타이머 추가 (카드 + 그래프)
+    // 1분마다 자동 갱신 (카드 + 그래프)
     _autoRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
         final vm = context.read<DoctorDashboardViewModel>();
-        vm.loadDashboardData(widget.baseUrl);   // ✅ 카드 갱신
-        vm.loadRecent7DaysData(widget.baseUrl); // ✅ 그래프 갱신
+        vm.loadDashboardData(widget.baseUrl);
+        vm.loadRecent7DaysData(widget.baseUrl);
       }
     });
   }
@@ -48,7 +67,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoRefreshTimer?.cancel(); // ⬅ 타이머 해제
+    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -56,8 +75,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       final vm = context.read<DoctorDashboardViewModel>();
-      vm.loadDashboardData(widget.baseUrl);   // ✅ 상단 카드 갱신
-      vm.loadRecent7DaysData(widget.baseUrl); // ✅ 그래프 갱신
+      vm.loadDashboardData(widget.baseUrl);
+      vm.loadRecent7DaysData(widget.baseUrl);
     }
   }
 
@@ -85,35 +104,32 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
 
   // 범례를 그리는 위젯
   Widget _buildCategoryLegend(DoctorDashboardViewModel vm) {
-    // 범례를 흰색 네모 박스 안에 넣기 위해 Card 위젯 사용
     return Card(
-      elevation: 4, // 그림자 효과
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // 둥근 모서리
-      margin: const EdgeInsets.symmetric(horizontal: 0), // 좌우 마진 제거 (Center 위젯이 처리)
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: 0),
       child: Padding(
-        padding: const EdgeInsets.all(16.0), // 내부 패딩
-        child: Wrap( // Wrap을 사용하여 공간이 부족할 경우 다음 줄로 넘어가도록
-          alignment: WrapAlignment.center, // 가운데 정렬
-          spacing: 16.0, // 각 항목 간 가로 간격
-          runSpacing: 8.0, // 각 줄 간 세로 간격
+        padding: const EdgeInsets.all(16.0),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16.0,
+          runSpacing: 8.0,
           children: IterableExtension<MapEntry<String, double>>(vm.categoryRatio.entries).mapIndexed((index, entry) {
             return Row(
-              mainAxisSize: MainAxisSize.min, // Row의 크기를 내용물에 맞춤
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 16,
                   height: 16,
                   decoration: BoxDecoration(
-                    color: vm.getCategoryColor(index), // ViewModel에서 색상 가져오기
+                    color: vm.getCategoryColor(index),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${entry.key} (${((entry.value / vm.categoryRatio.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(1)}%)',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black87, // 범례 텍스트 색상을 흰색 배경에 어울리게 변경 (이미 검은색 계열)
-                        ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black87),
                 ),
               ],
             );
@@ -123,80 +139,138 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // 요청하신 배경색 고정
     const Color backgroundColor = Color(0xFFAAD0F8);
 
     return WillPopScope(
       onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: backgroundColor, // ✅ 배경 색상 고정 적용
-        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        appBar: AppBar(
-          title: Consumer<DoctorDashboardViewModel>(
-            builder: (_, vm, __) => Text(
-              '${vm.doctorName} 대시보드',
-              style: const TextStyle(color: Colors.white), // 앱바 타이틀은 흰색 유지 (배경 대비)
+      child: GestureDetector( // 바깥 탭 시 알림 팝업 닫기
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeNotificationPopup,
+        child: Scaffold(
+          backgroundColor: backgroundColor,
+          drawer: DoctorDrawer(baseUrl: widget.baseUrl),
+          appBar: AppBar(
+            title: Consumer<DoctorDashboardViewModel>(
+              builder: (_, vm, __) => Text(
+                '${vm.doctorName} 대시보드',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white), // 햄버거 메뉴 아이콘은 흰색 유지 (배경 대비)
-          backgroundColor: Colors.transparent, // 앱바 배경 투명
-          elevation: 0, // 앱바 그림자 제거
-          actions: [
-            Consumer<DoctorDashboardViewModel>(
-              builder: (_, vm, __) => Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    onPressed: () {
-                      // TODO: 알림 화면 이동 처리
-                    },
-                    tooltip: '알림',
-                    color: Colors.white, // 알림 아이콘은 흰색 유지 (배경 대비)
-                  ),
-                  if (vm.unreadNotifications > 0)
-                    Positioned(
-                      right: 11,
-                      top: 11,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: Text(
-                          '${vm.unreadNotifications}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+            iconTheme: const IconThemeData(color: Colors.white),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 6.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications, color: Colors.white, size: 28),
+                      onPressed: _toggleNotificationPopup,
+                      tooltip: '알림',
+                    ),
+                    if (_notifications.isNotEmpty)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
                           ),
-                          textAlign: TextAlign.center,
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Text(
+                            '${_notifications.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // body를 Stack으로 감싸 팝업 오버레이를 상단에 띄움
+          body: Stack(
+            children: [
+              // 본문
+              SafeArea(
+                child: kIsWeb
+                    ? Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          child: _buildScrollableBody(context),
+                        ),
+                      )
+                    : _buildScrollableBody(context),
+              ),
+
+              // 알림 팝업 — 더 위로 붙도록 수정 (SafeArea + Align topRight)
+              if (_isNotificationPopupVisible)
+                SafeArea(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, right: 12),
+                      child: Material(
+                        elevation: 8,
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: Container(
+                            width: 280,
+                            padding: const EdgeInsets.all(12),
+                            child: _notifications.isEmpty
+                                ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: _notifications
+                                        .map(
+                                          (msg) => Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.notifications_active_outlined,
+                                                  color: Colors.blueAccent,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    msg,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                          ),
                         ),
                       ),
                     ),
-                ],
-              ),
-            )
-          ],
-        ),
-        // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600) ⬇⬇⬇
-        body: SafeArea(
-          child: kIsWeb
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: _buildScrollableBody(context),
                   ),
-                )
-              : _buildScrollableBody(context),
+                ),
+            ],
+          ),
         ),
-        // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
       ),
     );
   }
@@ -296,7 +370,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
             count: vm.requestsToday,
             icon: Icons.request_page,
             color: Colors.blue.shade700,
-            tabFilter: 'ALL', // ✅
+            tabFilter: 'ALL',
           ),
         ),
         const SizedBox(width: 12),
@@ -306,7 +380,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
             count: vm.unreadNotifications,
             icon: Icons.notifications_active,
             color: Colors.orange.shade700,
-            tabFilter: '진단 대기', // ✅
+            tabFilter: '진단 대기',
           ),
         ),
         const SizedBox(width: 12),
@@ -316,7 +390,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingOb
             count: vm.answeredToday,
             icon: Icons.done_all,
             color: Colors.green.shade700,
-            tabFilter: '진단 완료', // ✅
+            tabFilter: '진단 완료',
           ),
         ),
       ],
@@ -345,7 +419,6 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ 탭 필터 → 인덱스로 매핑
     final tabIndexMap = {
       'ALL': 0,
       '진단 대기': 1,
@@ -355,9 +428,7 @@ class _SummaryCard extends StatelessWidget {
     return InkWell(
       onTap: () {
         final initialTab = tabIndexMap[tabFilter] ?? 0;
-        context.push('/d_telemedicine_application', extra: {
-          'initialTab': initialTab,
-        });
+        context.push('/d_telemedicine_application', extra: {'initialTab': initialTab});
       },
       borderRadius: BorderRadius.circular(12),
       child: Card(
@@ -371,11 +442,7 @@ class _SummaryCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '$count',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
               ),
               const SizedBox(height: 4),
               Text(
@@ -390,7 +457,6 @@ class _SummaryCard extends StatelessWidget {
     );
   }
 }
-
 
 // -------------------------
 // Line Chart Widget
@@ -439,9 +505,7 @@ class _LineChartWidget extends StatelessWidget {
               },
             ),
           ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
@@ -464,28 +528,24 @@ class _PieChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
 
-    // 파이 차트 섹션의 색상 정의 (화면 배경과 어울리는 파스텔톤)
     final List<Color> pieChartColors = [
-      Colors.lightBlue.shade300, // 연한 파랑
-      Colors.orange.shade300,    // 연한 주황
-      Colors.lightGreen.shade300, // 연한 초록
-      Colors.purple.shade300,    // 연한 보라
-      Colors.teal.shade300,      // 연한 청록 (기타 카테고리)
+      Colors.lightBlue.shade300,
+      Colors.orange.shade300,
+      Colors.lightGreen.shade300,
+      Colors.purple.shade300,
+      Colors.teal.shade300,
     ];
 
     return PieChart(
       PieChartData(
         sections: vm.pieChartSections.mapIndexed((index, section) {
-          // VM의 pieChartSections에는 이미 원본 데이터가 있으므로,
-          // 여기서는 색상만 새로 정의된 pieChartColors에서 가져와 덮어씌웁니다.
-          // 범위를 벗어나는 인덱스를 처리하기 위해 % 연산 사용.
           final color = pieChartColors[index % pieChartColors.length];
           return section.copyWith(
-            color: color, // 파이 차트 색상 수정 적용
+            color: color,
             titleStyle: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Colors.white, // 파이 차트 섹션 내부 텍스트는 흰색 유지 (색상 대비)
+              color: Colors.white,
               shadows: [Shadow(color: Colors.black, blurRadius: 2)],
             ),
           );
@@ -493,10 +553,6 @@ class _PieChartWidget extends StatelessWidget {
         centerSpaceRadius: 40,
         sectionsSpace: 4,
         borderData: FlBorderData(show: false),
-        // 터치 동작 추가 (선택 효과) - 필요시 구현
-        // pieTouchData: PieTouchData(touchCallback: (FlTouchEvent event, pieTouchResponse) {
-        //   // 터치 이벤트 처리 로직
-        // }),
       ),
     );
   }
