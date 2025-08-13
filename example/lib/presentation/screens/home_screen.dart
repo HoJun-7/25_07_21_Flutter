@@ -198,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 _buildIconCardButton(
                                   context,
-                                  label: '이전 결과 보기',
+                                  label: '진료 기록',
                                   icon: Icons.history_edu_rounded,
                                   onPressed: () => context.push('/history'),
                                   cardColor: const Color(0xFFFFB380),
