@@ -2,7 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'd_calendar_placeholder.dart';
+
+// ===== 공통: 드로어 여백 예약 값 =====
+const double _kDrawerGutterExtra = 16.0; // 드로어와 본문 사이 시각적 간격
+
+double _drawerReservedWidth(BuildContext context) {
+  final themeWidth = DrawerTheme.of(context).width;
+  // Material 기본 드로어 폭: 304
+  final base = themeWidth ?? 304.0;
+  return base + _kDrawerGutterExtra;
+}
 
 enum AppointmentStatus { pending, confirmed, completed, canceled }
 
@@ -89,6 +101,7 @@ class Appointment {
 
 class DCalendarScreen extends StatefulWidget {
   const DCalendarScreen({super.key});
+
   @override
   State<DCalendarScreen> createState() => _DCalendarScreenState();
 }
@@ -276,7 +289,6 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     if (edited == null) return;
 
     if (edited.title == '__DELETE__') {
-      // ✅ 삭제 버튼 누른 그 일정만 삭제
       _deleteFromEvents(appt);
     } else {
       setState(() => _updateInEvents(edited));
@@ -352,272 +364,267 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     final selectedDay = _selectedDay ?? _normalize(DateTime.now());
     final dayEvents = _eventsForDay(selectedDay);
 
+    // 와이드/웹이면 드로어 폭만큼 항상 비움
+    final isWide = kIsWeb || MediaQuery.of(context).size.width >= 1000;
+    final reserved = isWide ? _drawerReservedWidth(context) : 0.0;
+
     // 폰트 통일(크기/굵기)
     const TextStyle kDowStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
     const TextStyle kDayStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+    const TextStyle kSelectedText = TextStyle(color: Colors.white, fontWeight: FontWeight.w700);
 
-    const TextStyle kSelectedText = TextStyle(
-      color: Colors.white,
-      fontWeight: FontWeight.w700,
-    );
+    final calendarBody = Column(
+      children: [
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TableCalendar<Appointment>(
+                locale: 'ko_KR',
+                firstDay: DateTime.utc(2000, 1, 1),
+                lastDay: DateTime.utc(2100, 12, 31),
+                focusedDay: _focusedDay,
+                selectedDayPredicate: (d) => isSameDay(_selectedDay, d),
+                calendarFormat: _calendarFormat,
+                eventLoader: (day) => _events[_normalize(day)] ?? const [],
+                startingDayOfWeek: StartingDayOfWeek.sunday,
 
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickAdd,
-        label: const Text('새 일정'),
-        icon: const Icon(Icons.add),
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TableCalendar<Appointment>(
-                  locale: 'ko_KR',
-                  firstDay: DateTime.utc(2000, 1, 1),
-                  lastDay: DateTime.utc(2100, 12, 31),
-                  focusedDay: _focusedDay,
-                  selectedDayPredicate: (d) => isSameDay(_selectedDay, d),
-                  calendarFormat: _calendarFormat,
-                  eventLoader: (day) => _events[_normalize(day)] ?? const [],
-                  startingDayOfWeek: StartingDayOfWeek.sunday, // 일 ~ 토
+                rowHeight: 46,
+                daysOfWeekHeight: 28,
 
-                  rowHeight: 46,
-                  daysOfWeekHeight: 28,
-
-                  daysOfWeekStyle: const DaysOfWeekStyle(
-                    weekdayStyle: kDowStyle,
-                    weekendStyle: kDowStyle, // 크기/굵기 동일
-                  ),
-
-                  headerStyle: HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                    titleTextFormatter: (d, l) => DateFormat('yyyy년 M월', l).format(d),
-                    titleTextStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-
-                  // 스타일
-                  holidayPredicate: (day) => _isHoliday(day),
-                  calendarStyle: CalendarStyle(
-                    defaultTextStyle: kDayStyle,
-                    weekendTextStyle: kDayStyle,
-                    outsideDaysVisible: false,
-
-                    // 오늘: 동그라미 제거 + 텍스트만 은은한 회색
-                    todayDecoration: const BoxDecoration(),
-                    todayTextStyle: kDayStyle.copyWith(
-                      color: const Color.fromARGB(255, 146, 157, 161),
-                    ),
-
-                    // 선택: 파란 원 + 흰 글자
-                    selectedDecoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color.fromARGB(255, 73, 129, 248),
-                    ),
-                    selectedTextStyle: kSelectedText,
-
-                    // 공휴일: 동그라미 없음 + 빨간 글자
-                    holidayDecoration: const BoxDecoration(),
-                    holidayTextStyle: kDayStyle.copyWith(color: Colors.redAccent),
-
-                    markerDecoration: const BoxDecoration(
-                      color: Colors.teal,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-
-                  // 주말 색상(크기 동일)
-                  calendarBuilders: CalendarBuilders<Appointment>(
-                    dowBuilder: (context, day) {
-                      final label = DateFormat.E('ko_KR').format(day);
-                      Color? color;
-                      if (day.weekday == DateTime.sunday) color = Colors.red;
-                      if (day.weekday == DateTime.saturday) color = Colors.blue;
-                      return Center(child: Text(label, style: kDowStyle.copyWith(color: color)));
-                    },
-                    defaultBuilder: (context, day, focused) {
-                      if (isSameDay(day, _selectedDay) ||
-                          _isHoliday(day) ||
-                          isSameDay(day, DateTime.now())) {
-                        return null;
-                      }
-                      Color? color;
-                      if (day.weekday == DateTime.sunday) color = Colors.red;
-                      if (day.weekday == DateTime.saturday) color = Colors.blue;
-                      if (color != null) {
-                        return Center(
-                          child: Text('${day.day}', style: kDayStyle.copyWith(color: color)),
-                        );
-                      }
-                      return null;
-                    },
-                  ),
-
-                  onDaySelected: (selected, focused) {
-                    setState(() {
-                      _selectedDay = _normalize(selected);
-                      _focusedDay = focused;
-                    });
-                  },
-                  onPageChanged: (focused) {
-                    final prevYear = _focusedDay.year;
-                    _focusedDay = focused;
-                    if (prevYear != focused.year) {
-                      _rebuildHolidaysForYear(focused.year);
-                    }
-                  },
-                  onFormatChanged: (format) => setState(() => _calendarFormat = format),
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: kDowStyle,
+                  weekendStyle: kDowStyle,
                 ),
+
+                headerStyle: HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  titleTextFormatter: (d, l) => DateFormat('yyyy년 M월', l).format(d),
+                  titleTextStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+
+                holidayPredicate: (day) => _isHoliday(day),
+                calendarStyle: CalendarStyle(
+                  defaultTextStyle: kDayStyle,
+                  weekendTextStyle: kDayStyle,
+                  outsideDaysVisible: false,
+
+                  todayDecoration: const BoxDecoration(),
+                  todayTextStyle: kDayStyle.copyWith(
+                    color: const Color.fromARGB(255, 146, 157, 161),
+                  ),
+
+                  selectedDecoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color.fromARGB(255, 73, 129, 248),
+                  ),
+                  selectedTextStyle: kSelectedText,
+
+                  holidayDecoration: const BoxDecoration(),
+                  holidayTextStyle: kDayStyle.copyWith(color: Colors.redAccent),
+
+                  markerDecoration: const BoxDecoration(
+                    color: Colors.teal,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+
+                calendarBuilders: CalendarBuilders<Appointment>(
+                  dowBuilder: (context, day) {
+                    final label = DateFormat.E('ko_KR').format(day);
+                    Color? color;
+                    if (day.weekday == DateTime.sunday) color = Colors.red;
+                    if (day.weekday == DateTime.saturday) color = Colors.blue;
+                    return Center(child: Text(label, style: kDowStyle.copyWith(color: color)));
+                  },
+                  defaultBuilder: (context, day, focused) {
+                    if (isSameDay(day, _selectedDay) ||
+                        _isHoliday(day) ||
+                        isSameDay(day, DateTime.now())) {
+                      return null;
+                    }
+                    Color? color;
+                    if (day.weekday == DateTime.sunday) color = Colors.red;
+                    if (day.weekday == DateTime.saturday) color = Colors.blue;
+                    if (color != null) {
+                      return Center(
+                        child: Text('${day.day}', style: kDayStyle.copyWith(color: color)),
+                      );
+                    }
+                    return null;
+                  },
+                ),
+
+                onDaySelected: (selected, focused) {
+                  setState(() {
+                    _selectedDay = _normalize(selected);
+                    _focusedDay = focused;
+                  });
+                },
+                onPageChanged: (focused) {
+                  final prevYear = _focusedDay.year;
+                  _focusedDay = focused;
+                  if (prevYear != focused.year) {
+                    _rebuildHolidaysForYear(focused.year);
+                  }
+                },
+                onFormatChanged: (format) => setState(() => _calendarFormat = format),
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          _buildFilters(),
-          const SizedBox(height: 8),
-          Expanded(
-            child: dayEvents.isEmpty
-                ? DCalendarPlaceholder(
-                    message: '선택한 날짜에 일정이 없습니다.',
-                    buttonLabel: '새 일정 만들기',
-                    onPressed: _pickAdd,
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
-                    itemCount: dayEvents.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (ctx, i) {
-                      final a = dayEvents[i];
-                      return InkWell(
-                        onTap: () => _pickEdit(a),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Theme.of(context).dividerColor),
-                          ),
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: a.status.color,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
+        ),
+        const SizedBox(height: 8),
+        _buildFilters(),
+        const SizedBox(height: 8),
+        Expanded(
+          child: dayEvents.isEmpty
+              ? DCalendarPlaceholder(
+                  message: '선택한 날짜에 일정이 없습니다.',
+                  buttonLabel: '새 일정 만들기',
+                  onPressed: _pickAdd,
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+                  itemCount: dayEvents.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) {
+                    final a = dayEvents[i];
+                    return InkWell(
+                      onTap: () => _pickEdit(a),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: a.status.color,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Wrap(
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      spacing: 8,
-                                      children: [
-                                        Text(
-                                          '${_hm.format(a.startDateTime)} - ${_hm.format(a.endDateTime)}',
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    children: [
+                                      Text(
+                                        '${_hm.format(a.startDateTime)} - ${_hm.format(a.endDateTime)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: a.status.color.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(999),
+                                          border: Border.all(color: a.status.color.withOpacity(0.5)),
+                                        ),
+                                        child: Text(
+                                          a.status.label,
                                           style: TextStyle(
+                                            fontSize: 12,
+                                            color: a.status.color,
                                             fontWeight: FontWeight.w600,
-                                            color: Theme.of(context).colorScheme.primary,
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: a.status.color.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(999),
-                                            border: Border.all(color: a.status.color.withOpacity(0.5)),
-                                          ),
-                                          child: Text(
-                                            a.status.label,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: a.status.color,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(a.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      if (a.patientName != null && a.patientName!.isNotEmpty) ...[
+                                        const Icon(Icons.person, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(a.patientName!),
+                                        const SizedBox(width: 12),
                                       ],
-                                    ),
+                                      if (a.location != null && a.location!.isNotEmpty) ...[
+                                        const Icon(Icons.place, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(a.location!),
+                                      ],
+                                    ],
+                                  ),
+                                  if ((a.notes ?? '').isNotEmpty) ...[
                                     const SizedBox(height: 6),
                                     Text(
-                                      a.title,
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        if (a.patientName != null && a.patientName!.isNotEmpty) ...[
-                                          const Icon(Icons.person, size: 16),
-                                          const SizedBox(width: 4),
-                                          Text(a.patientName!),
-                                          const SizedBox(width: 12),
-                                        ],
-                                        if (a.location != null && a.location!.isNotEmpty) ...[
-                                          const Icon(Icons.place, size: 16),
-                                          const SizedBox(width: 4),
-                                          Text(a.location!),
-                                        ],
-                                      ],
-                                    ),
-                                    if ((a.notes ?? '').isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        a.notes!,
-                                        style: TextStyle(
-                                          color: Theme.of(context).textTheme.bodySmall?.color,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    ],
+                                      a.notes!,
+                                      style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
                                   ],
-                                ),
+                                ],
                               ),
-                              IconButton(
-                                tooltip: '상태 변경',
-                                icon: const Icon(Icons.more_vert),
-                                onPressed: () async {
-                                  final newStatus = await showMenu<AppointmentStatus>(
-                                    context: context,
-                                    position: const RelativeRect.fromLTRB(200, 200, 0, 0),
-                                    items: AppointmentStatus.values
-                                        .map(
-                                          (s) => PopupMenuItem(
-                                            value: s,
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.circle, color: s.color, size: 12),
-                                                const SizedBox(width: 8),
-                                                Text(s.label),
-                                              ],
-                                            ),
+                            ),
+                            IconButton(
+                              tooltip: '상태 변경',
+                              icon: const Icon(Icons.more_vert),
+                              onPressed: () async {
+                                final newStatus = await showMenu<AppointmentStatus>(
+                                  context: context,
+                                  position: const RelativeRect.fromLTRB(200, 200, 0, 0),
+                                  items: AppointmentStatus.values
+                                      .map(
+                                        (s) => PopupMenuItem(
+                                          value: s,
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.circle, color: s.color, size: 12),
+                                              const SizedBox(width: 8),
+                                              Text(s.label),
+                                            ],
                                           ),
-                                        )
-                                        .toList(),
-                                  );
-                                  if (newStatus != null) {
-                                    setState(() => _updateInEvents(a.copyWith(status: newStatus)));
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                );
+                                if (newStatus != null) {
+                                  setState(() => _updateInEvents(a.copyWith(status: newStatus)));
+                                }
+                              },
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+
+    // ✅ 웹/와이드에선 드로어 폭만큼 공간을 항상 비워서 겹침 방지 (딤은 Scaffold가 처리)
+    return SafeArea(
+      child: isWide
+          ? Row(
+              children: [
+                SizedBox(width: reserved),
+                Expanded(child: calendarBody),
+              ],
+            )
+          : calendarBody,
     );
   }
 }
