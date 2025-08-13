@@ -99,12 +99,13 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: kIsWeb
-                  ? ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 450),
-                      child: _buildLoginCard(),
-                    )
-                  : _buildLoginCard(),
+              child: Align(
+                alignment: Alignment.topCenter, // 또는 Alignment.center
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 450),
+                  child: _buildLoginCard(),
+                ),
+              ),
             ),
           ),
         ),
