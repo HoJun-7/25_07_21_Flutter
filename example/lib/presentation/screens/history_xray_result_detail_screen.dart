@@ -295,8 +295,8 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
           children: [
             const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
-            _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
+            _buildStyledToggle("치아 상태", _showModel1, (val) => setState(() => _showModel1 = val)),
+            _buildStyledToggle("임플란트 종류", _showModel2, (val) => setState(() => _showModel2 = val)),
           ],
         ),
       );
