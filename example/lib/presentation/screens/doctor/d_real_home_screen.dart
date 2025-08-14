@@ -5,13 +5,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 
-// -------------------------
-// DRealHomeScreen (Dashboard Home)
-// -------------------------
 class DRealHomeScreen extends StatefulWidget {
   final String baseUrl;
   const DRealHomeScreen({super.key, required this.baseUrl});
@@ -20,661 +19,435 @@ class DRealHomeScreen extends StatefulWidget {
   State<DRealHomeScreen> createState() => _DRealHomeScreenState();
 }
 
-class _DRealHomeScreenState extends State<DRealHomeScreen> with WidgetsBindingObserver {
-  Timer? _autoRefreshTimer;
+class _DRealHomeScreenState extends State<DRealHomeScreen> {
+  // 캘린더 상태 관리를 위한 변수 추가
+  late final ValueNotifier<List<dynamic>> _selectedEvents;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  // 가상의 이벤트 데이터
+  Map<DateTime, List<dynamic>> _events = {
+    DateTime.utc(2025, 8, 10): ['Event A', 'Event B'],
+    DateTime.utc(2025, 8, 12): ['Event C'],
+    DateTime.utc(2025, 8, 15): ['Event D', 'Event E', 'Event F'],
+    DateTime.utc(2025, 8, 20): ['Event G'],
+  };
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final vm = context.read<DoctorDashboardViewModel>();
-      await vm.loadDashboardData(widget.baseUrl);
-      await vm.loadRecent7DaysData(widget.baseUrl);
-      // ✅ 연령대 데이터 로드 함수 호출
-      await vm.loadAgeDistributionData(widget.baseUrl);
-    });
-
-    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) {
-        final vm = context.read<DoctorDashboardViewModel>();
-        vm.loadDashboardData(widget.baseUrl);
-        vm.loadRecent7DaysData(widget.baseUrl);
-        // ✅ 연령대 데이터 로드 함수 호출
-        vm.loadAgeDistributionData(widget.baseUrl);
-      }
-    });
+    final vm = context.read<DoctorDashboardViewModel>();
+    vm.loadDashboardData(widget.baseUrl);
+    vm.loadRecent7DaysData(widget.baseUrl);
+    vm.loadAgeDistributionData(widget.baseUrl);
+    
+    _selectedDay = _focusedDay;
+    _selectedEvents = ValueNotifier(_getEventsForDay(_selectedDay!));
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _autoRefreshTimer?.cancel();
+    _selectedEvents.dispose();
     super.dispose();
   }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      final vm = context.read<DoctorDashboardViewModel>();
-      vm.loadDashboardData(widget.baseUrl);
-      vm.loadRecent7DaysData(widget.baseUrl);
-      // ✅ 연령대 데이터 로드 함수 호출
-      vm.loadAgeDistributionData(widget.baseUrl);
-    }
+  
+  List<dynamic> _getEventsForDay(DateTime day) {
+    return _events[day] ?? [];
   }
-
-  Future<bool> _onWillPop() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('앱 종료'),
-        content: const Text('앱을 종료하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('종료'),
-          ),
-        ],
-      ),
-    );
-    return shouldExit ?? false;
+  
+  void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    if (!isSameDay(_selectedDay, selectedDay)) {
+      setState(() {
+        _selectedDay = selectedDay;
+        _focusedDay = focusedDay;
+      });
+      _selectedEvents.value = _getEventsForDay(selectedDay);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color backgroundColor = Color(0xFFAAD0F8);
-
-    // 웹 환경이거나 가로 모드일 때 Row 레이아웃을 사용
-    final isDesktopOrLandscape = kIsWeb || MediaQuery.of(context).orientation == Orientation.landscape;
-
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        appBar: AppBar(
-          title: Consumer<DoctorDashboardViewModel>(
-            builder: (_, vm, __) => Text(
-              '${vm.doctorName} 대시보드',
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          actions: [
-            Consumer<DoctorDashboardViewModel>(
-              builder: (_, vm, __) => Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    onPressed: () {
-                      // TODO: 알림 화면 이동 처리
-                    },
-                    tooltip: '알림',
-                    color: Colors.white,
-                  ),
-                  if (vm.unreadNotifications > 0)
-                    Positioned(
-                      right: 11,
-                      top: 11,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: Text(
-                          '${vm.unreadNotifications}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            )
-          ],
-        ),
-        body: SafeArea(
-          child: Center(
-            child: kIsWeb
-                ? ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1300),
-                    child: isDesktopOrLandscape
-                        ? _buildDesktopLayout(context)
-                        : _buildMobileLayout(context),
-                  )
-                : (isDesktopOrLandscape
-                    ? _buildDesktopLayout(context)
-                    : _buildMobileLayout(context)),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 모바일/세로 모드 레이아웃
-  Widget _buildMobileLayout(BuildContext context) {
-    return _buildScrollableBody(context);
-  }
-
-  // 웹/가로 모드 레이아웃
-  Widget _buildDesktopLayout(BuildContext context) {
-    return Consumer<DoctorDashboardViewModel>(
-      builder: (context, vm, child) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await vm.loadDashboardData(widget.baseUrl);
-            await vm.loadRecent7DaysData(widget.baseUrl);
-            await vm.loadAgeDistributionData(widget.baseUrl);
-          },
-          color: Colors.white,
-          backgroundColor: Colors.blueAccent,
-          child: Row(
-            children: [
-              // 왼쪽 패널 (기존과 동일: 스크롤)
-              Expanded(
-                flex: 1,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '안녕하세요, ${vm.doctorName}님',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSummaryCards(vm),
-                      const SizedBox(height: 24),
-                      Text(
-                        '최근 7일 신청 건수',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        height: 200,
-                        child: const _LineChartWidget(),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        '환자 연령대별 분포',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const _AgeDistributionBarChart(),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
-              // 오른쪽 패널: 스크롤 + 사진/X-ray 영역 상하 50 여백
-              Expanded(
-                flex: 1,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: 16.0,
-                            right: 16.0,
-                            top: 95.0,    // 시작 50 내려오기
-                            bottom: 65.0, // 끝 50 올리기
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const SizedBox(
-                              height: 300,
-                              child: Center(
-                                child: Text(
-                                  '사진 / x-ray',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // 모바일/공통 스크롤 바디
-  Widget _buildScrollableBody(BuildContext context) {
-    return Consumer<DoctorDashboardViewModel>(
-      builder: (context, vm, child) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await vm.loadDashboardData(widget.baseUrl);
-            await vm.loadRecent7DaysData(widget.baseUrl);
-            await vm.loadAgeDistributionData(widget.baseUrl);
-          },
-          color: Colors.white,
-          backgroundColor: Colors.blueAccent,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Row(
+        children: [
+          _buildSideMenu(),
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '안녕하세요, ${vm.doctorName}님',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                _buildSummaryCards(vm),
-                const SizedBox(height: 24),
-                Text(
-                  '최근 7일 신청 건수',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  height: 200,
-                  child: const _LineChartWidget(),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '환자 연령대별 분포',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const _AgeDistributionBarChart(),
-                ),
-                const SizedBox(height: 24),
-                // 모바일의 사진/X-ray 영역에도 동일한 상하 50 여백 적용
-                Padding(
-                  padding: const EdgeInsets.only(top: 50.0, bottom: 50.0),
-                  child: Container(
-                    height: 300,
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
+                _buildTopBar(),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 2, child: _buildChartsArea()),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 1, child: _buildAlertsPanel()),
                       ],
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '사진 / x-ray',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black54,
-                        ),
-                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  Widget _buildSummaryCards(DoctorDashboardViewModel vm) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // 좌측 메뉴
+  Widget _buildSideMenu() {
+    return Container(
+      width: 220,
+      color: const Color(0xFF2D9CDB),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          const SizedBox(height: 40),
+          const Text(
+            "The More·Care",
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          _sideMenuItem(Icons.dashboard, "통합 대시보드"),
+          _sideMenuItem(Icons.health_and_safety, "환자 모니터링"),
+          _sideMenuItem(Icons.history, "진료 이력"),
+          _sideMenuItem(Icons.notifications, "알림"),
+        ],
+      ),
+    );
+  }
+
+  Widget _sideMenuItem(IconData icon, String title) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      onTap: () {},
+    );
+  }
+
+  // 상단 상태바
+  Widget _buildTopBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Consumer<DoctorDashboardViewModel>(
+        builder: (context, vm, _) {
+          return Row(
+            children: [
+              // 왼쪽 큰 카드 (등록 환자 / 전체 기기)
+              Expanded(
+                flex: 2,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00B4DB), Color(0xFF0083B0)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildClickableNumber(
+                        "오늘의 요청",
+                        vm.requestsToday,
+                        Colors.white,
+                        () => context.go('/patients'),
+                      ),
+                      _buildClickableNumber(
+                        "오늘의 응답",
+                        3451,
+                        Colors.white,
+                        () => context.go('/devices'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // 가운데 상태 카드
+              Expanded(
+                flex: 3,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildIconStat(Icons.cloud, "단체", 13680, Colors.blue),
+                      _buildIconStat(Icons.check_circle, "정상", 10470, Colors.green),
+                      _buildIconStat(Icons.warning, "위험", 2, Colors.red),
+                      _buildIconStat(Icons.remove_circle_outline, "의사 수", 3208, Colors.orange),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // 오른쪽 날씨 카드
+              Container(
+                height: 80,
+                width: 200,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "2024. 5. 17  AM 10:23",
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              "서울시 서대문구",
+                              style: TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                            Text(
+                              "미세먼지 보통",
+                              style: TextStyle(color: Colors.white70, fontSize: 10),
+                            ),
+                          ],
+                        ),
+                        const Text(
+                          "20°C",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildClickableNumber(String label, int value, Color color, VoidCallback onTap) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "$value",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconStat(IconData icon, String label, int value, Color color) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 2),
+        Text(
+          "$value",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.black54),
+        ),
+      ],
+    );
+  }
+
+  // 중앙 차트 영역
+  Widget _buildChartsArea() {
+    return Column(
       children: [
         Expanded(
-          child: _SummaryCard(
-            title: '오늘의 요청\n',
-            count: vm.requestsToday,
-            icon: Icons.request_page,
-            color: Colors.blue.shade700,
-            tabFilter: 'ALL',
+          child: Row(
+            children: [
+              Expanded(child: _chartCard("최근 7일 신청 건수", Colors.red, _buildLineChart())),
+              const SizedBox(width: 16),
+              Expanded(child: _chartCard("시간", Colors.blue, _buildLineChart())),
+            ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(height: 16),
         Expanded(
-          child: _SummaryCard(
-            title: '읽지 않은 \n알림',
-            count: vm.unreadNotifications,
-            icon: Icons.notifications_active,
-            color: Colors.orange.shade700,
-            tabFilter: '진단 대기',
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SummaryCard(
-            title: '오늘의 응답\n',
-            count: vm.answeredToday,
-            icon: Icons.done_all,
-            color: Colors.green.shade700,
-            tabFilter: '진단 완료',
+          child: Row(
+            children: [
+              Expanded(child: _chartCard("사진", Colors.orange, _buildBarChart())),
+              const SizedBox(width: 16),
+              Expanded(child: _chartCard("연령대", Colors.green, _buildBarChart())),
+            ],
           ),
         ),
       ],
     );
   }
-}
 
-// -------------------------
-// Summary Card Widget
-// -------------------------
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final int count;
-  final IconData icon;
-  final Color color;
-  final String tabFilter;
-
-  const _SummaryCard({
-    Key? key,
-    required this.title,
-    required this.count,
-    required this.icon,
-    required this.color,
-    required this.tabFilter,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final tabIndexMap = {
-      'ALL': 0,
-      '진단 대기': 1,
-      '진단 완료': 2,
-    };
-
-    return InkWell(
-      onTap: () {
-        final initialTab = tabIndexMap[tabFilter] ?? 0;
-        context.push('/d_telemedicine_application', extra: {
-          'initialTab': initialTab,
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Column(
-            children: [
-              Icon(icon, size: 36, color: color),
-              const SizedBox(height: 8),
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+  Widget _chartCard(String title, Color color, Widget chart) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Expanded(child: chart),
+        ],
       ),
     );
   }
-}
 
-// -------------------------
-// Line Chart Widget
-// -------------------------
-class _LineChartWidget extends StatelessWidget {
-  const _LineChartWidget({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final vm = Provider.of<DoctorDashboardViewModel>(context);
-
-    if (vm.recent7DaysCounts.isEmpty) {
-      return const Center(child: Text("데이터 없음", style: TextStyle(color: Colors.black87)));
-    }
-
+  // 라인 차트
+  Widget _buildLineChart() {
     return LineChart(
       LineChartData(
         lineBarsData: [
           LineChartBarData(
-            spots: vm.recent7DaysCounts
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.toDouble()))
-                .toList(),
-            color: Colors.blueAccent,
-            barWidth: 3,
+            spots: const [
+              FlSpot(0, 3),
+              FlSpot(1, 4),
+              FlSpot(2, 5),
+              FlSpot(3, 7),
+              FlSpot(4, 6),
+              FlSpot(5, 8),
+            ],
             isCurved: true,
+            color: Colors.blueAccent,
             dotData: const FlDotData(show: true),
           )
         ],
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 1,
-              getTitlesWidget: (value, meta) {
-                final labels = ['6일전','5일전','4일전','3일전','2일전','어제','오늘'];
-                if (value.toInt() < 0 || value.toInt() >= labels.length) return const SizedBox.shrink();
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  child: Transform.rotate(
-                    angle: -0.785,
-                    child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: const SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        minX: 0,
-        maxX: 6,
-        minY: 0,
-        maxY: (vm.recent7DaysCounts.reduce((a, b) => a > b ? a : b) + 2).toDouble(),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        titlesData: const FlTitlesData(show: false),
       ),
     );
   }
-}
 
-// -------------------------
-// Age Distribution Bar Chart Widget (새로 추가)
-// -------------------------
-class _AgeDistributionBarChart extends StatelessWidget {
-  const _AgeDistributionBarChart({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final vm = Provider.of<DoctorDashboardViewModel>(context);
-
-    if (vm.ageDistributionData.isEmpty) {
-      return const Center(child: Text("데이터 없음", style: TextStyle(color: Colors.black87)));
-    }
-
-    // 데이터가 없는 경우를 고려하여 maxY 계산
-    double maxY = vm.ageDistributionData.values.reduce((a, b) => a > b ? a : b).toDouble() + 2;
-    if (maxY < 5) maxY = 5; // 최소 높이 설정
-
+  // 바 차트
+  Widget _buildBarChart() {
     return BarChart(
       BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxY,
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                final labels = vm.ageDistributionData.keys.toList();
-                if (value.toInt() >= labels.length) return const SizedBox.shrink();
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  space: 8,
-                  child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
+        barGroups: [
+          BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 5, color: Colors.orange)]),
+          BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 3, color: Colors.orange)]),
+          BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 4, color: Colors.orange)]),
+        ],
+        titlesData: const FlTitlesData(show: false),
+        gridData: const FlGridData(show: false),
+      ),
+    );
+  }
+  
+  // 캘린더 위젯
+  Widget _buildCalendar() {
+    return TableCalendar(
+      locale: 'ko_KR',
+      firstDay: DateTime.utc(2020, 1, 1),
+      lastDay: DateTime.utc(2030, 12, 31),
+      focusedDay: _focusedDay,
+      calendarFormat: CalendarFormat.month,
+      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+      onDaySelected: _onDaySelected,
+      eventLoader: _getEventsForDay,
+      headerStyle: const HeaderStyle(
+        formatButtonVisible: false,
+        titleCentered: true,
+        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.blue),
+        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.blue),
+      ),
+      calendarStyle: CalendarStyle(
+        markersMaxCount: 1,
+        todayDecoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.5),
+          shape: BoxShape.circle,
+        ),
+        selectedDecoration: const BoxDecoration(
+          color: Colors.blue,
+          shape: BoxShape.circle,
+        ),
+        markerDecoration: const BoxDecoration(
+          color: Colors.red,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  // 오른쪽 알림 패널
+  Widget _buildAlertsPanel() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("실시간 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: 10,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  leading: const Icon(Icons.warning, color: Colors.red),
+                  title: Text("위험 알림 ${index + 1}"),
+                  subtitle: const Text("상세 내용 표시"),
+                  dense: true,
                 );
               },
             ),
           ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                return Text(value.toInt().toString(), style: const TextStyle(fontSize: 10));
-              },
-              reservedSize: 28,
-              interval: 1, // 1단위로 표시
-            ),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        gridData: const FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 1,
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Color(0xff37434d), width: 1),
-        ),
-        barGroups: vm.ageDistributionData.entries.toList().asMap().entries.map((entry) {
-          int index = entry.key;
-          String ageGroup = entry.value.key;
-          int count = entry.value.value;
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: count.toDouble(),
-                color: Colors.blue.shade300,
-                width: 15,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ],
-            showingTooltipIndicators: const [0],
-          );
-        }).toList(),
+          // 여기에 캘린더를 추가합니다.
+          const SizedBox(height: 16),
+          _buildCalendar(),
+        ],
       ),
     );
   }
