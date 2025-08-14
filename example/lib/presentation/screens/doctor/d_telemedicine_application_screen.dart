@@ -125,7 +125,12 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
         resizeToAvoidBottomInset: false, // ✅ ← 이 줄을 여기 삽입
         backgroundColor: const Color(0xFFAAD0F8),
         appBar: AppBar(
-          title: const Text('비대면 진료 신청 현황'),
+          title: const Text(
+            '비대면 진료 신청 현황',
+            style: TextStyle(
+              color: Colors.white,       // ✅ 글씨 흰색
+            ),
+          ),
           backgroundColor: const Color(0xFF4386DB),
           leading: Builder(
             builder: (context) => IconButton(

@@ -13,12 +13,14 @@ class DResultDetailScreen extends StatefulWidget {
   final String userId;
   final String originalImageUrl;
   final String baseUrl;
+  final int? requestId; // ⬅ consult_request.id (선택 전달)
 
   const DResultDetailScreen({
     super.key,
     required this.userId,
     required this.originalImageUrl,
     required this.baseUrl,
+    this.requestId, // ⬅ 추가
   });
 
   @override
@@ -42,8 +44,9 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   String model3ToothNumber = '';
   double model3Confidence = 0.0;
 
-  // Inference 결과에서 받아올 _id를 저장할 변수 추가 (백엔드 조회용)
   String? inferenceResultId;
+  String? _doctorCommentFromDb; // ⬅ DB에서 불러올 의사 소견
+  bool _isReplied = false; // ⬅ 답변 완료 여부
 
   bool _isLoading = true;
   String? _error;
@@ -54,21 +57,52 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   final TextEditingController _doctorOpinionController = TextEditingController();
   bool _isSubmittingOpinion = false;
 
+  Future<int?> _fetchRequestIdIfNull() async {
+    if (widget.requestId != null) return widget.requestId;
+    try {
+      final uri = Uri.parse(
+        '${widget.baseUrl}/consult/status'
+        '?user_id=${Uri.encodeComponent(widget.userId)}'
+        '&image_path=${Uri.encodeComponent(widget.originalImageUrl)}',
+      );
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final m = json.decode(res.body);
+        final id = m['request_id'];
+        final String isRepliedStatus = m['is_replied'] ?? 'N';
+        final String? commentFromDb = m['doctor_comment']; // DB에서 의사 소견 받아오기
+
+        setState(() {
+          _isReplied = (isRepliedStatus == 'Y');
+          _doctorCommentFromDb = commentFromDb;
+          // DB에서 불러온 코멘트가 있다면 컨트롤러에 설정
+          if (_isReplied && _doctorCommentFromDb != null) {
+            _doctorOpinionController.text = _doctorCommentFromDb!;
+          }
+        });
+
+        if (id == null) return null;
+        if (id is int) return id;
+        if (id is String) return int.tryParse(id);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
-    // 초기 로드 시 inference 결과와 Gemini 의견을 모두 가져오도록 합니다.
-    _fetchInferenceResult().then((_) {
-      // Inference 결과가 성공적으로 로드된 후에만 Gemini 의견을 요청합니다.
-      // 그렇지 않으면 model1Label 등의 값이 초기값으로 전송될 수 있습니다.
-      if (_error == null && !_isLoading) {
-        _fetchGeminiOpinion();
-      } else {
-        setState(() {
-          aiOpinion = "진단 결과 로드 실패로 AI 소견을 요청할 수 없습니다.";
-          _isLoadingOpinion = false; // 에러 발생 시 로딩 상태 해제
-        });
-      }
+    _fetchRequestIdIfNull().then((_) {
+      _fetchInferenceResult().then((_) {
+        if (_error == null && !_isLoading) {
+          _fetchGeminiOpinion();
+        } else {
+          setState(() {
+            aiOpinion = "진단 결과 로드 실패로 AI 소견을 요청할 수 없습니다.";
+            _isLoadingOpinion = false;
+          });
+        }
+      });
     });
   }
 
@@ -97,7 +131,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       );
 
       print('Fetching inference results from: $uri');
-      print('Authorization Header (Inference): Bearer $accessToken'); // 명확한 로깅
+      print('Authorization Header (Inference): Bearer $accessToken');
 
       final res = await http.get(uri, headers: {
         'Authorization': 'Bearer $accessToken',
@@ -110,14 +144,12 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
         print('Inference Data: $data');
 
         setState(() {
-          // Inference 결과에서 _id 값을 저장
-          inferenceResultId = data['_id']; // 추가된 부분!
+          inferenceResultId = data['_id'];
 
           overlay1Url = data['model1_image_path'];
           overlay2Url = data['model2_image_path'];
           overlay3Url = data['model3_image_path'];
 
-          // null 체크를 좀 더 명시적으로 강화
           className = data['model1_inference_result']?['label'] as String? ?? 'Unknown';
           confidence = (data['model1_inference_result']?['confidence'] as num?)?.toDouble() ?? 0.0;
 
@@ -161,10 +193,6 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       return;
     }
 
-    // 서버의 Gemini API가 이미지 URL 대신 _id를 사용하여 분석 결과를 조회할 가능성이 있습니다.
-    // 백엔드 개발자와 확인 후 필요하다면 아래 requestBody에 'inferenceResultId': inferenceResultId, 를 추가하거나,
-    // image_url 대신 inferenceResultId만 보낼 수도 있습니다.
-    // 현재는 image_url과 모든 추론 결과를 함께 보내는 방식입니다.
     if (className == 'Unknown' && confidence == 0.0 && model2Label == 'Unknown' && model3ToothNumber == 'Unknown') {
         print('Gemini opinion cannot be fetched: Inference results are not yet loaded or are invalid.');
         if (!mounted) return;
@@ -179,24 +207,21 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini');
 
       final requestBodyMap = {
-        'image_url': widget.baseUrl.replaceAll('/api', '') + widget.originalImageUrl, // 현재는 상대 경로를 보내고 있음
+        'image_url': widget.baseUrl.replaceAll('/api', '') + widget.originalImageUrl,
         'model1Label': className,
         'model1Confidence': confidence,
         'model2Label': model2Label,
         'model2Confidence': model2Confidence,
         'model3ToothNumber': model3ToothNumber,
         'model3Confidence': model3Confidence,
-        // 필요하다면 백엔드에서 분석 결과 조회를 위해 이 _id를 사용할 수 있습니다.
-        // 백엔드 API 명세에 따라 추가하거나 제거하세요.
-        'inference_result_id': inferenceResultId,  // <-- 백엔드 디버깅을 위해 추가.
+        'inference_result_id': inferenceResultId,
       };
       final requestBody = jsonEncode(requestBodyMap);
 
-
-      print('--- Gemini API Request Details ---'); // 디버깅을 위한 추가 로깅
+      print('--- Gemini API Request Details ---');
       print('Request URL: $uri');
       print('Request Body (JSON): $requestBody');
-      print('Request Body (Map): $requestBodyMap'); // 맵 형태로도 출력하여 확인 용이
+      print('Request Body (Map): $requestBodyMap');
       print('Authorization Header (Gemini): Bearer $accessToken');
       print('----------------------------------');
 
@@ -212,21 +237,16 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       if (!mounted) return;
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        print('Gemini Opinion Success: ${response.statusCode}');
-        print('Gemini Opinion Data: ${result['message']}');
         setState(() {
           aiOpinion = result['message'] ?? 'AI 소견을 불러오지 못했습니다.';
         });
       } else {
-        print('Gemini Opinion Failed: ${response.statusCode}');
-        print('Gemini Opinion Error Body: ${response.body}');
         setState(() {
           aiOpinion = 'AI 소견 요청 실패: ${response.statusCode}. ${response.body}';
         });
       }
     } catch (e) {
       if (!mounted) return;
-      print('Error fetching Gemini opinion: $e');
       setState(() {
         aiOpinion = 'AI 소견 요청 중 오류: $e';
       });
@@ -249,116 +269,123 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       return;
     }
 
-    // 실제 서버 전송 로직이 필요하다면 여기에 추가 (현재는 2초 지연 후 완료 메시지 표시)
-    // 예: await http.post(...)
-    print('의사 의견 제출: $opinionText');
+    try {
+      final authViewModel = context.read<AuthViewModel>();
+      final accessToken = await authViewModel.getAccessToken();
+      if (accessToken == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인이 필요합니다.')),
+        );
+        setState(() => _isSubmittingOpinion = false);
+        return;
+      }
 
-    await Future.delayed(const Duration(seconds: 2));
+      int? reqId = widget.requestId;
+      if (reqId == null) {
+        reqId = await _fetchRequestIdIfNull();
+      }
+      if (reqId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('요청 ID를 찾을 수 없습니다.')),
+        );
+        setState(() => _isSubmittingOpinion = false);
+        return;
+      }
 
-    if (!mounted) return;
-    setState(() => _isSubmittingOpinion = false);
+      final uri = Uri.parse('${widget.baseUrl}/consult/reply');
+      final body = jsonEncode({
+        'request_id': reqId,
+        'comment': opinionText,
+      });
 
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('제출 완료'),
-        content: const Text('의사 의견이 환자에게 전송되었습니다.'),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const Color outerBackground = Color(0xFFE7F0FF);
-    const Color buttonColor = Color(0xFF3869A8);
-
-    // dentibot.png 에러 관련 주석 (이전과 동일):
-    // 이 에러는 이 DResultDetailScreen 위젯 코드와 직접적인 관련이 없습니다.
-    // 이는 앱의 다른 어딘가에서 'images/dentibot.png'라는 로컬 에셋을 로드하려고 시도했는데,
-    // 해당 파일을 Flutter가 찾지 못해서 발생하는 문제입니다.
-    //
-    // 해결 방법:
-    // 1. 'dentibot.png' 파일이 실제로 프로젝트 내의 'assets/images/' 폴더에 있는지 확인하세요.
-    //    (예: project_root/assets/images/dentibot.png)
-    // 2. pubspec.yaml 파일에 assets 섹션이 올바르게 설정되어 있는지 확인하세요.
-    //    flutter:
-    //      uses-material-design: true
-    //      assets:
-    //        - assets/images/
-    //        # 또는 특정 파일만:
-    //        # - assets/images/dentibot.png
-    // 3. pubspec.yaml 수정 후에는 반드시 터미널에서 'flutter clean' 실행 후 'flutter pub get'을 실행하세요.
-    // 4. 앱을 다시 빌드하고 실행하세요.
-
-    return Scaffold(
-      backgroundColor: outerBackground,
-      appBar: AppBar(
-        backgroundColor: buttonColor,
-        title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-      ),
-      // ⬇⬇⬇ 여기부터: 웹이면 폭을 고정(최대 600)해서 가운데 정렬 ⬇⬇⬇
-      body: SafeArea(
-        child: kIsWeb
-            ? Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: _buildBodyContent(),
-                ),
-              )
-            : _buildBodyContent(),
-      ),
-      // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
-    );
-  }
-
-  // 본문(이전 로직 그대로) – 웹/모바일 공통으로 사용
-  Widget _buildBodyContent() {
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : (_error != null
-            ? Center(child: Text(_error!))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildToggleCard(),
-                    const SizedBox(height: 16),
-                    _buildFixedImageCard(widget.originalImageUrl),
-                    const SizedBox(height: 16),
-                    _buildSummaryCard(),
-                    const SizedBox(height: 16),
-                    _buildAiOpinionCard(),
-                    const SizedBox(height: 16),
-                    _buildDoctorOpinionCard(),
-                  ],
-                ),
-              ));
-  }
-
-  Widget _buildAiOpinionCard() => Container(
-        decoration: _cardDecoration(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('AI 소견', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            if (_isLoadingOpinion)
-              const Center(child: CircularProgressIndicator())
-            else
-              Text(
-                aiOpinion ?? '소견이 없습니다.',
-                style: const TextStyle(fontSize: 16),
-              ),
-          ],
-        ),
+      final res = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: body,
       );
 
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        setState(() {
+          _isReplied = true;
+          _doctorCommentFromDb = opinionText; // 현재 제출된 의견을 저장
+          _doctorOpinionController.text = opinionText; // 컨트롤러 텍스트를 최신 의견으로 업데이트
+        });
+
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('제출 완료'),
+            content: const Text('의사 의견이 저장되었습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // 팝업창 닫기
+                  context.pop(true); // 이전 화면(목록)으로 돌아가면서 새로고침 신호 전달
+                },
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: ${res.statusCode} ${res.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() => _isSubmittingOpinion = false);
+    }
+  }
+
+  BoxDecoration _cardDecoration() => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+  );
+
+  Widget _buildAiOpinionCard() => Container(
+    decoration: _cardDecoration(),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('AI 소견', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        if (_isLoadingOpinion)
+          const Center(child: CircularProgressIndicator())
+        else
+          Text(
+            aiOpinion ?? '소견이 없습니다.',
+            style: const TextStyle(fontSize: 16),
+          ),
+      ],
+    ),
+  );
+
   Widget _buildDoctorOpinionCard() {
+    // 힌트 텍스트를 결정합니다.
+    String currentHintText = '환자에게 전달할 진단 결과 및 조언을 작성하세요.';
+    // _isReplied가 true이고, 컨트롤러에 텍스트가 이미 있다면 힌트를 표시하지 않습니다.
+    // 이는 컨트롤러의 텍스트가 실제 값이고 힌트가 필요 없음을 의미합니다.
+    if (_isReplied && _doctorOpinionController.text.isNotEmpty) {
+      currentHintText = '';
+    } else if (_isReplied) {
+      // 답변 완료되었지만, 컨트롤러가 비어있는 경우 (초기 로딩 시)
+      currentHintText = '작성 완료된 의사 소견입니다.';
+    }
+
     return Container(
       decoration: _cardDecoration(),
       padding: const EdgeInsets.all(16),
@@ -370,8 +397,9 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           TextField(
             controller: _doctorOpinionController,
             maxLines: 5,
+            enabled: !_isReplied, // 답변 완료되면 비활성화
             decoration: InputDecoration(
-              hintText: '환자에게 전달할 진단 결과 및 조언을 작성하세요.',
+              hintText: currentHintText, // 동적으로 힌트 텍스트 설정
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: const Color(0xFFF5F5F5),
@@ -379,7 +407,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _isSubmittingOpinion ? null : _submitDoctorOpinion,
+            onPressed: (_isSubmittingOpinion || _isReplied) ? null : _submitDoctorOpinion,
             icon: _isSubmittingOpinion
                 ? const SizedBox(
                     width: 18,
@@ -390,7 +418,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
             label: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Text(
-                _isSubmittingOpinion ? '전송 중...' : '보내기',
+                _isSubmittingOpinion ? '전송 중...' : (_isReplied ? '작성 완료됨' : '보내기'),
                 style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
             ),
@@ -406,19 +434,19 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   }
 
   Widget _buildToggleCard() => Container(
-        decoration: _cardDecoration(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val)),
-            _buildStyledToggle("치석/보철물", _showHygiene, (val) => setState(() => _showHygiene = val)),
-            _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val)),
-          ],
-        ),
-      );
+    decoration: _cardDecoration(),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val)),
+        _buildStyledToggle("치석/충전재", _showHygiene, (val) => setState(() => _showHygiene = val)),
+        _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val)),
+      ],
+    ),
+  );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) {
     return Container(
@@ -439,9 +467,6 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   }
 
   Widget _buildFixedImageCard(String imageUrl) {
-    // 이미지 오버레이를 위한 baseUrl 처리
-    // 현재 로그를 보면, originalImageUrl, model1_image_path 등이 이미 '/'로 시작하는 상대 경로이므로,
-    // widget.baseUrl에서 '/api'를 제거한 후 그 뒤에 붙이는 것이 적절해 보입니다.
     final cleanBaseUrl = widget.baseUrl.replaceAll('/api', '');
     final originalFullUrl = '$cleanBaseUrl$imageUrl';
     final ov1 = overlay1Url != null ? '$cleanBaseUrl$overlay1Url' : null;
@@ -489,23 +514,66 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   }
 
   Widget _buildSummaryCard() => Container(
-        decoration: _cardDecoration(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Text("모델1 (질병): $className, ${(confidence * 100).toStringAsFixed(1)}%"),
-            Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
-            Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
-          ],
-        ),
-      );
+    decoration: _cardDecoration(),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Text("질병: $className, ${(confidence * 100).toStringAsFixed(1)}%"),
+        Text("위생: $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
+        Text("치아번호: $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
+      ],
+    ),
+  );
 
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-      );
+  Widget _buildBodyContent() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : (_error != null
+            ? Center(child: Text(_error!))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildToggleCard(),
+                    const SizedBox(height: 16),
+                    _buildFixedImageCard(widget.originalImageUrl),
+                    const SizedBox(height: 16),
+                    _buildSummaryCard(),
+                    const SizedBox(height: 16),
+                    _buildAiOpinionCard(),
+                    const SizedBox(height: 16),
+                    _buildDoctorOpinionCard(),
+                  ],
+                ),
+              ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color outerBackground = Color(0xFFE7F0FF);
+    const Color buttonColor = Color(0xFF3869A8);
+
+    return Scaffold(
+      backgroundColor: outerBackground,
+      appBar: AppBar(
+        backgroundColor: buttonColor,
+        title: const Text('진단 결과', style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: _buildBodyContent(),
+                ),
+              )
+            : _buildBodyContent(),
+      ),
+    );
+  }
 }
