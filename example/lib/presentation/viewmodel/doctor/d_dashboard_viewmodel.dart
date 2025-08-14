@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
+import 'package:collection/collection.dart'; // collection 패키지 import
 
 class DoctorDashboardViewModel extends ChangeNotifier {
   int requestsToday = 0;
@@ -16,6 +17,9 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   List<int> recent7DaysCounts = [];
   List<String> recent7DaysLabels = []; // 📌 X축 라벨용 날짜
 
+  // ✅ 환자 연령대별 분포 데이터
+  Map<String, int> ageDistributionData = {};
+
   Map<String, double> get categoryRatio => _categoryRatio;
 
   List<LineChartBarData> get chartData => [
@@ -26,7 +30,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
             colors: [Colors.blueAccent, Colors.lightBlueAccent],
           ),
           barWidth: 3,
-          dotData: FlDotData(show: false),
+          dotData: const FlDotData(show: false),
         ),
       ];
 
@@ -95,7 +99,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         // 📌 데이터 분리
         recent7DaysCounts = list.map((e) => e['count'] as int).toList();
         recent7DaysLabels =
-          list.map<String>((e) => e['date'].substring(5)).toList(); // MM-DD 형식
+            list.map<String>((e) => e['date'].substring(5)).toList(); // MM-DD 형식
 
         // 📌 그래프 FlSpot 데이터 변환
         _lineData = List.generate(
@@ -111,6 +115,31 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     }
   }
 
+  /// ✅ 연령대별 분포 데이터 불러오기
+  Future<void> loadAgeDistributionData(String baseUrl) async {
+    try {
+      final response =
+          await http.get(Uri.parse('$baseUrl/patients/age-distribution'));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final Map<String, dynamic> data = json['data'] ?? {};
+
+        // API 응답 데이터를 ageDistributionData에 할당
+        ageDistributionData = data.map((key, value) => MapEntry(key, value as int));
+      } else {
+        debugPrint("❌ 연령대 데이터 로딩 실패: ${response.statusCode}");
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ loadAgeDistributionData 예외 발생: $e");
+      // 예외 발생 시 빈 데이터로 초기화
+      ageDistributionData = {};
+    }
+  }
+
+
   Color getCategoryColor(int index) {
     const colors = [
       Colors.blue,
@@ -122,12 +151,12 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     ];
     return colors[index % colors.length];
   }
-}
 
-// mapIndexed 확장
-extension MapIndexedExtension<E> on Iterable<E> {
-  Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
-    int i = 0;
-    return map((e) => f(i++, e));
-  }
+  // 👇 이 코드를 삭제했습니다. collection 패키지의 mapIndexed를 사용하세요.
+  // extension MapIndexedExtension<E> on Iterable<E> {
+  //   Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
+  //     int i = 0;
+  //     return map((e) => f(i++, e));
+  //   }
+  // }
 }
