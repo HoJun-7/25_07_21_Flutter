@@ -77,12 +77,28 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
       if (reservationResponse.statusCode == 200) {
         final Map<String, dynamic> decoded = jsonDecode(reservationResponse.body);
-        final List<dynamic> reservations = decoded['consults'] ?? [];
-        print('✅ 예약 내역 개수: ${reservations.length}');
-        _reservationCount = reservations.length;
-      } else {
-        print('❌ 예약 내역 요청 실패');
-      }
+        List<dynamic> reservations = decoded['consults'] ?? [];
+
+        final String currentUserId = '${user.registerId}';
+        final String role = '${user.role}';
+
+        print('🔎 서버 반환(필터 전): ${reservations.length}건');
+
+        //환자(P)인 경우에만 본인 예약만 남기기
+        if (role == 'P') {
+          reservations = reservations.where((e) {
+            final map = e as Map<String, dynamic>;
+            final String? uid =
+                (map['user_id'] ?? map['userId'] ?? map['patient_id'])?.toString();
+            return uid == currentUserId;
+           }).toList();
+        }
+        print('✅ 클라 필터 후: ${reservations.length}건');
+        _reservationCount = reservations.length;  // ← 필터된 개수로 반영
+        } else {
+          print('❌ 예약 내역 요청 실패');
+        }
+
 
       if (!mounted) return;
       setState(() {});
@@ -500,3 +516,4 @@ class _MyPageScreenState extends State<MyPageScreen> {
     return shouldExit ?? false;
   }
 }
+
