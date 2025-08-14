@@ -37,6 +37,7 @@ dependencies:
   flutter_html: ^3.0.0
   intl: ^0.20.2 #추가
   klc: ^0.1.0  #추가
+  flutter_markdown: ^0.7.0 # 최신 버전을 확인하고 추가하세요.
   
 dev_dependencies:
   integration_test:

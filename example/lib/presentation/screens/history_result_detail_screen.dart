@@ -347,11 +347,11 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
               else
                 const Center(child: CircularProgressIndicator()),
               if (_showDisease && overlay1Bytes != null)
-                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.7)),
               if (_showHygiene && overlay2Bytes != null)
-                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.7)),
               if (_showToothNumber && overlay3Bytes != null)
-                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.7)),
             ],
           ),
         ),
@@ -372,7 +372,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-        _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+        _buildStyledToggle('치석/충전재', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
         _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
       ],
     ),
@@ -403,15 +403,15 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
   };
 
   final Map<String, String> hygieneLabelMap = {
-    "아말감 (am)": "🔴",       // 진한 빨강 (눈에 띔)
-    "세라믹 (cecr)": "🟣",     // 보라색
-    "골드 (gcr)": "🟡",       // 노랑 (금 느낌)
-    "메탈크라운 (mcr)": "⚪", // 흰 원 (금속 느낌)
-    "교정장치 (ortho)": "⚫",  // 검정 원 (철 느낌)
-    "치석 단계1 (tar1)": "🟢", // 초록 (초기)
-    "치석 단계2 (tar2)": "🟠", // 주황 (중간)
-    "치석 단계3 (tar3)": "🔵", // 파랑 (심각)
-    "지르코니아 (zircr)": "🟤", // 갈색 (독립된 소재 느낌)
+    "교정장치": "🔴",
+    "금니 (골드크라운)": "🟣",
+    "은니 (메탈크라운)": "🟡",
+    "세라믹": "⚪",
+    "아말감 충전재": "⚫",
+    "지르코니아": "🟢",
+    "치석 1 단계": "🟠",
+    "치석 2 단계": "🔵",
+    "치석 3 단계": "🟤",
   };
 
   Widget _buildSummaryCard({
@@ -445,7 +445,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
 
             // ✅ 모델2 단일 위생 진단
             if (_showHygiene && hygieneLabelMap.containsKey(model2Label)) ...[
-              const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('치석/충전재', style: TextStyle(fontWeight: FontWeight.w600)),
               Text('${hygieneLabelMap[model2Label]} : $model2Label', style: textTheme.bodyMedium),
               const SizedBox(height: 8),
             ],

@@ -277,11 +277,11 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
               else
                 const Center(child: CircularProgressIndicator()),
               if (_showDisease && overlay1Bytes != null)
-                Image.memory(overlay1Bytes!, fit: BoxFit.fill),
+                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.9)),
               if (_showHygiene && overlay2Bytes != null)
-                Image.memory(overlay2Bytes!, fit: BoxFit.fill),
+                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.9)),
               if (_showToothNumber && overlay3Bytes != null)
-                Image.memory(overlay3Bytes!, fit: BoxFit.fill),
+                Image.memory(overlay3Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
             ],
           ),
         ),
@@ -302,7 +302,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-            _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+            _buildStyledToggle('치석/충전재', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
             _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
           ],
         ),
@@ -333,15 +333,15 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   };
 
   final Map<String, String> hygieneLabelMap = {
-    "교정장치 (ortho)": "🔴",
-    "골드 (gcr)": "🟣",
-    "메탈크라운 (mcr)": "🟡",
-    "세라믹 (cecr)": "⚪",
-    "아말감 (am)": "⚫",
-    "지르코니아 (zircr)": "🟢",
-    "치석 단계1 (tar1)": "🟠",
-    "치석 단계2 (tar2)": "🔵",
-    "치석 단계3 (tar3)": "🟤",
+    "교정장치": "🔴",
+    "금니 (골드크라운)": "🟣",
+    "은니 (메탈크라운)": "🟡",
+    "세라믹": "⚪",
+    "아말감 충전재": "⚫",
+    "지르코니아": "🟢",
+    "치석 1 단계": "🟠",
+    "치석 2 단계": "🔵",
+    "치석 3 단계": "🟤",
   };
 
   Widget _buildSummaryCard({
@@ -383,7 +383,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             const SizedBox(height: 8),
           ],
           if (_showHygiene) ...[
-            const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text('치석/충전재', style: TextStyle(fontWeight: FontWeight.w600)),
             if (hygieneLabels.isNotEmpty)
               ...hygieneLabels.map((l) => Text("${hygieneLabelMap[l]} : $l", style: textTheme.bodyMedium))
             else

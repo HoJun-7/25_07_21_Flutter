@@ -442,7 +442,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
         const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val)),
-        _buildStyledToggle("치석/보철물", _showHygiene, (val) => setState(() => _showHygiene = val)),
+        _buildStyledToggle("치석/충전재", _showHygiene, (val) => setState(() => _showHygiene = val)),
         _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val)),
       ],
     ),
@@ -521,9 +521,9 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       children: [
         const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
-        Text("모델1 (질병): $className, ${(confidence * 100).toStringAsFixed(1)}%"),
-        Text("모델2 (위생): $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
-        Text("모델3 (치아번호): $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
+        Text("질병: $className, ${(confidence * 100).toStringAsFixed(1)}%"),
+        Text("위생: $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
+        Text("치아번호: $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
       ],
     ),
   );
