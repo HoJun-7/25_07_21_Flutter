@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 화면 고정용 추가
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/user.dart';
@@ -117,22 +119,35 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
     }
   }
 
+  Future<void> _saveResultImage() async {
+    final bytes = _showModel2 && _model2Bytes != null ? _model2Bytes : _model1Bytes;
+    if (bytes == null) return;
+    await ImageGallerySaver.saveImage(bytes, quality: 100, name: "result_image");
+  }
+
+  Future<void> _saveOriginalImage() async {
+    if (_originalImageBytes == null) return;
+    await ImageGallerySaver.saveImage(_originalImageBytes!, quality: 100, name: "original_image");
+  }
+
   Future<void> _submitConsultRequest(User currentUser) async {
     final now = DateTime.now();
     final formatted = DateFormat('yyyyMMddHHmmss').format(now);
     final httpService = HttpService(baseUrl: widget.baseUrl);
 
     try {
+      // `HttpService`의 `post` 메소드가 토큰을 내부적으로 처리한다고 가정
       final response = await httpService.post('/consult', {
         'user_id': widget.userId,
         'original_image_url': _relativePath,
         'request_datetime': formatted,
       });
 
-      // ✅ 정상 신청: 성공 화면으로 이동
       if (response.statusCode == 201) {
         if (!mounted) return;
-        context.push('/consult_success');
+        // ✅ 성공 시 이전 화면으로 돌아가기
+        context.pop();
+        context.push('/consult_success', extra: {'type': 'apply'});
         return;
       }
 
@@ -151,7 +166,6 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
 
       if (alreadyRequested) {
         if (!mounted) return;
-        // ❗버튼 상태 변경 없음. 팝업 확인 후 이전 화면으로 이동
         await showDialog(
           context: context,
           useRootNavigator: true,
@@ -167,11 +181,10 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
           ),
         );
         if (!mounted) return;
-        context.pop(); // 이전 화면으로 돌아가기
+        context.pop();
         return;
       }
 
-      // 그 외 에러: 팝업만 닫고 현재 화면 유지
       if (!mounted) return;
       await showDialog(
         context: context,
@@ -192,6 +205,48 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('서버와 통신 중 문제가 발생했습니다.')),
       );
+    }
+  }
+
+  Future<void> _getGeminiOpinion(String modelName, int predictionCount) async {
+    setState(() => _isLoadingGemini = true);
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (token == null) {
+      setState(() => _isLoadingGemini = false);
+      return;
+    }
+
+    try {
+      final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini_xray');
+      final response = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "image_url": widget.originalImageUrl,
+          "inference_result_id": widget.inferenceResultId,
+          "model1Label": modelName,
+          "model1Confidence": widget.model1Result['confidence'] ?? 0.0,
+          "predictionCount": predictionCount,
+        }),
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoadingGemini = false);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        final message = result['message'] ?? 'AI 응답이 없습니다.';
+        context.push('/multimodal_result', extra: {"responseText": message});
+      } else {
+        _showErrorDialog("AI 소견 요청에 실패했습니다.");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingGemini = false);
+      _showErrorDialog("서버와 통신 중 문제가 발생했습니다.");
     }
   }
 
@@ -219,127 +274,110 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         title: const Text('X-ray 진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600), // ✅ 웹에서 중앙 고정 및 폭 제한
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildToggleCard(),
-                const SizedBox(height: 16),
-                _buildXrayImage(),
-                const SizedBox(height: 16),
-                _buildXraySummaryCard(modelName, predictionCount),
-                const SizedBox(height: 24),
-                if (currentUser?.role == 'P') ...[
-                  _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.image, '원본 이미지 저장', () {}),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser!)),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : () async {
-                    setState(() => _isLoadingGemini = true);
-                    final token = await context.read<AuthViewModel>().getAccessToken();
-                    final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini_xray');
+      body: SafeArea(
+        child: kIsWeb
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: _buildMainBody(currentUser, modelName, predictionCount),
+                ),
+              )
+            : _buildMainBody(currentUser, modelName, predictionCount),
+      ),
+    );
+  }
 
-                    final response = await http.post(
-                      uri,
-                      headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer $token",
-                      },
-                      body: jsonEncode({
-                        "image_url": widget.originalImageUrl,
-                        "inference_result_id": widget.inferenceResultId,
-                        "model1Label": modelName,
-                        "model1Confidence": widget.model1Result['confidence'] ?? 0.0,
-                        "predictionCount": predictionCount,
-                      }),
-                    );
-
-                    setState(() => _isLoadingGemini = false);
-
-                    if (response.statusCode == 200) {
-                      final result = jsonDecode(response.body);
-                      final message = result['message'] ?? 'AI 응답이 없습니다.';
-                      context.push('/multimodal_result', extra: {"responseText": message});
-                    } else {
-                      _showErrorDialog("AI 소견 요청에 실패했습니다.");
-                    }
-                  }),
-                  const SizedBox(height: 12),
-                  _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
-                ]
-              ],
+  Widget _buildMainBody(User? currentUser, String modelName, int predictionCount) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildToggleCard(),
+          const SizedBox(height: 16),
+          _buildXrayImage(),
+          const SizedBox(height: 16),
+          _buildXraySummaryCard(modelName, predictionCount),
+          const SizedBox(height: 24),
+          if (currentUser?.role == 'P') ...[
+            _buildActionButton(Icons.download, '진단 결과 이미지 저장', _saveResultImage),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.image, '원본 이미지 저장', _saveOriginalImage),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', currentUser != null ? () => _submitConsultRequest(currentUser) : null),
+            const SizedBox(height: 12),
+            _buildActionButton(
+              Icons.chat,
+              _isLoadingGemini ? 'AI 소견 불러오는 중...' : 'AI 소견 들어보기',
+              _isLoadingGemini ? null : () => _getGeminiOpinion(modelName, predictionCount),
             ),
-          ),
-        ),
+            const SizedBox(height: 12),
+            _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
+          ]
+        ],
       ),
     );
   }
 
   Widget _buildToggleCard() => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
-            _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
-          ],
-        ),
-      );
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
+          _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
+        ],
+      ),
+    );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAEAEA),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 15)),
-            Switch(value: value, onChanged: onChanged),
-          ],
-        ),
-      );
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAEAEA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 15)),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
 
   Widget _buildXrayImage() => Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: AspectRatio(
-          aspectRatio: 4 / 3,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (_originalImageBytes != null)
-                  Image.memory(_originalImageBytes!, fit: BoxFit.fill),
-                if (_showModel1 && _model1Bytes != null)
-                  Image.memory(_model1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                if (_showModel2 && _model2Bytes != null)
-                  Image.memory(_model2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-              ],
-            ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_originalImageBytes != null)
+                Image.memory(_originalImageBytes!, fit: BoxFit.fill),
+              if (_showModel1 && _model1Bytes != null)
+                Image.memory(_model1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+              if (_showModel2 && _model2Bytes != null)
+                Image.memory(_model2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+            ],
           ),
         ),
-      );
+      ),
+    );
 
   Widget _buildXraySummaryCard(String modelName, int count) {
     final predictions = widget.model1Result['predictions'] as List<dynamic>?;
@@ -362,7 +400,11 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
     }
 
     if (_implantResults.isNotEmpty) {
-      summaryText += "\n\n[임플란트 제조사 분류 결과]";
+      if(summaryText == '감지된 객체가 없습니다.') {
+        summaryText = "[임플란트 제조사 분류 결과]";
+      } else {
+        summaryText += "\n\n[임플란트 제조사 분류 결과]";
+      }
       final countMap = <String, int>{};
 
       for (final result in _implantResults) {
@@ -394,13 +436,13 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
   }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3869A8),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(label, style: const TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: onPressed != null ? const Color(0xFF3869A8) : Colors.grey,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
 }

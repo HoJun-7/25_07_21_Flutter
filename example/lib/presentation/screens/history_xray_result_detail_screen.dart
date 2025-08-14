@@ -42,9 +42,10 @@ class HistoryXrayResultDetailScreen extends StatefulWidget {
 class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailScreen> {
   bool _showModel1 = true;
   bool _showModel2 = true;
-  bool _isRequested = false;
-  bool _isReplied = false;
-  List<Map<String, dynamic>> _implantResults = []; // 4번 모델 🔥 추가
+  late bool _isRequested;
+  late bool _isReplied;
+  String? _doctorComment;
+  List<Map<String, dynamic>> _implantResults = [];
 
   Uint8List? originalImageBytes;
   Uint8List? overlay1Bytes;
@@ -56,10 +57,50 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
     _isRequested = widget.isRequested == 'Y';
     _isReplied = widget.isReplied == 'Y';
     _loadImages();
-    _loadImplantManufacturerResults(); // 4번 모델 🔥 추가
+    _loadImplantManufacturerResults();
+    if (_isReplied) {
+      _fetchDoctorComment();
+    }
   }
 
-  Future<void> _loadImplantManufacturerResults() async { // 4번 모델 🔥 추가
+  // ✅ `GET /consult/status`로 엔드포인트 및 메소드 수정
+  Future<void> _fetchDoctorComment() async {
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (token == null) return;
+
+    final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
+
+    try {
+      final response = await http.get(
+        Uri.parse('${widget.baseUrl}/consult/status?user_id=${widget.userId}&image_path=$relativePath'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (!mounted) return;
+        setState(() {
+          _doctorComment = data['doctor_comment'];
+        });
+      } else {
+        print("❌ 의사 코멘트 가져오기 실패: ${response.statusCode} - ${response.body}");
+        if (!mounted) return;
+        setState(() {
+          _doctorComment = "의사 코멘트를 불러오는 데 실패했습니다.";
+        });
+      }
+    } catch (e) {
+      print('❌ 서버 요청 실패: $e');
+      if (!mounted) return;
+      setState(() {
+        _doctorComment = "서버와 통신 중 문제가 발생했습니다.";
+      });
+    }
+  }
+
+  Future<void> _loadImplantManufacturerResults() async {
     final token = await context.read<AuthViewModel>().getAccessToken();
     if (token == null) return;
 
@@ -110,10 +151,9 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
     }
   }
 
-  // ✅ 3D 뷰어 열기
   void _open3DViewer() {
     context.push('/dental_viewer', extra: {
-      'glbUrl': 'assets/web/model/open_mouth.glb', // 로컬 에셋 경로
+      'glbUrl': 'assets/web/model/open_mouth.glb',
     });
   }
 
@@ -166,14 +206,12 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
         }),
       );
 
-      // ✅ 정상 신청: 상태 변경 없이 성공 화면으로 이동
       if (response.statusCode == 201) {
         if (!mounted) return;
         context.push('/consult_success', extra: {'type': 'apply'});
         return;
       }
 
-      // --- 에러 처리 ---
       String? serverMsg;
       try {
         final body = jsonDecode(response.body);
@@ -186,7 +224,6 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
 
       if (alreadyRequested) {
         if (!mounted) return;
-        // ❗버튼 상태 변경 없음. 팝업 확인 후 이전 화면으로 이동
         await showDialog(
           context: context,
           useRootNavigator: true,
@@ -202,11 +239,10 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
           ),
         );
         if (!mounted) return;
-        context.pop(); // ← 이전 화면으로
+        context.pop();
         return;
       }
 
-      // 그 외 에러: 팝업만 닫고 현재 화면 유지
       if (!mounted) return;
       await showDialog(
         context: context,
@@ -291,7 +327,6 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
         title: const Text('X-ray 진단 결과', style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
-      // ✅ 웹이면 폭 고정 + 가운데 정렬
       body: SafeArea(
         child: kIsWeb
             ? Center(
@@ -305,10 +340,41 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
     );
   }
 
-  // ✅ 본문을 메서드로 분리 (웹/모바일 공용)
   Widget _buildMainBody(User currentUser) {
+    final textTheme = Theme.of(context).textTheme;
     final modelName = widget.model1Result['used_model'] ?? 'N/A';
     final count = (widget.model1Result['predictions'] as List?)?.length ?? 0;
+
+    Widget consultButton;
+    if (!_isRequested) {
+      consultButton = _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser));
+    } else if (_isRequested && !_isReplied) {
+      consultButton = _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest);
+    } else {
+      consultButton = Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF3869A8).withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              '진단 응답 완료',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget? doctorCommentCard;
+    if (_isReplied && _doctorComment != null) {
+      doctorCommentCard = _buildCommentCard(_doctorComment!, textTheme);
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -320,16 +386,17 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
           _buildImageCard(),
           const SizedBox(height: 16),
           _buildXraySummaryCard(modelName, count),
+          if (doctorCommentCard != null) ...[
+            const SizedBox(height: 16),
+            doctorCommentCard,
+          ],
           const SizedBox(height: 24),
           if (currentUser.role == 'P') ...[
             _buildActionButton(Icons.download, '진단 결과 이미지 저장', _saveResultImage),
             const SizedBox(height: 12),
             _buildActionButton(Icons.image, '원본 이미지 저장', _saveOriginalImage),
             const SizedBox(height: 12),
-            if (!_isRequested)
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser))
-            else if (_isRequested && !_isReplied)
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
+            consultButton,
             const SizedBox(height: 12),
             _buildActionButton(Icons.chat, 'AI 소견 들어보기', _getGeminiOpinion),
             const SizedBox(height: 12),
@@ -371,60 +438,60 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
   }
 
   Widget _buildToggleCard() => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
-            _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
-          ],
-        ),
-      );
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
+          _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
+        ],
+      ),
+    );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: const Color(0xFFEAEAEA), borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text(label, style: const TextStyle(fontSize: 15)), Switch(value: value, onChanged: onChanged)],
-        ),
-      );
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(color: const Color(0xFFEAEAEA), borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [Text(label, style: const TextStyle(fontSize: 15)), Switch(value: value, onChanged: onChanged)],
+      ),
+    );
 
   Widget _buildImageCard() => Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: AspectRatio(
-          aspectRatio: 4 / 3,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (originalImageBytes != null)
-                  Image.memory(originalImageBytes!, fit: BoxFit.fill),
-                if (_showModel1 && overlay1Bytes != null)
-                  Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-                if (_showModel2 && overlay2Bytes != null)
-                  Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
-              ],
-            ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (originalImageBytes != null)
+                Image.memory(originalImageBytes!, fit: BoxFit.fill),
+              if (_showModel1 && overlay1Bytes != null)
+                Image.memory(overlay1Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+              if (_showModel2 && overlay2Bytes != null)
+                Image.memory(overlay2Bytes!, fit: BoxFit.fill, opacity: const AlwaysStoppedAnimation(0.5)),
+            ],
           ),
         ),
-      );
+      ),
+    );
 
-  Widget _buildXraySummaryCard(String modelName, int count) { // 4번 모델 🔥 추가
+  Widget _buildXraySummaryCard(String modelName, int count) {
     final predictions = widget.model1Result['predictions'] as List<dynamic>?;
 
     String summaryText = '감지된 객체가 없습니다.';
@@ -432,7 +499,7 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
       final Map<String, int> classCounts = {};
       for (final pred in predictions) {
         final className = pred['class_name'] ?? 'Unknown';
-        if (className == '정상치아') continue; // 제외
+        if (className == '정상치아') continue;
         classCounts[className] = (classCounts[className] ?? 0) + 1;
       }
 
@@ -443,7 +510,11 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
     }
 
     if (_implantResults.isNotEmpty) {
-      summaryText += "\n\n[임플란트 제조사 분류 결과]";
+      if(summaryText == '감지된 객체가 없습니다.') {
+        summaryText = "[임플란트 제조사 분류 결과]";
+      } else {
+        summaryText += "\n\n[임플란트 제조사 분류 결과]";
+      }
       final countMap = <String, int>{};
 
       for (final result in _implantResults) {
@@ -475,13 +546,30 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
   }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-        label: Text(label, style: const TextStyle(color: Colors.white)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3869A8),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(label, style: const TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: onPressed != null ? const Color(0xFF3869A8) : Colors.grey,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+  Widget _buildCommentCard(String comment, TextTheme textTheme) => Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('의사 코멘트', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Text(comment, style: textTheme.bodyMedium),
+        ],
+      ),
+    );
 }
