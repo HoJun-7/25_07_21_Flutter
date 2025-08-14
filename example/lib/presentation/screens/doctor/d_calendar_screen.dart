@@ -6,9 +6,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'd_calendar_placeholder.dart';
 
-// ===== 공통: 드로어 여백 예약 값 =====
-const double _kDrawerGutterExtra = 16.0; // 드로어와 본문 사이 시각적 간격
+// ===== 색상 상수 =====
+const kPageBgBlue = Color(0xFFAAD0F8); // 전체 배경 (세번째 이미지)
 
+// ===== 드로어 겹침 방지용 여백 =====
+const double _kDrawerGutterExtra = 16.0; // 드로어와 본문 사이 시각적 간격
 double _drawerReservedWidth(BuildContext context) {
   final themeWidth = DrawerTheme.of(context).width;
   // Material 기본 드로어 폭: 304
@@ -209,7 +211,7 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     if (_events[key]!.isEmpty) {
       _events.remove(key);
     }
-    setState(() {}); // 화면 갱신
+    setState(() {});
   }
 
   List<Appointment> _eventsForDay(DateTime day) {
@@ -289,13 +291,13 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     if (edited == null) return;
 
     if (edited.title == '__DELETE__') {
-      _deleteFromEvents(appt);
+      _deleteFromEvents(appt); // 그 일정 한 건만 제거
     } else {
       setState(() => _updateInEvents(edited));
     }
   }
 
-  /// 왼쪽 칩, 오른쪽 검색창
+  /// 상태 칩(왼쪽) + 검색창(오른쪽)
   Widget _buildFilters() {
     final chips = AppointmentStatus.values.map((s) {
       final selected = _selectedStatuses.contains(s);
@@ -391,56 +393,51 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
                 selectedDayPredicate: (d) => isSameDay(_selectedDay, d),
                 calendarFormat: _calendarFormat,
                 eventLoader: (day) => _events[_normalize(day)] ?? const [],
-                startingDayOfWeek: StartingDayOfWeek.sunday,
-
+                startingDayOfWeek: StartingDayOfWeek.sunday, // 일~토
                 rowHeight: 46,
                 daysOfWeekHeight: 28,
-
                 daysOfWeekStyle: const DaysOfWeekStyle(
                   weekdayStyle: kDowStyle,
                   weekendStyle: kDowStyle,
                 ),
-
                 headerStyle: HeaderStyle(
                   formatButtonVisible: false,
                   titleCentered: true,
-                  titleTextFormatter: (d, l) => DateFormat('yyyy년 M월', l).format(d),
-                  titleTextStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  titleTextFormatter: (d, l) =>
+                      DateFormat('yyyy년 M월', l).format(d),
+                  titleTextStyle:
+                      const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
-
                 holidayPredicate: (day) => _isHoliday(day),
                 calendarStyle: CalendarStyle(
                   defaultTextStyle: kDayStyle,
                   weekendTextStyle: kDayStyle,
                   outsideDaysVisible: false,
-
                   todayDecoration: const BoxDecoration(),
                   todayTextStyle: kDayStyle.copyWith(
-                    color: const Color.fromARGB(255, 146, 157, 161),
+                    color: Color.fromARGB(255, 146, 157, 161),
                   ),
-
                   selectedDecoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Color.fromARGB(255, 73, 129, 248),
                   ),
                   selectedTextStyle: kSelectedText,
-
                   holidayDecoration: const BoxDecoration(),
                   holidayTextStyle: kDayStyle.copyWith(color: Colors.redAccent),
-
                   markerDecoration: const BoxDecoration(
                     color: Colors.teal,
                     shape: BoxShape.circle,
                   ),
                 ),
-
                 calendarBuilders: CalendarBuilders<Appointment>(
                   dowBuilder: (context, day) {
                     final label = DateFormat.E('ko_KR').format(day);
                     Color? color;
                     if (day.weekday == DateTime.sunday) color = Colors.red;
                     if (day.weekday == DateTime.saturday) color = Colors.blue;
-                    return Center(child: Text(label, style: kDowStyle.copyWith(color: color)));
+                    return Center(
+                      child: Text(label, style: kDowStyle.copyWith(color: color)),
+                    );
                   },
                   defaultBuilder: (context, day, focused) {
                     if (isSameDay(day, _selectedDay) ||
@@ -459,7 +456,6 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
                     return null;
                   },
                 ),
-
                 onDaySelected: (selected, focused) {
                   setState(() {
                     _selectedDay = _normalize(selected);
@@ -615,21 +611,29 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
       ],
     );
 
-    // ✅ 웹/와이드에선 드로어 폭만큼 공간을 항상 비워서 겹침 방지 (딤은 Scaffold가 처리)
-    return SafeArea(
-      child: isWide
-          ? Row(
-              children: [
-                SizedBox(width: reserved),
-                Expanded(child: calendarBody),
-              ],
-            )
-          : calendarBody,
+    // ✅ 이 화면에서는 AppBar를 만들지 않습니다(부모가 제공).
+    return Scaffold(
+      backgroundColor: kPageBgBlue, // 전체 배경색만 적용
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _pickAdd,
+        label: const Text('새 일정'),
+        icon: const Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: isWide
+            ? Row(
+                children: [
+                  SizedBox(width: reserved),
+                  Expanded(child: calendarBody),
+                ],
+              )
+            : calendarBody,
+      ),
     );
   }
 }
 
-/// 일정 생성/수정 바텀시트 (변경 없음)
+/// 일정 생성/수정 바텀시트
 class _AppointmentEditor extends StatefulWidget {
   final Appointment? existing;
   final DateTime? date;
