@@ -127,7 +127,12 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
               return Scaffold(
-                appBar: AppBar(title: const Text('진료 캘린더')),
+                appBar: AppBar(title: const Text('진료 일정'),
+                centerTitle : true,
+                backgroundColor : const Color.fromARGB(255, 92, 179, 250),
+                surfaceTintColor: Colors.transparent,
+                scrolledUnderElevation: 0,
+                ),
                 drawer: DoctorDrawer(baseUrl: passedBaseUrl),
                 body: const DCalendarScreen(),
               );
