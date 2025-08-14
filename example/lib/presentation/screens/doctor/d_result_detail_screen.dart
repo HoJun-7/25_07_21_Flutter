@@ -57,6 +57,46 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
   final TextEditingController _doctorOpinionController = TextEditingController();
   bool _isSubmittingOpinion = false;
 
+  // ⬅ 추가된 변수들 (오류 해결)
+  List<String> get filteredDiseaseLabels {
+    // model1Label에서 질병 관련 라벨들을 필터링하는 로직을 여기에 추가
+    // 예시: className에 따라 리스트를 반환
+    if (className.toLowerCase().contains('caries')) {
+      return ['충치'];
+    } else if (className.toLowerCase().contains('gingivitis')) {
+      return ['치은염 (잇몸 염증)'];
+    } else if (className.toLowerCase().contains('periodontitis')) {
+      return ['치주질환 (잇몸 뼈 염증)'];
+    }
+    return [];
+  }
+
+  List<String> get hygieneLabels {
+    // model2Label에서 위생 관련 라벨들을 필터링하는 로직을 여기에 추가
+    // 예시: model2Label에 따라 리스트를 반환
+    final labels = <String>[];
+    if (model2Label.toLowerCase().contains('calculus')) {
+      labels.add('치석');
+    }
+    if (model2Label.toLowerCase().contains('crown')) {
+      labels.add('크라운');
+    }
+    // TODO: 충전재(filling) 등 추가
+    return labels;
+  }
+
+  final Map<String, String> diseaseLabelMap = {
+    '충치': '🦷',
+    '치은염 (잇몸 염증)': '🦷',
+    '치주질환 (잇몸 뼈 염증)': '🦴',
+  };
+
+  final Map<String, String> hygieneLabelMap = {
+    '치석': '🔍',
+    '크라운': '👑',
+    '충전재': 'Filling', // 예시
+  };
+
   Future<int?> _fetchRequestIdIfNull() async {
     if (widget.requestId != null) return widget.requestId;
     try {
@@ -439,10 +479,10 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),// 250814 변경
         const SizedBox(height: 12),
-        _buildStyledToggle("충치/치주염/치은염", _showDisease, (val) => setState(() => _showDisease = val)),
-        _buildStyledToggle("치석/충전재", _showHygiene, (val) => setState(() => _showHygiene = val)),
+        _buildStyledToggle("질병", _showDisease, (val) => setState(() => _showDisease = val)),// 250814 변경
+        _buildStyledToggle("위생", _showHygiene, (val) => setState(() => _showHygiene = val)),// 250814 변경
         _buildStyledToggle("치아번호", _showToothNumber, (val) => setState(() => _showToothNumber = val)),
       ],
     ),
@@ -519,11 +559,22 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        Text("질병: $className, ${(confidence * 100).toStringAsFixed(1)}%"),
-        Text("위생: $model2Label, ${(model2Confidence * 100).toStringAsFixed(1)}%"),
-        Text("치아번호: $model3ToothNumber, ${(model3Confidence * 100).toStringAsFixed(1)}%"),
+        if (filteredDiseaseLabels.isNotEmpty) ...[
+          const Text('충치/치은염(잇몸 염증)/치주질환(잇몸 뼈까지 진행된 염증)', style: TextStyle(fontWeight: FontWeight.w600)),// 250814 변경
+          ...filteredDiseaseLabels.map((label) {
+            final icon = diseaseLabelMap[label] ?? "❓";
+            return Text("$icon : $label", style: Theme.of(context).textTheme.bodyMedium);
+          }),
+          const SizedBox(height: 8),
+        ],
+        if (_showHygiene) ...[
+          const Text('치석/크라운/충전재', style: TextStyle(fontWeight: FontWeight.w600)),// 250814 변경
+          if (hygieneLabels.isNotEmpty)
+            ...hygieneLabels.map((l) => Text("${hygieneLabelMap[l]} : $l", style: Theme.of(context).textTheme.bodyMedium))
+          else
+            Text('감지되지 않음', style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+        ],
       ],
     ),
   );

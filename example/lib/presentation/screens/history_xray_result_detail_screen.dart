@@ -310,10 +310,10 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),// 250814 변경
             const SizedBox(height: 12),
-            _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
-            _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
+            _buildStyledToggle("구강 상태 분석", _showModel1, (val) => setState(() => _showModel1 = val)),// 250814 변경
+            _buildStyledToggle("임플란트 분류", _showModel2, (val) => setState(() => _showModel2 = val)),// 250814 변경
           ],
         ),
       );

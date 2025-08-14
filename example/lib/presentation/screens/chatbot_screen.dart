@@ -441,7 +441,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                               ),
                               const SizedBox(height: 15),
                               Text(
-                                '마스크 설정',
+                                '인공지능 분석 결과',// 250814 변경
                                 style: GoogleFonts.notoSansKr(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,

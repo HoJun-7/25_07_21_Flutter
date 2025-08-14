@@ -1,3 +1,5 @@
+// C:\Users\302-1\Desktop\25_07_21_Flutter-1\example\lib\presentation\screens\upload_xray_result_detail_screen.dart
+
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -40,7 +42,8 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
   Uint8List? _originalImageBytes;
   Uint8List? _model1Bytes;
   Uint8List? _model2Bytes;
-  bool _isLoadingGemini = false;
+  bool _isLoadingGemini = true;
+  String? _geminiOpinion;
   List<Map<String, dynamic>> _implantResults = [];
 
   String get _relativePath => widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
@@ -50,6 +53,7 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
     super.initState();
     _loadImages();
     _loadImplantManufacturerResults();
+    _getGeminiOpinion();
   }
 
   Future<void> _loadImages() async {
@@ -68,6 +72,56 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
       });
     } catch (e) {
       print('이미지 로딩 실패: $e');
+    }
+  }
+
+  Future<void> _getGeminiOpinion() async {
+    setState(() => _isLoadingGemini = true);
+    final authViewModel = context.read<AuthViewModel>();
+    final token = await authViewModel.getAccessToken();
+    if (token == null) {
+      setState(() => _isLoadingGemini = false);
+      return;
+    }
+
+    final modelName = widget.model1Result['used_model'] ?? 'N/A';
+    final predictionCount = (widget.model1Result['predictions'] as List?)?.length ?? 0;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.baseUrl}/multimodal_gemini_xray'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'image_url': widget.originalImageUrl,
+          'inference_result_id': widget.inferenceResultId,
+          'model1Label': modelName,
+          'model1Confidence': widget.model1Result['confidence'] ?? 0.0,
+          'predictionCount': predictionCount,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
+        setState(() {
+          _geminiOpinion = message;
+        });
+      } else {
+        setState(() {
+          _geminiOpinion = 'AI 소견 요청 실패: ${response.statusCode}';
+        });
+        print('AI 소견 요청 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        _geminiOpinion = 'AI 소견 요청 실패: $e';
+      });
+      print('업로드 실패: $e');
+    } finally {
+      setState(() => _isLoadingGemini = false);
     }
   }
 
@@ -171,6 +225,8 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
                 _buildXrayImage(),
                 const SizedBox(height: 16),
                 _buildXraySummaryCard(modelName, predictionCount),
+                const SizedBox(height: 16),
+                _buildGeminiOpinionCard(),
                 const SizedBox(height: 24),
                 if (currentUser?.role == 'P') ...[
                   _buildActionButton(Icons.download, '진단 결과 이미지 저장', () {}),
@@ -179,43 +235,47 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
                   const SizedBox(height: 12),
                   _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser!)),
                   const SizedBox(height: 12),
-                  _buildActionButton(Icons.chat, 'AI 소견 들어보기', _isLoadingGemini ? null : () async {
-                    setState(() => _isLoadingGemini = true);
-                    final token = await context.read<AuthViewModel>().getAccessToken();
-                    final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini_xray');
-
-                    final response = await http.post(
-                      uri,
-                      headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer $token",
-                      },
-                      body: jsonEncode({
-                        "image_url": widget.originalImageUrl,
-                        "inference_result_id": widget.inferenceResultId,
-                        "model1Label": modelName,
-                        "model1Confidence": widget.model1Result['confidence'] ?? 0.0,
-                        "predictionCount": predictionCount,
-                      }),
-                    );
-
-                    setState(() => _isLoadingGemini = false);
-
-                    if (response.statusCode == 200) {
-                      final result = jsonDecode(response.body);
-                      final message = result['message'] ?? 'AI 응답이 없습니다.';
-                      context.push('/multimodal_result', extra: {"responseText": message});
-                    } else {
-                      _showErrorDialog("AI 소견 요청에 실패했습니다.");
-                    }
-                  }),
-                  const SizedBox(height: 12),
                   _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
                 ]
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGeminiOpinionCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('AI 소견', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              if (_isLoadingGemini)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _isLoadingGemini
+                ? 'AI 소견을 불러오는 중입니다...'
+                : _geminiOpinion ?? 'AI 소견을 불러오지 못했습니다.',
+            style: const TextStyle(fontSize: 16, height: 1.5),
+          ),
+        ],
       ),
     );
   }
@@ -230,10 +290,10 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),// 250814 변경
             const SizedBox(height: 12),
-            _buildStyledToggle("YOLO 탐지 결과 (model1)", _showModel1, (val) => setState(() => _showModel1 = val)),
-            _buildStyledToggle("추가 오버레이 (model2)", _showModel2, (val) => setState(() => _showModel2 = val)),
+            _buildStyledToggle("구강 상태 분석", _showModel1, (val) => setState(() => _showModel1 = val)),// 250814 변경
+            _buildStyledToggle("임플란트 분류", _showModel2, (val) => setState(() => _showModel2 = val)),// 250814 변경
           ],
         ),
       );
@@ -310,7 +370,7 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
       }
 
       countMap.forEach((name, cnt) {
-        summaryText += "\n→ $name: $cnt개";
+        summaryText += "\n-> $name: $cnt개";
       });
     }
 
