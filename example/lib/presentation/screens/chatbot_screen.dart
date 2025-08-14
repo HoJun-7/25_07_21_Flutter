@@ -126,6 +126,24 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
+  // ✅ 면책사항(입력창 아래)
+  Widget _buildDisclaimerBottom() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Center(
+        child: Text(
+          '※ 본 챗봇은 참고용 정보만 제공하며, 정확한 진단은 의료 전문가와 상담하시기 바랍니다.',
+          style: GoogleFonts.notoSansKr(
+            fontSize: 12.5,
+            color: Colors.grey,
+            height: 1.2,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
   // ✅ 마스크 설정 스위치
   Widget _buildMaskSettingSwitch(
       String label, bool value, ValueChanged<bool> onChanged) {
@@ -323,6 +341,8 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
     return Column(
       children: [
+        // ⬇⬇⬇ [상단 면책사항 제거됨] — 요청대로 입력창 아래로 이동
+
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -518,63 +538,70 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               ],
             ),
           ),
+        // ✅ 입력창 + (바로 아래) 면책문구
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: '메시지를 작성해주세요',
-                      hintStyle: GoogleFonts.notoSansKr(color: Colors.grey[500]),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFC0E6FF), width: 1)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide:
-                              const BorderSide(color: Color(0xFF7EB7E6), width: 2)),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: '메시지를 작성해주세요',
+                          hintStyle: GoogleFonts.notoSansKr(color: Colors.grey[500]),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFC0E6FF), width: 1)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF7EB7E6), width: 2)),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        ),
+                        style: GoogleFonts.notoSansKr(fontSize: 16),
+                        onSubmitted: (txt) {
+                          FocusScope.of(context).unfocus();
+                          _sendMessage(txt);
+                        },
+                      ),
                     ),
-                    style: GoogleFonts.notoSansKr(fontSize: 16),
-                    onSubmitted: (txt) {
-                      FocusScope.of(context).unfocus();
-                      _sendMessage(txt);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTapDown: (_) => _sendBtnAnimCtr.forward(),
-                  onTapUp: (_) => _sendBtnAnimCtr.reverse(),
-                  onTapCancel: () => _sendBtnAnimCtr.reverse(),
-                  onTap: () {
-                    FocusScope.of(context).unfocus();
-                    _sendMessage(_controller.text);
-                  },
-                  child: ScaleTransition(
-                    scale: _sendBtnScale,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFFADD8E6),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                          ]),
-                      padding: const EdgeInsets.all(12),
-                      child: const Icon(Icons.send, color: Colors.white, size: 24),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                      onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                      onTapCancel: () => _sendBtnAnimCtr.reverse(),
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        _sendMessage(_controller.text);
+                      },
+                      child: ScaleTransition(
+                        scale: _sendBtnScale,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFADD8E6),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                              ]),
+                          padding: const EdgeInsets.all(12),
+                          child: const Icon(Icons.send, color: Colors.white, size: 24),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+                _buildDisclaimerBottom(), // ⬅ 입력창 바로 아래
               ],
             ),
           ),
