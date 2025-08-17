@@ -13,11 +13,11 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   List<FlSpot> _lineData = [];
   Map<String, double> _categoryRatio = {};
 
-  /// ✅ 최근 7일 신청 건수
+  /// 최근 7일 신청 건수
   List<int> recent7DaysCounts = [];
-  List<String> recent7DaysLabels = []; // 📌 X축 라벨용 날짜
+  List<String> recent7DaysLabels = []; // X축 라벨용 날짜
 
-  // ✅ 환자 연령대별 분포 데이터
+  // 환자 연령대별 분포 데이터
   Map<String, int> ageDistributionData = {};
 
   Map<String, double> get categoryRatio => _categoryRatio;
@@ -53,7 +53,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     }).toList();
   }
 
-  /// 📌 오늘의 요청/응답/알림 개수 불러오기
+  /// 오늘의 요청/응답/알림 개수 불러오기
   Future<void> loadDashboardData(String baseUrl) async {
     final today = DateTime.now();
     final formattedDate =
@@ -68,9 +68,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         requestsToday = data['total'] ?? 0;
         answeredToday = data['completed'] ?? 0;
         unreadNotifications = requestsToday - answeredToday;
-        doctorName = '김닥터'; // TODO: 백엔드에서 닥터 이름도 전달하도록 개선
-      } else {
-        debugPrint("❌ 통계 데이터 로딩 실패: ${response.statusCode}");
+        doctorName = '김닥터';
       }
 
       // 차트 데이터 및 카테고리 초기화
@@ -79,11 +77,11 @@ class DoctorDashboardViewModel extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ loadDashboardData 예외 발생: $e");
+      // 예외 발생 시 무시
     }
   }
 
-  /// 📌 최근 7일 신청 건수 불러오기
+  /// 최근 7일 신청 건수 불러오기
   Future<void> loadRecent7DaysData(String baseUrl) async {
     try {
       final response =
@@ -93,29 +91,27 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         final json = jsonDecode(response.body);
         final List<dynamic> list = json['data'] ?? [];
 
-        // 📌 날짜순 정렬 (오래된 → 최신)
+        // 날짜순 정렬 (오래된 → 최신)
         list.sort((a, b) => a['date'].compareTo(b['date']));
 
-        // 📌 데이터 분리
+        // 데이터 분리
         recent7DaysCounts = list.map((e) => e['count'] as int).toList();
         recent7DaysLabels =
-            list.map<String>((e) => e['date'].substring(5)).toList(); // MM-DD 형식
+            list.map<String>((e) => e['date'].substring(5)).toList(); // MM-DD
 
-        // 📌 그래프 FlSpot 데이터 변환
+        // 그래프 FlSpot 데이터 변환
         _lineData = List.generate(
           recent7DaysCounts.length,
           (i) => FlSpot(i.toDouble(), recent7DaysCounts[i].toDouble()),
         );
-      } else {
-        debugPrint("❌ 최근 7일 데이터 로딩 실패: ${response.statusCode}");
       }
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ loadRecent7DaysData 예외 발생: $e");
+      // 예외 발생 시 무시
     }
   }
 
-  /// ✅ 연령대별 분포 데이터 불러오기
+  /// 연령대별 분포 데이터 불러오기
   Future<void> loadAgeDistributionData(String baseUrl) async {
     try {
       final response =
@@ -124,21 +120,16 @@ class DoctorDashboardViewModel extends ChangeNotifier {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final Map<String, dynamic> data = json['data'] ?? {};
-
-        // API 응답 데이터를 ageDistributionData에 할당
         ageDistributionData = data.map((key, value) => MapEntry(key, value as int));
       } else {
-        debugPrint("❌ 연령대 데이터 로딩 실패: ${response.statusCode}");
+        ageDistributionData = {};
       }
 
       notifyListeners();
     } catch (e) {
-      debugPrint("❌ loadAgeDistributionData 예외 발생: $e");
-      // 예외 발생 시 빈 데이터로 초기화
       ageDistributionData = {};
     }
   }
-
 
   Color getCategoryColor(int index) {
     const colors = [
@@ -151,12 +142,4 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     ];
     return colors[index % colors.length];
   }
-
-  // 👇 이 코드를 삭제했습니다. collection 패키지의 mapIndexed를 사용하세요.
-  // extension MapIndexedExtension<E> on Iterable<E> {
-  //   Iterable<T> mapIndexed<T>(T Function(int index, E e) f) {
-  //     int i = 0;
-  //     return map((e) => f(i++, e));
-  //   }
-  // }
 }
