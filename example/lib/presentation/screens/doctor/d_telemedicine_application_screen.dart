@@ -47,6 +47,39 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   int _currentPage = 0;
   final int _itemsPerPage = 5;
 
+  // ▼▼▼ 알림 팝업 상태 & 더미 데이터
+  bool _isNotificationPopupVisible = false;
+  final List<String> _fallbackNotifications = const [
+    '새로운 진단 결과가 도착했습니다.',
+    '예약이 내일로 예정되어 있습니다.',
+    '프로필 업데이트를 완료해주세요.',
+  ];
+
+  void _toggleNotificationPopup() {
+    setState(() => _isNotificationPopupVisible = !_isNotificationPopupVisible);
+  }
+
+  void _closeNotificationPopup() {
+    if (_isNotificationPopupVisible) {
+      setState(() => _isNotificationPopupVisible = false);
+    }
+  }
+
+  double _notifPopupTop(BuildContext context) {
+    final padTop = MediaQuery.of(context).padding.top;
+    return kIsWeb ? 4 : (padTop + 8); // ⬅ 요청대로 "더 위"로 배치
+  }
+
+  List<String> _safeNotifications(DoctorHistoryViewModel vm) {
+    // ViewModel에 notifications(List<String>)가 있으면 사용, 없으면 fallback
+    try {
+      final dynamic n = (vm as dynamic).notifications;
+      if (n is List<String>) return n;
+    } catch (_) {}
+    return _fallbackNotifications;
+  }
+  // ▲▲▲
+
   @override
   void initState() {
     super.initState();
@@ -122,13 +155,14 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
         return false; // 뒤로가기 기본 동작 막기
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false, // ✅ ← 이 줄을 여기 삽입
+        resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFAAD0F8),
         appBar: AppBar(
           title: const Text(
             '비대면 진료 신청 현황',
             style: TextStyle(
-              color: Colors.white,       // ✅ 글씨 흰색
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
           ),
           backgroundColor: const Color(0xFF4386DB),
@@ -139,20 +173,126 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
             ),
           ),
           centerTitle: true,
+          // ▼▼▼ 알림 아이콘 + 배지 이식
+          actions: [
+            Consumer<DoctorHistoryViewModel>(
+              builder: (_, vm, __) {
+                // 뱃지 숫자: vm.unreadNotifications가 있으면 우선, 없으면 리스트 길이
+                int badgeCount = 0;
+                try {
+                  final dynamic u = (vm as dynamic).unreadNotifications;
+                  if (u is int) badgeCount = u;
+                } catch (_) {}
+                if (badgeCount == 0) {
+                  badgeCount = _safeNotifications(vm).length;
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications, color: Colors.white, size: 28),
+                        onPressed: _toggleNotificationPopup,
+                        tooltip: '알림',
+                      ),
+                      if (badgeCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                            child: Text(
+                              '$badgeCount',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+          // ▲▲▲
         ),
         drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600) ⬇⬇⬇
-        body: SafeArea(
-          child: kIsWeb
-              ? Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: _buildMainBody(),
-                  ),
-                )
-              : _buildMainBody(),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeNotificationPopup, // 팝업 외부 탭 시 닫힘
+          child: Stack(
+            children: [
+              // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600)
+              SafeArea(
+                child: kIsWeb
+                    ? Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          child: _buildMainBody(),
+                        ),
+                      )
+                    : _buildMainBody(),
+              ),
+              // ⬆⬆⬆
+
+              // ▼▼▼ 알림 팝업(더 위로)
+              Consumer<DoctorHistoryViewModel>(
+                builder: (_, vm, __) {
+                  if (!_isNotificationPopupVisible) return const SizedBox.shrink();
+                  final items = _safeNotifications(vm);
+
+                  return Positioned(
+                    top: _notifPopupTop(context), // ← 요청 반영: 더 위로
+                    right: 12,
+                    child: Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                      child: Container(
+                        width: 280,
+                        padding: const EdgeInsets.all(12),
+                        child: items.isEmpty
+                            ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: items
+                                    .map(
+                                      (msg) => Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.notifications_active_outlined,
+                                                color: Colors.blueAccent, size: 20),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                msg,
+                                                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // ▲▲▲
+            ],
+          ),
         ),
-        // ⬆⬆⬆ 여기까지 추가 ⬆⬆⬆
       ),
     );
   }
@@ -311,9 +451,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                       final patient = paginated[i];
                       return InkWell(
                         onTap: () {
-                          print('🧪 userId: ${patient.userId}');
-                          print('🧪 imagePath: ${patient.originalImagePath}');
-                          print('🧪 baseUrl: ${widget.baseUrl}');
+                          // 디테일 화면 이동
                           context.push(
                             '/d_result_detail',
                             extra: {
