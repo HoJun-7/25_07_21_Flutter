@@ -157,6 +157,7 @@ class _UploadScreenState extends State<UploadScreen> {
             'userId': registerId,
             'inferenceResultId': inferenceResultId,
             'baseUrl': widget.baseUrl,
+            'implantClassificationResult': responseData['implant_classification_result'] ?? [],
           });
         } else {
           context.push('/upload_result_detail', extra: {

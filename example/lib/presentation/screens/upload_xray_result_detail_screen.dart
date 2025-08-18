@@ -1,5 +1,3 @@
-// C:\Users\302-1\Desktop\25_07_21_Flutter-1\example\lib\presentation\screens\upload_xray_result_detail_screen.dart
-
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -20,6 +18,8 @@ class UploadXrayResultDetailScreen extends StatefulWidget {
   final String userId;
   final String inferenceResultId;
   final String baseUrl;
+  // ✅ implantClassificationResult를 위젯의 필드로 추가합니다.
+  final List<dynamic>? implantClassificationResult;
 
   const UploadXrayResultDetailScreen({
     super.key,
@@ -30,6 +30,8 @@ class UploadXrayResultDetailScreen extends StatefulWidget {
     required this.userId,
     required this.inferenceResultId,
     required this.baseUrl,
+    // ✅ 생성자에 추가
+    this.implantClassificationResult,
   });
 
   @override
@@ -44,7 +46,8 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
   Uint8List? _model2Bytes;
   bool _isLoadingGemini = true;
   String? _geminiOpinion;
-  List<Map<String, dynamic>> _implantResults = [];
+  // ✅ 이제 이 리스트는 initState에서 widget.implantClassificationResult를 통해 초기화됩니다.
+  List<Map<String, dynamic>> _implantClassificationResults = [];
 
   String get _relativePath => widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
 
@@ -52,8 +55,15 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
   void initState() {
     super.initState();
     _loadImages();
-    _loadImplantManufacturerResults();
     _getGeminiOpinion();
+
+    // ✅ 위젯 필드에서 직접 임플란트 분류 결과를 가져와 초기화합니다.
+    if (widget.implantClassificationResult != null &&
+        widget.implantClassificationResult is List) {
+      _implantClassificationResults = List<Map<String, dynamic>>.from(
+        widget.implantClassificationResult!,
+      );
+    }
   }
 
   Future<void> _loadImages() async {
@@ -137,36 +147,6 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
     });
 
     return res.statusCode == 200 ? res.bodyBytes : null;
-  }
-
-  Future<void> _loadImplantManufacturerResults() async {
-    final token = await context.read<AuthViewModel>().getAccessToken();
-    if (token == null) return;
-
-    final uri = Uri.parse('${widget.baseUrl}/xray_implant_classify');
-
-    try {
-      final res = await http.post(
-        uri,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode({"image_path": _relativePath}),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final results = List<Map<String, dynamic>>.from(data['results']);
-        setState(() {
-          _implantResults = results;
-        });
-      } else {
-        print("❌ 제조사 분류 API 실패: ${res.body}");
-      }
-    } catch (e) {
-      print("❌ 예외 발생: $e");
-    }
   }
 
   Future<void> _submitConsultRequest(User currentUser) async {
@@ -351,14 +331,14 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         classCounts[className] = (classCounts[className] ?? 0) + 1;
       }
     }
-    
+
     // ✅ 클래스별 색상을 정의
     final Map<String, Color> colorMap = {
         '치아 우식증': Colors.red,
         '임플란트': Colors.blue,
         '보철물': Colors.yellow,
-        '근관치료': Colors.green,
-        '상실치아': Colors.black,
+        '근관치료': Colors.black, // ✅ 검은색으로 변경
+        '상실치아': Colors.green,
     };
 
     return Container(
@@ -399,17 +379,44 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
             }).toList(),
           if (classCounts.isEmpty)
             const Text('감지된 객체가 없습니다.'),
-          if (_implantResults.isNotEmpty) ...[
+          if (_implantClassificationResults.isNotEmpty) ...[
             const SizedBox(height: 10),
             const Text('[임플란트 제조사 분류 결과]', style: TextStyle(fontWeight: FontWeight.bold)),
-            ..._implantResults.map((result) {
-              final name = result['predicted_manufacturer_name'] ?? '알 수 없음';
-              final count = 1; // 분류 결과는 개별 임플란트이므로 항상 1
-              return Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text('-> $name: ${count}개'),
-              );
-            }).toList(),
+
+            // ✅ 번호별로 중복 제거 + 개수 집계 (전 클래스 자동 대응)
+            ...(() {
+              final Map<int, Map<String, dynamic>> legend = {};
+              for (final r in _implantClassificationResults) {
+                final id = (r['predicted_manufacturer_class'] as num?)?.toInt();
+                if (id == null) continue;
+
+                // 우선순위: display_name → predicted_manufacturer_name → '알 수 없음'
+                final displayName = (r['display_name'] ??
+                    r['predicted_manufacturer_name'] ??
+                    '알 수 없음') as String;
+
+                if (legend.containsKey(id)) {
+                  legend[id]!['count'] = (legend[id]!['count'] as int) + 1;
+                } else {
+                  legend[id] = {'name': displayName, 'count': 1};
+                }
+              }
+
+              // 번호 오름차순 정렬
+              final entries = legend.entries.toList()
+                ..sort((a, b) => a.key.compareTo(b.key));
+
+              // 출력: "-> 29: 덴티움 수퍼라인 (2개)" 형식
+              return entries.map((e) {
+                final id = e.key;
+                final name = e.value['name'] as String;
+                final cnt = e.value['count'] as int;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text('-> $id: $name${cnt > 1 ? " (${cnt}개)" : ""}'),
+                );
+              }).toList();
+            })(),
           ],
         ],
       ),
@@ -426,4 +433,4 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-}
+} // ✅ _UploadXrayResultDetailScreenState 클래스를 닫는 괄호입니다.

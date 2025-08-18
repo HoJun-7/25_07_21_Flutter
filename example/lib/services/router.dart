@@ -326,6 +326,7 @@ GoRouter createRouter(String baseUrl) {
                 userId: extra['userId'],
                 inferenceResultId: extra['inferenceResultId'],
                 baseUrl: extra['baseUrl'],
+                implantClassificationResult: (extra['implantClassificationResult'] as List?)?.toList(),
               );
             },
           ),
