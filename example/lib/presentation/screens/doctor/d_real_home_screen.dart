@@ -219,7 +219,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("2024. 5. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    Text("2025. 8. 18  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
