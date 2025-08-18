@@ -114,7 +114,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           const SizedBox(height: 20),
           _sideMenuItem(Icons.dashboard, "통합 대시보드", () => context.go('/d_home')),
           _sideMenuItem(Icons.history, "진료 현황", () => context.go('/d_dashboard')),
-          _sideMenuItem(Icons.notifications, "알림", () {}),
           _sideMenuItem(Icons.logout, "로그아웃", () => context.go('/login')),
         ],
       ),
