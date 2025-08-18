@@ -337,8 +337,8 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         '치아 우식증': Colors.red,
         '임플란트': Colors.blue,
         '보철물': Colors.yellow,
-        '근관치료': Colors.black, // ✅ 검은색으로 변경
-        '상실치아': Colors.green,
+        '근관치료': Colors.green, // ✅ 검은색으로 변경
+        '상실치아': Colors.black,
     };
 
     return Container(
