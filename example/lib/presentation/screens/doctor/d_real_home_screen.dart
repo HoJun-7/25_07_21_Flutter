@@ -112,7 +112,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          _sideMenuItem(Icons.dashboard, "통합 대시보드", () {}),
+          _sideMenuItem(Icons.dashboard, "통합 대시보드", () => context.go('/d_home')),
           _sideMenuItem(Icons.health_and_safety, "환자 모니터링", () => context.go('/patients')),
           _sideMenuItem(Icons.history, "진료 현황", () => context.go('/d_dashboard')),
           _sideMenuItem(Icons.notifications, "알림", () {}),
@@ -219,7 +219,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("2025. 8. 18  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    Text("2025. 8. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
