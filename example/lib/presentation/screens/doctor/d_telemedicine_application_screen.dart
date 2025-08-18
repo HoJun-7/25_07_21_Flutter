@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 화면 고정용 추가
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/model/doctor/d_history.dart';
-import 'doctor_drawer.dart';
 import 'd_result_detail_screen.dart';
 
 extension DoctorRecordExtensions on DoctorHistoryRecord {
@@ -45,9 +44,9 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   int _selectedIndex = 0;
   late PageController _pageController;
   int _currentPage = 0;
-  final int _itemsPerPage = 5;
+  final int _itemsPerPage = 8; // 요청에 따라 8로 수정
 
-  // ▼▼▼ 알림 팝업 상태 & 더미 데이터
+  // ▼ 알림 팝업
   bool _isNotificationPopupVisible = false;
   final List<String> _fallbackNotifications = const [
     '새로운 진단 결과가 도착했습니다.',
@@ -67,18 +66,17 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
 
   double _notifPopupTop(BuildContext context) {
     final padTop = MediaQuery.of(context).padding.top;
-    return kIsWeb ? 4 : (padTop + 8); // ⬅ 요청대로 "더 위"로 배치
+    return kIsWeb ? 4 : (padTop + 8);
   }
 
   List<String> _safeNotifications(DoctorHistoryViewModel vm) {
-    // ViewModel에 notifications(List<String>)가 있으면 사용, 없으면 fallback
     try {
       final dynamic n = (vm as dynamic).notifications;
       if (n is List<String>) return n;
     } catch (_) {}
     return _fallbackNotifications;
   }
-  // ▲▲▲
+  // ▲ 알림 팝업
 
   @override
   void initState() {
@@ -87,7 +85,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     _pageController = PageController(initialPage: _selectedIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DoctorHistoryViewModel>().fetchConsultRecords(); // ✅ 수정됨
+      context.read<DoctorHistoryViewModel>().fetchConsultRecords();
 
       final extra = GoRouterState.of(context).extra;
       if (extra is Map && extra.containsKey('initialTab')) {
@@ -147,149 +145,131 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     }
   }
 
+  // ▼ 웹 전용: 콘텐츠 최소 크기 보장 + 스크롤바 표시
+  Widget _minSizeOnWeb(Widget child, {double minWidth = 1000, double minHeight = 720}) {
+    if (!kIsWeb) return child;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final needsH = constraints.maxWidth < minWidth;
+        final needsV = constraints.maxHeight < minHeight;
+
+        final hCtrl = ScrollController();
+        final vCtrl = ScrollController();
+
+        Widget content = child;
+
+        if (needsV) {
+          content = Scrollbar(
+            controller: vCtrl,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: vCtrl,
+              scrollDirection: Axis.vertical,
+              child: SizedBox(height: minHeight, child: content),
+            ),
+          );
+        }
+
+        if (needsH) {
+          content = Scrollbar(
+            controller: hCtrl,
+            thumbVisibility: true,
+            notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
+            child: SingleChildScrollView(
+              controller: hCtrl,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: minWidth, child: content),
+            ),
+          );
+        }
+
+        return content;
+      },
+    );
+  }
+  // ▲ 웹 전용: 콘텐츠 최소 크기 보장 + 스크롤바 표시
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        context.go('/d_home'); // ✅ 뒤로가기 시 홈으로 이동
-        return false; // 뒤로가기 기본 동작 막기
+        context.go('/d_home');
+        return false;
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFAAD0F8),
-        appBar: AppBar(
-          title: const Text(
-            '비대면 진료 신청 현황',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          backgroundColor: const Color(0xFF4386DB),
-          leading: Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-          centerTitle: true,
-          // ▼▼▼ 알림 아이콘 + 배지 이식
-          actions: [
-            Consumer<DoctorHistoryViewModel>(
-              builder: (_, vm, __) {
-                // 뱃지 숫자: vm.unreadNotifications가 있으면 우선, 없으면 리스트 길이
-                int badgeCount = 0;
-                try {
-                  final dynamic u = (vm as dynamic).unreadNotifications;
-                  if (u is int) badgeCount = u;
-                } catch (_) {}
-                if (badgeCount == 0) {
-                  badgeCount = _safeNotifications(vm).length;
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6.0),
+        body: _minSizeOnWeb( // ← 여기 적용
+          Row(
+            children: [
+              _buildSideMenu(),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _closeNotificationPopup,
                   child: Stack(
-                    clipBehavior: Clip.none,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications, color: Colors.white, size: 28),
-                        onPressed: _toggleNotificationPopup,
-                        tooltip: '알림',
+                      SafeArea(
+                        child: kIsWeb
+                            ? Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 800),
+                                  child: _buildMainBody(),
+                                ),
+                              )
+                            : _buildMainBody(),
                       ),
-                      if (badgeCount > 0)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
+                      // 알림 팝업
+                      Consumer<DoctorHistoryViewModel>(
+                        builder: (_, vm, __) {
+                          if (!_isNotificationPopupVisible) return const SizedBox.shrink();
+                          final items = _safeNotifications(vm);
+
+                          return Positioned(
+                            top: _notifPopupTop(context),
+                            right: 12,
+                            child: Material(
+                              elevation: 8,
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                              child: Container(
+                                width: 280,
+                                padding: const EdgeInsets.all(12),
+                                child: items.isEmpty
+                                    ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
+                                    : Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: items
+                                            .map(
+                                              (msg) => Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.notifications_active_outlined,
+                                                        color: Colors.blueAccent, size: 20),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Text(
+                                                        msg,
+                                                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                      ),
+                              ),
                             ),
-                            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                            child: Text(
-                              '$badgeCount',
-                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
+                          );
+                        },
+                      ),
                     ],
                   ),
-                );
-              },
-            ),
-          ],
-          // ▲▲▲
-        ),
-        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-        body: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _closeNotificationPopup, // 팝업 외부 탭 시 닫힘
-          child: Stack(
-            children: [
-              // ⬇⬇⬇ 웹 화면 고정: SafeArea + Center + ConstrainedBox(maxWidth: 600)
-              SafeArea(
-                child: kIsWeb
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 600),
-                          child: _buildMainBody(),
-                        ),
-                      )
-                    : _buildMainBody(),
+                ),
               ),
-              // ⬆⬆⬆
-
-              // ▼▼▼ 알림 팝업(더 위로)
-              Consumer<DoctorHistoryViewModel>(
-                builder: (_, vm, __) {
-                  if (!_isNotificationPopupVisible) return const SizedBox.shrink();
-                  final items = _safeNotifications(vm);
-
-                  return Positioned(
-                    top: _notifPopupTop(context), // ← 요청 반영: 더 위로
-                    right: 12,
-                    child: Material(
-                      elevation: 8,
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                      child: Container(
-                        width: 280,
-                        padding: const EdgeInsets.all(12),
-                        child: items.isEmpty
-                            ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: items
-                                    .map(
-                                      (msg) => Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.notifications_active_outlined,
-                                                color: Colors.blueAccent, size: 20),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                msg,
-                                                style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              // ▲▲▲
             ],
           ),
         ),
@@ -297,7 +277,39 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     );
   }
 
-  // 본문을 메서드로 분리 (웹/모바일 공통 사용)
+  /// ---------------- Side Menu ----------------
+  Widget _buildSideMenu() {
+    return Container(
+      width: 220,
+      color: const Color(0xFF2D9CDB),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          const SizedBox(height: 40),
+          const Text(
+            "MediTooth",
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          _sideMenuItem(Icons.dashboard, "통합 대시보드", () => context.go('/d_home')),
+          _sideMenuItem(Icons.history, "진료 현황", () => context.go('/d_dashboard')),
+          _sideMenuItem(Icons.notifications, "알림", _toggleNotificationPopup),
+          _sideMenuItem(Icons.logout, "로그아웃", () => context.go('/login')),
+        ],
+      ),
+    );
+  }
+
+  Widget _sideMenuItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
+    );
+  }
+  /// -------------------------------------------
+
+  // 본문
   Widget _buildMainBody() {
     return Consumer<DoctorHistoryViewModel>(
       builder: (context, viewModel, _) {
@@ -428,12 +440,10 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   }
 
   Widget _buildListView(List<DoctorHistoryRecord> records, List<DoctorHistoryRecord> paginated, int totalPages) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -443,15 +453,12 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
             child: records.isEmpty
                 ? const Center(child: Text('일치하는 환자가 없습니다.'))
                 : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: paginated.length,
                     separatorBuilder: (_, __) => Divider(color: Colors.grey[300], thickness: 1),
                     itemBuilder: (context, i) {
                       final patient = paginated[i];
                       return InkWell(
                         onTap: () {
-                          // 디테일 화면 이동
                           context.push(
                             '/d_result_detail',
                             extra: {
@@ -498,27 +505,27 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                     },
                   ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('이전'),
-              ),
-              const SizedBox(width: 16),
-              Text('${_currentPage + 1} / $totalPages'),
-              const SizedBox(width: 16),
-              OutlinedButton.icon(
-                onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('다음'),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _currentPage > 0 ? _goToPreviousPage : null,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('이전'),
+            ),
+            const SizedBox(width: 16),
+            Text('${_currentPage + 1} / $totalPages'),
+            const SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('다음'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

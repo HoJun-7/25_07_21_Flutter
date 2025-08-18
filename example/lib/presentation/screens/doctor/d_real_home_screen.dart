@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // ✅ kIsWeb
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -66,39 +67,89 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     });
   }
 
+  /// ✅ 웹에서만 콘텐츠 최소 (너비/높이) 보장: 작아지면 해당 축으로 스크롤 생성
+  Widget _minSizeOnWeb(Widget child, {double minWidth = 1000, double minHeight = 720}) {
+    if (!kIsWeb) return child;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final needsH = constraints.maxWidth < minWidth;
+        final needsV = constraints.maxHeight < minHeight;
+
+        final hCtrl = ScrollController();
+        final vCtrl = ScrollController();
+
+        Widget content = child;
+       
+        // 세로가 너무 좁으면: 세로 스크롤 + 고정 높이로 Expanded들이 안전하게 동작
+        if (needsV) {
+          content = Scrollbar(
+            controller: vCtrl,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: vCtrl,
+              scrollDirection: Axis.vertical,
+              child: SizedBox(height: minHeight, child: content),
+            ),
+          );
+        }
+        // 가로가 너무 좁으면: 가로 스크롤 + 고정 너비
+        if (needsH) {
+          content = Scrollbar(
+            controller: hCtrl,
+            thumbVisibility: true,
+            notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
+            child: SingleChildScrollView(
+              controller: hCtrl,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: minWidth, child: content),
+            ),
+          );
+        }
+
+        return content;
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-      body: Row(
-        children: [
-          _buildSideMenu(),
-          Expanded(
-            child: Column(
-              children: [
-                _buildTopBar(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(flex: 2, child: _buildChartsArea()),
-                        const SizedBox(width: 16),
-                        Expanded(flex: 1, child: _buildAlertsPanel()),
-                      ],
+      body: _minSizeOnWeb( // ✅ 최소 너비/높이 보장 래퍼
+        Row(
+          children: [
+            _buildSideMenu(),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildTopBar(),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(flex: 2, child: _buildChartsArea()),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 1, child: _buildAlertsPanel()),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        minWidth: 1000,
+        minHeight: 720,
       ),
     );
   }
 
-  // ===================== 좌측 메뉴 =====================
+  // ===================== 좌측 메뉴 (아래코드 이식) =====================
   Widget _buildSideMenu() {
     return Container(
       width: 220,
@@ -112,8 +163,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          _sideMenuItem(Icons.dashboard, "통합 대시보드", () {}),
-          _sideMenuItem(Icons.health_and_safety, "환자 모니터링", () => context.go('/patients')),
+          _sideMenuItem(Icons.dashboard, "통합 대시보드", () => context.go('/d_home')),
           _sideMenuItem(Icons.history, "진료 현황", () => context.go('/d_dashboard')),
           _sideMenuItem(Icons.notifications, "알림", () {}),
           _sideMenuItem(Icons.logout, "로그아웃", () => context.go('/login')),
@@ -139,7 +189,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         builder: (context, vm, _) {
           return Row(
             children: [
-              // 좌측: 3지표 카드
+              // 좌측: 3지표 카드 (라벨은 위코드 유지)
               Expanded(
                 flex: 2,
                 child: Container(
@@ -205,7 +255,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
               ),
               const SizedBox(width: 8),
 
-              // 우측 날씨 카드 (샘플)
+              // 우측 날씨 카드 (아래코드 표기 이식: 날짜 문자열만 변경)
               Container(
                 height: 80,
                 width: 200,
@@ -219,7 +269,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("2024. 5. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    Text("2025. 8. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -275,7 +325,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
   Widget _buildChartsArea() {
     return Column(
       children: [
-        // ── 상단: (왼) 최근7일 + 시간대별  (오) 사진(3분할 오버레이)
+        // ── 상단: (왼) 최근7일 + 시간대별  (오) 사진(자동 순환 + 3분할 탭)
         Expanded(
           child: Row(
             children: [
@@ -343,7 +393,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 우측 알림 패널 + 캘린더 =====================
+  // ===================== 우측 알림 패널 (아래코드 이식) =====================
   Widget _buildAlertsPanel() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -355,11 +405,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("실시간 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text("읽지 않은 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
-              itemCount: 10,
+              itemCount: 5,
               itemBuilder: (context, index) {
                 return ListTile(
                   leading: const Icon(Icons.warning, color: Colors.red),
@@ -715,7 +765,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진: 3분할 투명 오버레이 (← 이전 / [중앙 탭=전체화면] / → 다음) =====================
+/// ===================== 사진: “원본 + 해당 오버레이들”만 2초마다 Fade 순환, 좌/우로 케이스 전환 =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -724,10 +774,61 @@ class _ImageCard extends StatefulWidget {
 }
 
 class _ImageCardState extends State<_ImageCard> {
-  int _index = 0;
+  int _caseIndex = 0;   // 어떤 케이스(=image item)
+  int _layerIndex = 0;  // 해당 케이스의 레이어(원본/오버레이)
+  Timer? _auto;
+  DateTime? _pausedUntil;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAuto();
+  }
+
+  @override
+  void dispose() {
+    _auto?.cancel();
+    super.dispose();
+  }
+
+  void _startAuto() {
+    _auto?.cancel();
+    _auto = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_pausedUntil != null && DateTime.now().isBefore(_pausedUntil!)) return;
+
+      final vm = context.read<DoctorDashboardViewModel>();
+      final items = vm.imageItems;
+
+      // 데이터 소스가 없으면 imageUrls를 케이스로만 사용(레이어 1개) → 레이어 순환 불가
+      if (items.isEmpty) {
+        final urls = vm.imageUrls;
+        if (urls.isEmpty) return;
+        // 케이스 자동이동 금지: 요구사항에 따라 레이어만 순환해야 하므로 여기선 아무 것도 안 함
+        return;
+      }
+
+      // 현재 케이스의 레이어 시퀀스만 순환 (케이스는 자동 변경하지 않음!)
+      final current = items[_caseIndex.clamp(0, items.length - 1)];
+      final layers = vm.layerKeysFor(current);
+      if (layers.isEmpty || layers.length == 1) {
+        // 레이어가 0/1개면 바뀌는 것 없음
+        return;
+      }
+
+      setState(() {
+        _layerIndex = (_layerIndex + 1) % layers.length;
+      });
+    });
+  }
+
+  void _pauseAuto({int seconds = 6}) {
+    _pausedUntil = DateTime.now().add(Duration(seconds: seconds));
+  }
 
   void _showFullscreen(BuildContext context, String url) {
-    // 전체 화면: 검은 반투명 배경 + 라운드 박스 형태(공통 반경)로 최대 크기(4:3) 표시
+    // 전체화면 동안 자동 순환 잠시 정지
+    _pauseAuto(seconds: 8);
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -735,7 +836,6 @@ class _ImageCardState extends State<_ImageCard> {
       barrierColor: Colors.black.withOpacity(0.65),
       pageBuilder: (_, __, ___) {
         final size = MediaQuery.of(context).size;
-        // 4:3 비율로 화면 안에 최대 크기 계산
         final w = size.width;
         final h = size.height;
         final maxWidthByHeight = h * (4 / 3);
@@ -748,13 +848,13 @@ class _ImageCardState extends State<_ImageCard> {
             child: Container(
               width: boxWidth,
               height: boxHeight,
-              color: Colors.black, // 이미지 로딩 전 배경
+              color: Colors.black,
               child: InteractiveViewer(
                 minScale: 1.0,
                 maxScale: 4.0,
                 child: Image.network(
                   url,
-                  fit: BoxFit.cover, // 라운드 상자 안을 꽉 채우기
+                  fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.grey.shade200,
                     alignment: Alignment.center,
@@ -775,63 +875,108 @@ class _ImageCardState extends State<_ImageCard> {
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
 
-    List<String> urls = [];
-    try {
-      final dvm = vm as dynamic;
-      if (dvm.imageUrls is List<String>) {
-        urls = dvm.imageUrls;
-      } else if (dvm.imageUrls is List) {
-        urls = List<String>.from(dvm.imageUrls);
+    // 1) 우선 imageItems(원본+오버레이) 사용
+    final items = vm.imageItems;
+    String currentUrl;
+    int casesCount;
+    int layersCountForCurrent = 1;
+
+    if (items.isNotEmpty) {
+      _caseIndex = _caseIndex.clamp(0, items.length - 1);
+      final item = items[_caseIndex];
+
+      // 이 케이스의 레이어(원본+오버레이) 순서를 가져오기
+      final layers = vm.layerKeysFor(item); // ['original','model1'..] or ['original','xmodel1'..]
+      if (layers.isEmpty) {
+        layersCountForCurrent = 1;
+        _layerIndex = 0;
+        currentUrl = vm.resolveUrl(item, 'original');
+      } else {
+        layersCountForCurrent = layers.length;
+        _layerIndex = _layerIndex.clamp(0, layers.length - 1);
+        final layerKey = layers[_layerIndex];
+        currentUrl = vm.resolveUrl(item, layerKey);
       }
-    } catch (_) {}
-
-    if (urls.isEmpty) {
-      urls = ['https://picsum.photos/seed/dash0/1200/800'];
+      casesCount = items.length;
+    } else {
+      // 2) fallback: imageUrls만 있는 경우 (레이어 한 개짜리 케이스)
+      final urls = (vm.imageUrls.isNotEmpty)
+          ? vm.imageUrls
+          : <String>['https://picsum.photos/seed/dash0/1200/800'];
+      _caseIndex = _caseIndex.clamp(0, urls.length - 1);
+      _layerIndex = 0;
+      layersCountForCurrent = 1;
+      currentUrl = urls[_caseIndex];
+      casesCount = urls.length;
     }
-    _index = _index.clamp(0, urls.length - 1);
 
-    final url = urls[_index];
+    void prevCase() {
+      if (casesCount <= 0) return;
+      _pauseAuto();
+      setState(() {
+        _caseIndex = (_caseIndex - 1 + casesCount) % casesCount;
+        _layerIndex = 0; // 새로운 케이스는 원본부터
+      });
+    }
 
-    void prev() => setState(() => _index = (_index - 1 + urls.length) % urls.length);
-    void next() => setState(() => _index = (_index + 1) % urls.length);
-    void full() => _showFullscreen(context, url);
+    void nextCase() {
+      if (casesCount <= 0) return;
+      _pauseAuto();
+      setState(() {
+        _caseIndex = (_caseIndex + 1) % casesCount;
+        _layerIndex = 0; // 새로운 케이스는 원본부터
+      });
+    }
+
+    void openFull() => _showFullscreen(context, currentUrl);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(kImageRadius),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 실제 이미지
-          Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              color: Colors.grey.shade200,
-              alignment: Alignment.center,
-              child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
+          // ====== 페이드 전환으로 “해당 케이스의 레이어만” 순환 ======
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 420),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(
+              // 케이스/레이어 조합이 바뀔 때마다 새로운 키 → 페이드 발생
+              key: ValueKey<String>('case$_caseIndex-layer$_layerIndex-$currentUrl'),
+              child: Image.network(
+                currentUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.grey.shade200,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                ),
+              ),
             ),
           ),
 
-          // 투명 오버레이 3분할 (아이콘 제거, 기능만)
+          // ====== 3분할 탭(← 이전 케이스 / 중앙 전체화면 / → 다음 케이스) ======
           Positioned.fill(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _OverlayTapZone(
-                  onTap: prev,
-                  child: const SizedBox.shrink(), // ← 아이콘 제거
+                  onTap: prevCase,
+                  child: const SizedBox.shrink(),
                   align: Alignment.centerLeft,
                   flex: 1,
                 ),
                 _OverlayTapZone(
-                  onTap: full,
-                  child: const SizedBox.shrink(), // ● 아이콘 제거 (기능만 유지)
+                  onTap: openFull,
+                  child: const SizedBox.shrink(),
                   align: Alignment.center,
-                  flex: 2, // 가운데는 넓게
+                  flex: 2,
                 ),
                 _OverlayTapZone(
-                  onTap: next,
-                  child: const SizedBox.shrink(), // → 아이콘 제거
+                  onTap: nextCase,
+                  child: const SizedBox.shrink(),
                   align: Alignment.centerRight,
                   flex: 1,
                 ),
@@ -839,7 +984,7 @@ class _ImageCardState extends State<_ImageCard> {
             ),
           ),
 
-          // 하단 인덱스 표시(선택 사항)
+          // ====== 하단 인덱스(케이스/레이어) ======
           Positioned(
             left: 8,
             right: 8,
@@ -852,7 +997,8 @@ class _ImageCardState extends State<_ImageCard> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '${_index + 1} / ${urls.length}',
+                  '${_caseIndex + 1} / $casesCount'
+                  '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
@@ -900,7 +1046,7 @@ class _OverlayTapZoneState extends State<_OverlayTapZone> {
             alignment: widget.align,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             color: Colors.black.withOpacity(_opacity), // 투명 레이어
-            child: widget.child, // 지금은 비어 있음(아이콘 제거)
+            child: widget.child,
           ),
         ),
       ),

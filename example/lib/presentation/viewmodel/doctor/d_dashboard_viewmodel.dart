@@ -13,8 +13,12 @@ class DoctorDashboardViewModel extends ChangeNotifier {
 
   // ===== 최근 7일 =====
   List<int> recent7DaysCounts = [];
-  List<String> recent7DaysLabels = [];
+  List<String> recent7DaysLabels = [];      // MM-DD
+  List<String> recent7DaysFullDates = [];   // YYYY-MM-DD (UI 호환용)
   List<FlSpot> _lineData = [];
+
+  // UI에서 동적 접근하던 필드명 호환
+  List<String> get recent7DaysDates => recent7DaysFullDates;
 
   // ===== 성별·연령 =====
   Map<String, int> ageDistributionData = {};
@@ -26,11 +30,14 @@ class DoctorDashboardViewModel extends ChangeNotifier {
   List<int> hourlyCounts = List.filled(24, 0);
   List<FlSpot> hourlySpots = [];
 
-  // ===== 날짜별 사진 목록 =====
+  // ===== 날짜별 사진 목록 (하위 호환 유지) =====
   List<Map<String, dynamic>> images = []; // id, user_id, image_url, request_datetime 등
   List<String> imageUrls = [];
   int imagesTotal = 0;
   bool isLoadingImages = false;
+
+  // ===== 새 구조: 오버레이 포함한 아이템 =====
+  final List<DashboardImageItem> imageItems = [];
 
   // ===== 영상 타입 비율 (X-ray / 구강이미지) =====
   Map<String, int> videoTypeRatio = {}; // 예: {"X-ray": 12, "구강이미지": 34}
@@ -87,11 +94,10 @@ class DoctorDashboardViewModel extends ChangeNotifier {
       final response =
           await http.get(Uri.parse('$baseUrl/consult/stats?date=$formattedDate'));
 
-      if (response.statusCode == 200 || response.statusCode == 200) {
-        final body = response.body;
-        final data = jsonDecode(body);
-        requestsToday = data['total'] ?? 0;
-        answeredToday = data['completed'] ?? 0;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        requestsToday = _asInt(data['total']);
+        answeredToday = _asInt(data['completed']);
 
         // 음수 방지
         unreadNotifications = requestsToday - answeredToday;
@@ -123,12 +129,16 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         // 날짜 오름차순
         list.sort((a, b) => (a['date'] ?? '').compareTo(b['date'] ?? ''));
 
-        recent7DaysCounts = list.map((e) => (e['count'] ?? 0) as int).toList();
+        recent7DaysCounts = list.map((e) => _asInt(e['count'])).toList();
 
-        // substring(5) 안전화 (YYYY-MM-DD → MM-DD)
-        final dates = list.map<String>((e) => (e['date'] ?? '').toString()).toList();
-        recent7DaysLabels =
-            dates.map((s) => s.length >= 10 ? s.substring(5, 10) : s).toList();
+        // YYYY-MM-DD 풀 라벨
+        recent7DaysFullDates =
+            list.map<String>((e) => (e['date'] ?? '').toString()).toList();
+
+        // MM-DD 압축 라벨
+        recent7DaysLabels = recent7DaysFullDates
+            .map((s) => s.length >= 10 ? s.substring(5, 10) : s)
+            .toList();
 
         _lineData = List.generate(
           recent7DaysCounts.length,
@@ -154,16 +164,12 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         final gender = (data['gender'] ?? {}) as Map<String, dynamic>;
         final age = (data['age'] ?? {}) as Map<String, dynamic>;
 
-        maleCount = (gender['male'] ?? 0) is int
-            ? gender['male'] as int
-            : int.tryParse('${gender['male'] ?? 0}') ?? 0;
-        femaleCount = (gender['female'] ?? 0) is int
-            ? gender['female'] as int
-            : int.tryParse('${gender['female'] ?? 0}') ?? 0;
+        maleCount = _asInt(gender['male']);
+        femaleCount = _asInt(gender['female']);
 
         ageDistributionData = age.map((k, v) {
           final key = k.toString();
-          final val = (v is int) ? v : int.tryParse('$v') ?? 0;
+          final val = _asInt(v);
           return MapEntry(key, val);
         });
       } else {
@@ -201,7 +207,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         }
 
         hourlyCounts = List<int>.from(
-          countsRaw.map((e) => (e is int) ? e : int.tryParse('$e') ?? 0),
+          countsRaw.map((e) => _asInt(e)),
         );
         if (hourlyCounts.length != 24) {
           final tmp = List<int>.filled(24, 0);
@@ -226,6 +232,8 @@ class DoctorDashboardViewModel extends ChangeNotifier {
 
   /// 날짜별 사진 목록
   /// GET /consult/images?date=YYYY-MM-DD&limit=12&offset=0
+  /// - 하위 호환: images / imageUrls 채움
+  /// - 신규: imageItems 채움 (image_type / overlays 포함)
   Future<void> loadImagesByDate(
     String baseUrl, {
     DateTime? day,
@@ -248,16 +256,15 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         final body = jsonDecode(res.body);
         final List<dynamic> rows = body['data'] ?? [];
 
-        imagesTotal = body['total'] is int
-            ? body['total'] as int
-            : int.tryParse('${body['total'] ?? ''}') ?? rows.length;
+        imagesTotal = _asInt(body['total'], fallback: rows.length);
 
+        // ----- 하위 호환(기존 구조) -----
         images = rows
             .whereType<Map<String, dynamic>>()
             .map((e) => {
                   'id': e['id'],
                   'user_id': e['user_id'],
-                  'image_url': e['image_url'] ?? e['image_path'] ?? '',
+                  'image_url': (e['image_url'] ?? e['image_path'] ?? '').toString(),
                   'request_datetime': e['request_datetime'],
                   'is_replied': e['is_replied'],
                 })
@@ -267,10 +274,37 @@ class DoctorDashboardViewModel extends ChangeNotifier {
             .map((e) => (e['image_url'] ?? '').toString())
             .where((s) => s.isNotEmpty)
             .toList();
+
+        // ----- 신규 구조(오버레이 포함) -----
+        imageItems
+          ..clear()
+          ..addAll(rows.whereType<Map<String, dynamic>>().map((e) {
+            final original = (e['image_url'] ?? e['image_path'] ?? '').toString();
+            final typeRaw = e['image_type'];
+            final type = (typeRaw is String) ? typeRaw.toLowerCase() : null;
+
+            // overlays는 Map일 수 있고 값도 동적이므로 모두 문자열화
+            final Map<String, String> overlays = (e['overlays'] is Map)
+                ? Map<String, String>.from(
+                    (e['overlays'] as Map).map((k, v) => MapEntry('$k', '$v')),
+                  )
+                : <String, String>{};
+
+            return DashboardImageItem(
+              id: _asIntOrNull(e['id']),
+              userId: '${e['user_id']}',
+              originalUrl: original,
+              imageType: type, // 'xray' | 'normal' | null
+              overlays: overlays, // {'model1': url, 'xmodel1': url, ...}
+              requestDateTime: _safeParseDateTime(e['request_datetime']),
+              isReplied: e['is_replied'] == 'Y' || e['is_replied'] == true,
+            );
+          }));
       } else {
         debugPrint('❌ 이미지 목록 로딩 실패: ${res.statusCode}');
         images = [];
         imageUrls = [];
+        imageItems.clear();
         imagesTotal = 0;
       }
       isLoadingImages = false;
@@ -280,6 +314,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
       isLoadingImages = false;
       images = [];
       imageUrls = [];
+      imageItems.clear();
       imagesTotal = 0;
       notifyListeners();
     }
@@ -305,12 +340,8 @@ class DoctorDashboardViewModel extends ChangeNotifier {
             (body['data'] ?? const <String, dynamic>{}) as Map<String, dynamic>;
 
         // 키 고정: "X-ray", "구강이미지" (없는 키는 0)
-        final xray = (data['X-ray'] is int)
-            ? data['X-ray'] as int
-            : int.tryParse('${data['X-ray'] ?? 0}') ?? 0;
-        final oral = (data['구강이미지'] is int)
-            ? data['구강이미지'] as int
-            : int.tryParse('${data['구강이미지'] ?? 0}') ?? 0;
+        final xray = _asInt(data['X-ray']);
+        final oral = _asInt(data['구강이미지']);
 
         videoTypeRatio = {'X-ray': xray, '구강이미지': oral};
       } else {
@@ -337,4 +368,70 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     ];
     return colors[index % colors.length];
   }
+
+  DateTime? _safeParseDateTime(dynamic v) {
+    try {
+      if (v == null) return null;
+      if (v is DateTime) return v;
+      final s = v.toString();
+      // 'YYYY-MM-DD HH:MM:SS' 형태 대응
+      return DateTime.tryParse(s.replaceFirst(' ', 'T'));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _asInt(dynamic v, {int fallback = 0}) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) {
+      final p = int.tryParse(v);
+      if (p != null) return p;
+    }
+    return fallback;
+  }
+
+  int? _asIntOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  /// 아이템별 레이어 키 시퀀스 (UI에서 자동 순환/토글에 사용)
+  /// - 원본 + 타입별 유효한 오버레이만 반환
+  List<String> layerKeysFor(DashboardImageItem item) {
+    final base = (item.imageType == 'xray')
+        ? <String>['original', 'xmodel1', 'xmodel2']
+        : <String>['original', 'model1', 'model2', 'model3'];
+    return base.where((k) => k == 'original' || item.overlays.containsKey(k)).toList();
+  }
+
+  /// 특정 아이템과 레이어 키로 최종 URL 얻기
+  String resolveUrl(DashboardImageItem item, String layerKey) {
+    if (layerKey == 'original') return item.originalUrl;
+    return item.overlays[layerKey] ?? item.originalUrl;
+  }
+}
+
+/// 대시보드용 이미지 아이템 (오버레이 포함)
+class DashboardImageItem {
+  final int? id;
+  final String userId;
+  final String originalUrl;
+  final String? imageType; // 'normal' | 'xray' | null
+  final Map<String, String> overlays; // {'model1': url, 'xmodel1': url, ...}
+  final DateTime? requestDateTime;
+  final bool isReplied;
+
+  DashboardImageItem({
+    required this.id,
+    required this.userId,
+    required this.originalUrl,
+    required this.imageType,
+    required this.overlays,
+    required this.requestDateTime,
+    required this.isReplied,
+  });
 }
