@@ -355,11 +355,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("실시간 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text("읽지 않은 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
-              itemCount: 10,
+              itemCount: 5,
               itemBuilder: (context, index) {
                 return ListTile(
                   leading: const Icon(Icons.warning, color: Colors.red),
