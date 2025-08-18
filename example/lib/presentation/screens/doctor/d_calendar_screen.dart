@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import 'doctor_drawer.dart';
 import 'd_calendar_placeholder.dart';
 
 // ===== 색상 상수 =====
@@ -102,7 +103,8 @@ class Appointment {
 }
 
 class DCalendarScreen extends StatefulWidget {
-  const DCalendarScreen({super.key});
+  final String baseUrl; // ⬅️ 라우터에서 전달받는 값
+  const DCalendarScreen({super.key, required this.baseUrl});
 
   @override
   State<DCalendarScreen> createState() => _DCalendarScreenState();
@@ -125,6 +127,30 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
     AppointmentStatus.completed,
     AppointmentStatus.canceled,
   };
+
+  // ▼▼▼ 알림 팝업 상태 + 더미 알림 (ViewModel 연결 전 임시)
+  bool _isNotificationPopupVisible = false;
+  final List<String> _notifications = const [
+    '새로운 진단 결과가 도착했습니다.',
+    '예약이 내일로 예정되어 있습니다.',
+    '프로필 업데이트를 완료해주세요.',
+  ];
+
+  void _toggleNotificationPopup() {
+    setState(() => _isNotificationPopupVisible = !_isNotificationPopupVisible);
+  }
+
+  void _closeNotificationPopup() {
+    if (_isNotificationPopupVisible) {
+      setState(() => _isNotificationPopupVisible = false);
+    }
+  }
+
+  double _notifPopupTop(BuildContext context) {
+    final padTop = MediaQuery.of(context).padding.top;
+    return kIsWeb ? 4 : (padTop + 8); // ← 더 위로
+  }
+  // ▲▲▲
 
   @override
   void initState() {
@@ -611,23 +637,126 @@ class _DCalendarScreenState extends State<DCalendarScreen> {
       ],
     );
 
-    // ✅ 이 화면에서는 AppBar를 만들지 않습니다(부모가 제공).
+    // ✅ 이 화면은 자체적으로 AppBar/Drawer를 포함합니다.
     return Scaffold(
-      backgroundColor: kPageBgBlue, // 전체 배경색만 적용
+      backgroundColor: kPageBgBlue,
+      appBar: AppBar(
+        title: const Text(
+          '진료 일정',
+          style: TextStyle(
+            color: Colors.white, // 글씨 색 흰색
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF4386DB), // 배경 색
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // AppBar 아이콘 색상도 흰색
+        ),
+        // ▼▼▼ 알림 버튼 + 배지 이식
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6.0),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications, color: Colors.white, size: 28),
+                  onPressed: _toggleNotificationPopup,
+                  tooltip: '알림',
+                ),
+                if (_notifications.isNotEmpty)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Text(
+                        '${_notifications.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        // ▲▲▲
+      ),
+      drawer: DoctorDrawer(baseUrl: widget.baseUrl),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickAdd,
         label: const Text('새 일정'),
         icon: const Icon(Icons.add),
       ),
-      body: SafeArea(
-        child: isWide
-            ? Row(
-                children: [
-                  SizedBox(width: reserved),
-                  Expanded(child: calendarBody),
-                ],
-              )
-            : calendarBody,
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeNotificationPopup, // 팝업 외부 탭 시 닫힘
+        child: Stack(
+          children: [
+            SafeArea(
+              child: isWide
+                  ? Row(
+                      children: [
+                        SizedBox(width: reserved),
+                        Expanded(child: calendarBody),
+                      ],
+                    )
+                  : calendarBody,
+            ),
+
+            // ▼▼▼ 알림 팝업 (요청대로 더 위)
+            if (_isNotificationPopupVisible)
+              Positioned(
+                top: _notifPopupTop(context),
+                right: 12,
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  child: Container(
+                    width: 280,
+                    padding: const EdgeInsets.all(12),
+                    child: _notifications.isEmpty
+                        ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: _notifications
+                                .map(
+                                  (msg) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.notifications_active_outlined,
+                                            color: Colors.blueAccent, size: 20),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            msg,
+                                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                  ),
+                ),
+              ),
+            // ▲▲▲
+          ],
+        ),
       ),
     );
   }

@@ -1,8 +1,48 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '/presentation/viewmodel/find_password_viewmodel.dart';
+
+/// 한국형 전화번호 하이픈 자동 포맷터
+class KoreanPhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // 숫자만 추출
+    String digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    String f = '';
+
+    if (digits.startsWith('02')) {
+      // 서울 국번
+      if (digits.length <= 2) {
+        f = digits;
+      } else if (digits.length <= 5) {
+        f = '${digits.substring(0, 2)}-${digits.substring(2)}';
+      } else {
+        // 02-***-****
+        final midLen = digits.length - 6;
+        f = '${digits.substring(0, 2)}-${digits.substring(2, 2 + midLen)}-${digits.substring(2 + midLen)}';
+      }
+    } else {
+      // 010/011/031 등
+      if (digits.length <= 3) {
+        f = digits;
+      } else if (digits.length <= 7) {
+        f = '${digits.substring(0, 3)}-${digits.substring(3)}';
+      } else {
+        // 010-****-****
+        final midLen = digits.length - 7;
+        f = '${digits.substring(0, 3)}-${digits.substring(3, 3 + midLen)}-${digits.substring(3 + midLen)}';
+      }
+    }
+
+    return TextEditingValue(
+      text: f,
+      selection: TextSelection.collapsed(offset: f.length),
+    );
+  }
+}
 
 class FindPasswordScreen extends StatelessWidget {
   final String baseUrl;
@@ -92,6 +132,11 @@ class _FindPasswordForm extends StatelessWidget {
                       labelText: '전화번호',
                       keyboardType: TextInputType.phone,
                       prefixIcon: Icons.phone_outlined,
+                      // ✅ 하이픈 자동 삽입 (서버 전송 시에도 하이픈 유지)
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        KoreanPhoneNumberFormatter(),
+                      ],
                     ),
                     const SizedBox(height: 30),
 
@@ -104,7 +149,7 @@ class _FindPasswordForm extends StatelessWidget {
                           onPressed: () async {
                             final success = await viewModel.findPassword(
                               name: nameController.text.trim(),
-                              phone: phoneController.text.trim(),
+                              phone: phoneController.text.trim(), // ✅ 하이픈 포함 그대로 전송
                             );
                             if (success && context.mounted) {
                               context.go('/find-password-result');
@@ -201,6 +246,7 @@ class _FindPasswordForm extends StatelessWidget {
     required String labelText,
     TextInputType keyboardType = TextInputType.text,
     IconData? prefixIcon,
+    List<TextInputFormatter>? inputFormatters, // ✅ 포맷터 주입 가능
   }) {
     return TextField(
       controller: controller,
@@ -221,6 +267,7 @@ class _FindPasswordForm extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
       ),
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: const TextStyle(color: Colors.black87, fontSize: 16),
       cursorColor: Colors.blue,
     );
