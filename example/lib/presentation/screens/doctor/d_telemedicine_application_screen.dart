@@ -44,7 +44,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   int _selectedIndex = 0;
   late PageController _pageController;
   int _currentPage = 0;
-  final int _itemsPerPage = 5;
+  final int _itemsPerPage = 8; // 요청에 따라 8로 수정
 
   // ▼ 알림 팝업
   bool _isNotificationPopupVisible = false;
@@ -394,12 +394,10 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   }
 
   Widget _buildListView(List<DoctorHistoryRecord> records, List<DoctorHistoryRecord> paginated, int totalPages) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+    return Column(
+      children: [
+        Expanded( // Expanded로 감싸서 남은 공간을 모두 차지하도록 변경
+          child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -409,8 +407,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
             child: records.isEmpty
                 ? const Center(child: Text('일치하는 환자가 없습니다.'))
                 : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+                    // shrinkWrap, physics 제거 (상위 위젯이 Expanded이므로)
                     itemCount: paginated.length,
                     separatorBuilder: (_, __) => Divider(color: Colors.grey[300], thickness: 1),
                     itemBuilder: (context, i) {
@@ -463,27 +460,27 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                     },
                   ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('이전'),
-              ),
-              const SizedBox(width: 16),
-              Text('${_currentPage + 1} / $totalPages'),
-              const SizedBox(width: 16),
-              OutlinedButton.icon(
-                onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('다음'),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _currentPage > 0 ? _goToPreviousPage : null,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('이전'),
+            ),
+            const SizedBox(width: 16),
+            Text('${_currentPage + 1} / $totalPages'),
+            const SizedBox(width: 16),
+            OutlinedButton.icon(
+              onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('다음'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
