@@ -26,7 +26,7 @@ class _AgreementScreenState extends State<AgreementScreen>
   bool get isAllAgreed => isTermsChecked && isPrivacyChecked;
 
   // ▼ 첫 번째 UI와 동일 톤
-  static const Color primaryBlue = Color(0xFF5F97F7);
+  static const Color primaryBlue = Color(0xFF3869A8);
   static const Color lightBlueBackground = Color(0xFFB4D4FF);
   static const Color cardTopBg = Colors.white;
 

@@ -8,6 +8,35 @@ import 'chat_bubble.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 폭 고정용
 
+// 🎨 통일 팔레트
+class _Palette {
+  static const primary       = Color(0xFF3869A8); // 기준색
+  static const primaryDark   = Color(0xFF2D4F84);
+  static const primaryLight  = Color(0xFF6FA1D9);
+  static const bgSoft        = Color(0xFFEAF4FF); // 전체 배경/카드 배경 톤
+  static const surface       = Colors.white;
+
+  // 말풍선/보더(밝은 블루 계열)
+  static const bubbleUser    = Color.fromARGB(255, 146, 188, 240);
+  static const bubbleBot     = Color(0xFFEFF5FC);
+  static const borderUser    = Color.fromARGB(255, 36, 130, 230);
+  static const borderBot     = Color(0xFFCCE1F6);
+
+  // 입력창/테두리
+  static const fieldFill     = Color(0xFFF7FAFF);
+  static const fieldBorder   = Color(0xFFCFE2F6);
+  static const fieldFocus    = primaryLight;
+
+  // 스위치/버튼
+  static const sendBtn       = primary;
+  static const chipSelected  = primary;
+  static const chipUnselect  = Color(0xFFE6EEF8);
+
+  // 텍스트
+  static const textPrimary   = Colors.black87;
+  static const textSecondary = Colors.black54;
+}
+
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
   @override
@@ -97,10 +126,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         width: profileImageSize,
         height: profileImageSize,
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFFC9F1DE) : const Color(0xFFADD8E6),
+          color: isUser ? const Color(0xFFD7E6F6) : const Color(0xFFCFE2F6),
           shape: BoxShape.circle,
           border: Border.all(
-            color: isUser ? const Color(0xFF9CCC65) : const Color(0xFF87CEEB),
+            color: isUser ? _Palette.primaryLight : _Palette.primary,
             width: 2.5,
           ),
         ),
@@ -135,7 +164,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
           '※ 본 챗봇은 참고용 정보만 제공하며, 정확한 진단은 의료 전문가와 상담하시기 바랍니다.',
           style: GoogleFonts.notoSansKr(
             fontSize: 12.5,
-            color: Colors.grey,
+            color: _Palette.textSecondary,
             height: 1.2,
           ),
           textAlign: TextAlign.center,
@@ -152,11 +181,11 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.notoSansKr(fontSize: 14, color: Colors.grey[700])),
+          Text(label, style: GoogleFonts.notoSansKr(fontSize: 14, color: _Palette.textPrimary)),
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFFADD8E6),
+            activeColor: _Palette.primary,
             inactiveThumbColor: Colors.grey[300],
             inactiveTrackColor: Colors.grey[200],
           ),
@@ -187,10 +216,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               actions: [
                 TextButton(
                     onPressed: () => Navigator.of(ctx).pop(false),
-                    child: Text('취소', style: GoogleFonts.notoSansKr(color: const Color(0xFFADD8E6)))),
+                    child: Text('취소', style: GoogleFonts.notoSansKr(color: _Palette.primaryLight))),
                 TextButton(
                     onPressed: () => Navigator.of(ctx).pop(true),
-                    child: Text('종료', style: GoogleFonts.notoSansKr(color: const Color(0xFFADD8E6)))),
+                    child: Text('종료', style: GoogleFonts.notoSansKr(color: _Palette.primary))),
               ],
             ),
           );
@@ -201,12 +230,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         behavior: HitTestBehavior.translucent,
         onTap: _closeNotificationPopup,
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: _Palette.surface,
           appBar: AppBar(
             flexibleSpace: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFADD8E6), Color(0xFF87CEEB)],
+                  colors:[_Palette.primaryDark, _Palette.primary], // ✅ 블루 그라데이션
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -241,7 +270,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent,
+                            color: Colors.redAccent, // 알림은 가독성 위해 유지
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
@@ -276,7 +305,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                     : _buildChatBody(messages, isLoading, imageContainerWidth),
               ),
 
-              // ✅ 알림 팝업 (상단-오른쪽, AppBar 바로 아래 느낌)
+              // ✅ 알림 팝업 (상단-오른쪽)
               if (_isNotificationPopupVisible)
                 SafeArea(
                   child: Align(
@@ -286,7 +315,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                       child: Material(
                         elevation: 8,
                         borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
+                        color: _Palette.surface,
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 320),
                           child: Container(
@@ -294,7 +323,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                             padding: const EdgeInsets.all(12),
                             child: _notifications.isEmpty
                                 ? const Text('알림이 없습니다.',
-                                    style: TextStyle(color: Colors.black54))
+                                    style: TextStyle(color: _Palette.textSecondary))
                                 : Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: _notifications
@@ -305,7 +334,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                               children: [
                                                 const Icon(
                                                   Icons.notifications_active_outlined,
-                                                  color: Colors.blueAccent,
+                                                  color: _Palette.primaryLight,
                                                   size: 20,
                                                 ),
                                                 const SizedBox(width: 10),
@@ -314,7 +343,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                                     msg,
                                                     style: const TextStyle(
                                                       fontSize: 14,
-                                                      color: Colors.black87,
+                                                      color: _Palette.textPrimary,
                                                     ),
                                                   ),
                                                 ),
@@ -341,8 +370,6 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
     return Column(
       children: [
-        // ⬇⬇⬇ [상단 면책사항 제거됨] — 요청대로 입력창 아래로 이동
-
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -382,11 +409,11 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                             message: msg.content,
                             isUser: isUser,
                             bubbleColor:
-                                isUser ? const Color(0xFFAAD9FF) : const Color(0xFFE0F2FF),
+                                isUser ? _Palette.bubbleUser : _Palette.bubbleBot,
                             borderColor:
-                                isUser ? const Color(0xFF7EB7E6) : const Color(0xFFC0E6FF),
+                                isUser ? _Palette.borderUser : _Palette.borderBot,
                             textStyle:
-                                GoogleFonts.notoSansKr(fontSize: 15, color: Colors.black),
+                                GoogleFonts.notoSansKr(fontSize: 15, color: _Palette.textPrimary),
                           ),
                         ),
                         if (isUser) const SizedBox(width: 8),
@@ -405,9 +432,9 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                           ),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _Palette.surface,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFC0E6FF), width: 1),
+                            border: Border.all(color: _Palette.borderBot, width: 1),
                             boxShadow: const [
                               BoxShadow(
                                 color: Color.fromARGB(13, 0, 0, 0),
@@ -422,7 +449,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                               Text(
                                 '진단 사진 (${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일 ${DateTime.now().hour}시 ${DateTime.now().minute}분 촬영)',
                                 style: GoogleFonts.notoSansKr(
-                                    fontSize: 13, color: Colors.grey[600]),
+                                    fontSize: 13, color: _Palette.textSecondary),
                               ),
                               const SizedBox(height: 10),
                               ClipRRect(
@@ -443,6 +470,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                               ? loadingProgress.cumulativeBytesLoaded /
                                                   loadingProgress.expectedTotalBytes!
                                               : null,
+                                          color: _Palette.primary,
                                         ),
                                       ),
                                     );
@@ -465,9 +493,9 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                 style: GoogleFonts.notoSansKr(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blueGrey[800]),
+                                    color: _Palette.primaryDark),
                               ),
-                              const Divider(color: Colors.grey, thickness: 0.5),
+                              const Divider(color: _Palette.fieldBorder, thickness: 0.8),
                               _buildMaskSettingSwitch(
                                 '충치/치아/위생 관련',
                                 _currentMaskSettings['충치/치아/위생 관련']!,
@@ -531,7 +559,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                     final dots = '.' * ((value * 4).floor() % 4);
                     return Text('덴티가 생각 중이에요$dots',
                         style: GoogleFonts.notoSansKr(
-                            color: Colors.black54, fontSize: 15));
+                            color: _Palette.textSecondary, fontSize: 15));
                   },
                   onEnd: () => setState(() {}),
                 ),
@@ -552,24 +580,24 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         controller: _controller,
                         decoration: InputDecoration(
                           hintText: '메시지를 작성해주세요',
-                          hintStyle: GoogleFonts.notoSansKr(color: Colors.grey[500]),
+                          hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: _Palette.fieldFill,
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(28),
                               borderSide: BorderSide.none),
                           enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(28),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFC0E6FF), width: 1)),
+                                  const BorderSide(color: _Palette.fieldBorder, width: 1)),
                           focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(28),
                               borderSide:
-                                  const BorderSide(color: Color(0xFF7EB7E6), width: 2)),
+                                  const BorderSide(color: _Palette.fieldFocus, width: 2)),
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         ),
-                        style: GoogleFonts.notoSansKr(fontSize: 16),
+                        style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
                         onSubmitted: (txt) {
                           FocusScope.of(context).unfocus();
                           _sendMessage(txt);
@@ -590,7 +618,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         child: Container(
                           decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFFADD8E6),
+                              color: _Palette.sendBtn,
                               boxShadow: [
                                 BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
                               ]),
