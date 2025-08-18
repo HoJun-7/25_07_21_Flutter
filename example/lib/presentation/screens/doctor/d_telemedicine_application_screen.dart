@@ -2,25 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/model/doctor/d_history.dart';
+import '/presentation/screens/doctor/doctor_drawer.dart'; // ✅ 모바일 드로어 사용
+
 import 'd_result_detail_screen.dart';
 
 extension DoctorRecordExtensions on DoctorHistoryRecord {
-  String get status {
-    return isReplied == 'Y' ? '진단 완료' : '진단 대기';
-  }
-
+  String get status => isReplied == 'Y' ? '진단 완료' : '진단 대기';
   String get name => userName ?? userId;
-
   String get date {
-    final dateTime = timestamp;
-    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+    final dt = timestamp;
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
   }
 
   String get time {
-    final dateTime = timestamp;
-    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    final dt = timestamp;
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -44,7 +43,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   int _selectedIndex = 0;
   late PageController _pageController;
   int _currentPage = 0;
-  final int _itemsPerPage = 8; // 요청에 따라 8로 수정
+  final int _itemsPerPage = 8;
 
   // ▼ 알림 팝업
   bool _isNotificationPopupVisible = false;
@@ -54,14 +53,9 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     '프로필 업데이트를 완료해주세요.',
   ];
 
-  void _toggleNotificationPopup() {
-    setState(() => _isNotificationPopupVisible = !_isNotificationPopupVisible);
-  }
-
+  void _toggleNotificationPopup() => setState(() => _isNotificationPopupVisible = !_isNotificationPopupVisible);
   void _closeNotificationPopup() {
-    if (_isNotificationPopupVisible) {
-      setState(() => _isNotificationPopupVisible = false);
-    }
+    if (_isNotificationPopupVisible) setState(() => _isNotificationPopupVisible = false);
   }
 
   double _notifPopupTop(BuildContext context) {
@@ -86,7 +80,6 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DoctorHistoryViewModel>().fetchConsultRecords();
-
       final extra = GoRouterState.of(context).extra;
       if (extra is Map && extra.containsKey('initialTab')) {
         final int index = extra['initialTab'] ?? 0;
@@ -100,11 +93,17 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     });
   }
 
+  bool _isMobile(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    // 휴대폰/태블릿(협의치) + 웹이 아닌 경우 → 모바일로 간주
+    return !kIsWeb && w < 900;
+  }
+
   List<DoctorHistoryRecord> _getFilteredRecords(List<DoctorHistoryRecord> all, String selectedStatus) {
-    String keyword = _searchController.text.trim();
-    return all.where((record) {
-      final matchesStatus = selectedStatus == 'ALL' || record.status == selectedStatus;
-      final matchesSearch = keyword.isEmpty || record.name.contains(keyword);
+    final keyword = _searchController.text.trim();
+    return all.where((r) {
+      final matchesStatus = selectedStatus == 'ALL' || r.status == selectedStatus;
+      final matchesSearch = keyword.isEmpty || r.name.contains(keyword);
       return matchesStatus && matchesSearch;
     }).toList();
   }
@@ -115,8 +114,7 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     return list.sublist(start, end > list.length ? list.length : end);
   }
 
-  int _getTotalPages(List<DoctorHistoryRecord> filtered) =>
-      (filtered.length / _itemsPerPage).ceil();
+  int _getTotalPages(List<DoctorHistoryRecord> filtered) => (filtered.length / _itemsPerPage).ceil();
 
   Color _getSelectedColorByStatus(String status) {
     switch (status) {
@@ -130,33 +128,22 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
   }
 
   void _goToPreviousPage() {
-    if (_currentPage > 0) {
-      setState(() {
-        _currentPage--;
-      });
-    }
+    if (_currentPage > 0) setState(() => _currentPage--);
   }
 
   void _goToNextPage(List<DoctorHistoryRecord> filtered) {
-    if (_currentPage + 1 < _getTotalPages(filtered)) {
-      setState(() {
-        _currentPage++;
-      });
-    }
+    if (_currentPage + 1 < _getTotalPages(filtered)) setState(() => _currentPage++);
   }
 
-  // ▼ 웹 전용: 콘텐츠 최소 크기 보장 + 스크롤바 표시
+  // ▼ 웹 전용: 콘텐츠 최소 크기 보장 + 스크롤바
   Widget _minSizeOnWeb(Widget child, {double minWidth = 1000, double minHeight = 720}) {
     if (!kIsWeb) return child;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final needsH = constraints.maxWidth < minWidth;
         final needsV = constraints.maxHeight < minHeight;
-
         final hCtrl = ScrollController();
         final vCtrl = ScrollController();
-
         Widget content = child;
 
         if (needsV) {
@@ -170,12 +157,11 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
             ),
           );
         }
-
         if (needsH) {
           content = Scrollbar(
             controller: hCtrl,
             thumbVisibility: true,
-            notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
+            notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
             child: SingleChildScrollView(
               controller: hCtrl,
               scrollDirection: Axis.horizontal,
@@ -183,101 +169,127 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
             ),
           );
         }
-
         return content;
       },
     );
   }
-  // ▲ 웹 전용: 콘텐츠 최소 크기 보장 + 스크롤바 표시
+  // ▲ 웹 전용
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = _isMobile(context);
+
     return WillPopScope(
       onWillPop: () async {
         context.go('/d_home');
         return false;
       },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: const Color(0xFFAAD0F8),
-        body: _minSizeOnWeb( // ← 여기 적용
-          Row(
-            children: [
-              _buildSideMenu(),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _closeNotificationPopup,
-                  child: Stack(
-                    children: [
-                      SafeArea(
-                        child: kIsWeb
-                            ? Center(
+      child: isMobile
+          // ===================== 모바일: AppBar + Drawer(doctor_drawer.dart) =====================
+          ? Scaffold(
+              backgroundColor: const Color(0xFFAAD0F8),
+              appBar: AppBar(
+                title: const Text('진료 현황'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none),
+                    onPressed: _toggleNotificationPopup,
+                  ),
+                ],
+              ),
+              drawer: DoctorDrawer(baseUrl: widget.baseUrl),
+              body: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeNotificationPopup,
+                child: Stack(
+                  children: [
+                    SafeArea(child: _buildMainBody()), // 좌측 고정 메뉴 없이 본문만
+                    _buildNotificationPopup(), // 팝업 위치는 상단 패딩 반영
+                  ],
+                ),
+              ),
+            )
+          // ===================== 웹/데스크톱: 좌측 고정 사이드바 + 본문 =====================
+          : Scaffold(
+              resizeToAvoidBottomInset: false,
+              backgroundColor: const Color(0xFFAAD0F8),
+              body: _minSizeOnWeb(
+                Row(
+                  children: [
+                    _buildSideMenu(), // 고정 사이드 메뉴
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _closeNotificationPopup,
+                        child: Stack(
+                          children: [
+                            SafeArea(
+                              child: Center(
                                 child: ConstrainedBox(
                                   constraints: const BoxConstraints(maxWidth: 800),
                                   child: _buildMainBody(),
                                 ),
-                              )
-                            : _buildMainBody(),
-                      ),
-                      // 알림 팝업
-                      Consumer<DoctorHistoryViewModel>(
-                        builder: (_, vm, __) {
-                          if (!_isNotificationPopupVisible) return const SizedBox.shrink();
-                          final items = _safeNotifications(vm);
-
-                          return Positioned(
-                            top: _notifPopupTop(context),
-                            right: 12,
-                            child: Material(
-                              elevation: 8,
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.white,
-                              child: Container(
-                                width: 280,
-                                padding: const EdgeInsets.all(12),
-                                child: items.isEmpty
-                                    ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
-                                    : Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: items
-                                            .map(
-                                              (msg) => Padding(
-                                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.notifications_active_outlined,
-                                                        color: Colors.blueAccent, size: 20),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: Text(
-                                                        msg,
-                                                        style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
-                                      ),
                               ),
                             ),
-                          );
-                        },
+                            _buildNotificationPopup(),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
-  /// ---------------- Side Menu ----------------
+  /// 공통 알림 팝업 (모바일/웹 공용)
+  Widget _buildNotificationPopup() {
+    return Consumer<DoctorHistoryViewModel>(
+      builder: (_, vm, __) {
+        if (!_isNotificationPopupVisible) return const SizedBox.shrink();
+        final items = _safeNotifications(vm);
+        return Positioned(
+          top: _notifPopupTop(context),
+          right: 12,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            child: Container(
+              width: 280,
+              padding: const EdgeInsets.all(12),
+              child: items.isEmpty
+                  ? const Text('알림이 없습니다.', style: TextStyle(color: Colors.black54))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: items
+                          .map(
+                            (msg) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.notifications_active_outlined,
+                                      color: Colors.blueAccent, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(msg,
+                                        style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// ---------------- (웹 전용) Side Menu ----------------
   Widget _buildSideMenu() {
     return Container(
       width: 220,
@@ -439,11 +451,17 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
     );
   }
 
-  Widget _buildListView(List<DoctorHistoryRecord> records, List<DoctorHistoryRecord> paginated, int totalPages) {
+  Widget _buildListView(
+    List<DoctorHistoryRecord> records,
+    List<DoctorHistoryRecord> paginated,
+    int totalPages,
+  ) {
     return Column(
       children: [
         Expanded(
           child: Container(
+            // ✅ 검색바/상태칩과 동일한 좌우 여백
+            margin: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -479,8 +497,10 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('날짜 : ${patient.date}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  Text('시간 : ${patient.time}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text('날짜 : ${patient.date}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text('시간 : ${patient.time}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                               const Spacer(),
@@ -507,23 +527,27 @@ class _DTelemedicineApplicationScreenState extends State<DTelemedicineApplicatio
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _currentPage > 0 ? _goToPreviousPage : null,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('이전'),
-            ),
-            const SizedBox(width: 16),
-            Text('${_currentPage + 1} / $totalPages'),
-            const SizedBox(width: 16),
-            OutlinedButton.icon(
-              onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('다음'),
-            ),
-          ],
+        // ✅ 하단 네비게이션도 동일한 좌우 여백
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _currentPage > 0 ? _goToPreviousPage : null,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('이전'),
+              ),
+              const SizedBox(width: 16),
+              Text('${_currentPage + 1} / $totalPages'),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: (_currentPage + 1 < totalPages) ? () => _goToNextPage(records) : null,
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('다음'),
+              ),
+            ],
+          ),
         ),
       ],
     );

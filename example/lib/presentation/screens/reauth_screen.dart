@@ -62,7 +62,7 @@ class _ReauthScreenState extends State<ReauthScreen> {
       backgroundColor: const Color(0xFFEAF4FF),
       appBar: AppBar(
         title: const Text('비밀번호 확인'),
-        backgroundColor: const Color(0xFF3F8CD4),
+        backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
