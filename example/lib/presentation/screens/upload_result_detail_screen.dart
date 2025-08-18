@@ -1,3 +1,5 @@
+// example/lib/presentation/screens/upload_result_detail_screen.dart
+
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:ui' as ui; // ✅ 이미지 합성용 라이브러리 추가
@@ -38,7 +40,10 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   bool _showDisease = true;
   bool _showHygiene = true;
   bool _showToothNumber = true;
-  bool _isLoadingGemini = false;
+
+  // ✅ X-ray 화면과 동일: 자동 로드용 상태
+  bool _isLoadingGemini = true;
+  String? _geminiOpinion;
 
   Uint8List? originalImageBytes;
   Uint8List? overlay1Bytes;
@@ -49,6 +54,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   void initState() {
     super.initState();
     _loadImages();
+    _getGeminiOpinion(); // ✅ 자동 로드
   }
 
   Future<void> _loadImages() async {
@@ -103,10 +109,11 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
 
       final ui.PictureRecorder recorder = ui.PictureRecorder();
       final Canvas canvas = Canvas(recorder);
-      
+
       canvas.drawImage(originalImage, Offset.zero, Paint());
 
-      final Paint overlayPaint = Paint()..colorFilter = const ui.ColorFilter.mode(Colors.transparent, ui.BlendMode.srcOver);
+      final Paint overlayPaint = Paint()
+        ..colorFilter = const ui.ColorFilter.mode(Colors.transparent, ui.BlendMode.srcOver);
 
       if (_showDisease && overlay1Bytes != null) {
         final ui.Codec overlay1Codec = await ui.instantiateImageCodec(overlay1Bytes!);
@@ -129,15 +136,18 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         canvas.drawImage(overlay3Image, Offset.zero, overlayPaint);
       }
 
-      final ui.Image compositeImage = await recorder.endRecording().toImage(originalImage.width, originalImage.height);
+      final ui.Image compositeImage =
+          await recorder.endRecording().toImage(originalImage.width, originalImage.height);
       final ByteData? byteData = await compositeImage.toByteData(format: ui.ImageByteFormat.png);
       final Uint8List resultBytes = byteData!.buffer.asUint8List();
 
-      final result = await ImageGallerySaver.saveImage(resultBytes, quality: 100, name: "dental_result_image");
+      final result =
+          await ImageGallerySaver.saveImage(resultBytes, quality: 100, name: "dental_result_image");
 
       if (!mounted) return;
       if (result['isSuccess'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('진단 결과 이미지가 저장되었습니다.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('진단 결과 이미지가 저장되었습니다.')));
       } else {
         _showErrorDialog('이미지 저장에 실패했습니다.');
       }
@@ -152,10 +162,12 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       _showErrorDialog('원본 이미지를 찾을 수 없습니다.');
       return;
     }
-    final result = await ImageGallerySaver.saveImage(originalImageBytes!, quality: 100, name: "dental_original_image");
+    final result = await ImageGallerySaver.saveImage(originalImageBytes!,
+        quality: 100, name: "dental_original_image");
     if (result['isSuccess'] == true) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('원본 이미지가 저장되었습니다.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('원본 이미지가 저장되었습니다.')));
     } else {
       if (!mounted) return;
       _showErrorDialog('이미지 저장에 실패했습니다.');
@@ -208,8 +220,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       } catch (_) { /* ignore */ }
 
       final alreadyRequested =
-          response.statusCode == 409 ||
-          (serverMsg != null && serverMsg.contains('이미 신청'));
+          response.statusCode == 409 || (serverMsg != null && serverMsg.contains('이미 신청'));
 
       if (alreadyRequested) {
         await showDialog(
@@ -220,7 +231,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             content: Text(serverMsg ?? '이미 신청 중인 진료가 있습니다.'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+                onPressed: () =>
+                    Navigator.of(dialogContext, rootNavigator: true).pop(),
                 child: const Text('확인'),
               ),
             ],
@@ -240,7 +252,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
           content: Text(serverMsg ?? '신청에 실패했습니다.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+              onPressed: () =>
+                  Navigator.of(dialogContext, rootNavigator: true).pop(),
               child: const Text('확인'),
             ),
           ],
@@ -259,6 +272,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     });
   }
 
+  // ✅ X-ray 방식과 동일: 자동 로드 + 카드 표시
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
     final authViewModel = context.read<AuthViewModel>();
@@ -294,20 +308,25 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       );
 
       if (!mounted) return;
-      setState(() => _isLoadingGemini = false);
-
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
         final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
-        context.push('/multimodal_result', extra: {'responseText': message});
+        setState(() {
+          _geminiOpinion = message;
+        });
       } else {
-        _showErrorDialog('AI 소견 요청 실패: ${response.statusCode}');
+        setState(() {
+          _geminiOpinion = 'AI 소견 요청 실패: ${response.statusCode}';
+        });
       }
     } catch (e) {
       print('❌ AI 소견 요청 실패: $e');
       if (!mounted) return;
-      setState(() => _isLoadingGemini = false);
-      _showErrorDialog('서버와 통신 중 문제가 발생했습니다.');
+      setState(() {
+        _geminiOpinion = '서버와 통신 중 문제가 발생했습니다.';
+      });
+    } finally {
+      if (mounted) setState(() => _isLoadingGemini = false);
     }
   }
 
@@ -354,15 +373,36 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             ? Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
-                  child: _buildMainBody(currentUser, textTheme, model1DetectedLabels, model2DetectedLabels, model2, model3),
+                  child: _buildMainBody(
+                    currentUser,
+                    textTheme,
+                    model1DetectedLabels,
+                    model2DetectedLabels,
+                    model2,
+                    model3,
+                  ),
                 ),
               )
-            : _buildMainBody(currentUser, textTheme, model1DetectedLabels, model2DetectedLabels, model2, model3),
+            : _buildMainBody(
+                currentUser,
+                textTheme,
+                model1DetectedLabels,
+                model2DetectedLabels,
+                model2,
+                model3,
+              ),
       ),
     );
   }
 
-  Widget _buildMainBody(User? currentUser, TextTheme textTheme, List<dynamic> model1DetectedLabels, List<String> model2DetectedLabels, Map<String, dynamic>? model2, Map<String, dynamic>? model3) {
+  Widget _buildMainBody(
+    User? currentUser,
+    TextTheme textTheme,
+    List<dynamic> model1DetectedLabels,
+    List<String> model2DetectedLabels,
+    Map<String, dynamic>? model2,
+    Map<String, dynamic>? model3,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -381,6 +421,8 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
             model3Confidence: model3?['confidence'] ?? 0.0,
           ),
+          const SizedBox(height: 16),
+          _buildGeminiOpinionCard(), // ✅ 카드로 같은 화면에서 표시
           const SizedBox(height: 24),
           if (currentUser?.role == 'P') ...[
             _buildActionButton(Icons.download, '진단 결과 이미지 저장', _saveResultImage),
@@ -389,12 +431,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             const SizedBox(height: 12),
             _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', _applyConsultRequest),
             const SizedBox(height: 12),
-            _buildActionButton(
-              Icons.chat,
-              _isLoadingGemini ? 'AI 소견 불러오는 중...' : 'AI 소견 들어보기',
-              _isLoadingGemini ? null : _getGeminiOpinion,
-            ),
-            const SizedBox(height: 12),
+            // ❌ 기존의 'AI 소견 들어보기' 버튼 제거 (자동 로드 방식)
             _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
           ]
         ],
@@ -435,23 +472,23 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   }
 
   Widget _buildToggleCard(Color toggleBg) => Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-          _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
-          _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
-        ],
-      ),
-    );
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('마스크 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _buildStyledToggle('충치/치주염/치은염', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+            _buildStyledToggle('치석/보철물', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+            _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
+          ],
+        ),
+      );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged, Color bgColor) {
     return Container(
@@ -542,6 +579,42 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
           ],
           if (filteredDiseaseLabels.isEmpty && hygieneLabels.isEmpty && model3ToothNumber == 'Unknown')
             Text('감지된 내용이 없습니다.', style: textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  // ✅ X-ray와 동일한 스타일의 AI 소견 카드
+  Widget _buildGeminiOpinionCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('AI 소견', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              if (_isLoadingGemini)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _isLoadingGemini
+                ? 'AI 소견을 불러오는 중입니다...'
+                : _geminiOpinion ?? 'AI 소견을 불러오지 못했습니다.',
+            style: const TextStyle(fontSize: 16, height: 1.5),
+          ),
         ],
       ),
     );

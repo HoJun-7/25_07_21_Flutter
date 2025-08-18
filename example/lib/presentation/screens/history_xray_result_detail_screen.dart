@@ -493,6 +493,9 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
       '상실치아': Colors.black,
     };
 
+    // ✅ 결과 텍스트를 볼드로 표시하기 위한 스타일
+    final bold = Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -523,12 +526,13 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('$className ${count}개 감지'),
+                    Text('$className ${count}개 감지', style: bold),
                   ],
                 ),
               );
             }).toList(),
-          if (classCounts.isEmpty) const Text('감지된 객체가 없습니다.'),
+          if (classCounts.isEmpty)
+            Text('감지된 객체가 없습니다.', style: bold),
           if (_implantResults.isNotEmpty) ...[
             const SizedBox(height: 10),
             const Text('[임플란트 제조사 분류 결과]', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -537,7 +541,7 @@ class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailS
               final count = 1; // 분류 결과는 개별 임플란트이므로 항상 1
               return Padding(
                 padding: const EdgeInsets.only(top: 4.0),
-                child: Text('-> $name: ${count}개'),
+                child: Text('-> $name: ${count}개', style: bold),
               );
             }).toList(),
           ],

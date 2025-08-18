@@ -197,7 +197,10 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFA9C9F5),
       appBar: AppBar(
-        title: const Text('치과 문진', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          '치과 문진',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -240,7 +243,10 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
               minimumSize: const Size(double.infinity, 50),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
+            child: const Text(
+              '다음 페이지로 이동',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       ],
@@ -271,7 +277,12 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         leading: Icon(_getCategoryIcon(category), color: kPrimary, size: 30),
         title: Text(
           category,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: Color(0xFF333333)),
+          // 🔧 볼드 강화
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF333333),
+          ),
         ),
         collapsedIconColor: Colors.grey[600],
         iconColor: kPrimary,
@@ -291,7 +302,15 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(q.question, style: const TextStyle(fontSize: 16, color: Color(0xFF555555))),
+            // 🔧 문항 텍스트 볼드 처리
+            Text(
+              q.question,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF555555),
+              ),
+            ),
             const SizedBox(height: 12),
             _buildAnswerControl(q),
           ],
