@@ -126,16 +126,8 @@ GoRouter createRouter(String baseUrl) {
             path: '/d_calendar',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              return Scaffold(
-                appBar: AppBar(title: const Text('진료 일정'),
-                centerTitle : true,
-                backgroundColor : const Color.fromARGB(255, 92, 179, 250),
-                surfaceTintColor: Colors.transparent,
-                scrolledUnderElevation: 0,
-                ),
-                drawer: DoctorDrawer(baseUrl: passedBaseUrl),
-                body: const DCalendarScreen(),
-              );
+              // ⬇️ 이제 여기서는 화면만 리턴(Scaffold 제거)
+              return DCalendarScreen(baseUrl: passedBaseUrl);
             },
           ),
           GoRoute(
