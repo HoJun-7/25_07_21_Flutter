@@ -13,7 +13,7 @@ class FindIdResultScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFB4D4FF),
       appBar: AppBar(
         title: const Text('아이디 찾기 결과', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF5F97F7),
+        backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

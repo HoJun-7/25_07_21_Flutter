@@ -1,6 +1,7 @@
 // lib/widgets/chat_bubble.dart
 import 'package:flutter/material.dart';
 
+// 말풍선 모양과 텍스트를 담고 있는 위젯
 class ChatBubble extends StatelessWidget {
   final String message;
   final bool isUser;
@@ -19,58 +20,49 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 텍스트에 적용될 기본 스타일을 정의합니다.
     final TextStyle defaultTextStyle = const TextStyle(fontSize: 15, color: Colors.black);
 
-    // 말풍선 본문 위젯을 정의합니다.
-    Widget bubbleContent = Text(
+    // 말풍선 본문 위젯 (텍스트)을 정의합니다.
+    final Widget bubbleContent = Text(
       message,
       style: textStyle ?? defaultTextStyle,
     );
 
-    if (isUser) {
-      // 사용자 말풍선: CustomPaint를 사용하여 오른쪽 상단에 꼬리 그리기
-      bubbleContent = CustomPaint(
-        painter: ChatBubblePainter(
-          bubbleColor: bubbleColor,
-          borderColor: borderColor,
-          isUser: true, // 사용자 말풍선임을 알림
+    // CustomPaint를 사용하여 꼬리 모양을 그리는 말풍선 위젯을 정의합니다.
+    final Widget bubbleWithTail = CustomPaint(
+      painter: ChatBubblePainter(
+        bubbleColor: bubbleColor,
+        borderColor: borderColor,
+        isUser: isUser,
+      ),
+      child: Container(
+        // 사용자/챗봇에 따라 마진을 다르게 설정하여 위치를 조정합니다.
+        margin: EdgeInsets.fromLTRB(
+          isUser ? 0 : 12.0,
+          8.0,
+          isUser ? 12.0 : 0,
+          0,
         ),
-        child: Container(
-          // 오른쪽 정렬에 맞춰 왼쪽 마진은 0, 오른쪽 마진은 12.0으로 설정합니다.
-          margin: const EdgeInsets.fromLTRB(0, 8.0, 12.0, 0),
-          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
-          child: bubbleContent,
-        ),
-      );
-    } else {
-      // 덴티봇 말풍선: CustomPaint를 사용하여 왼쪽 상단에 꼬리 그리기
-      bubbleContent = CustomPaint(
-        painter: ChatBubblePainter(
-          bubbleColor: bubbleColor,
-          borderColor: borderColor,
-          isUser: false, // 챗봇 말풍선임을 알림
-        ),
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(12.0, 8.0, 0, 0),
-          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
-          child: bubbleContent,
-        ),
-      );
-    }
+        // 텍스트와 말풍선 경계선 사이의 패딩을 설정합니다.
+        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
+        child: bubbleContent,
+      ),
+    );
 
-    return Row(
-      mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-      children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.4,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            child: bubbleContent,
-          ),
+    return Align(
+      // 말풍선이 화면의 끝에 정렬되도록 합니다.
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        // 말풍선의 최대 너비를 화면 너비의 75%로 제한하여 오버플로를 방지합니다.
+        constraints: BoxConstraints(
+          maxWidth:  MediaQuery.of(context).size.width * (isUser ? 0.2 : 0.3),
         ),
-      ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: bubbleWithTail,
+        ),
+      ),
     );
   }
 }
@@ -79,7 +71,7 @@ class ChatBubble extends StatelessWidget {
 class ChatBubblePainter extends CustomPainter {
   final Color bubbleColor;
   final Color borderColor;
-  final bool isUser; // 사용자/챗봇 말풍선 구별용
+  final bool isUser;
 
   ChatBubblePainter({
     required this.bubbleColor,
@@ -89,6 +81,7 @@ class ChatBubblePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 말풍선 채우기 색상과 테두리 색상을 정의합니다.
     final paint = Paint()
       ..color = bubbleColor
       ..style = PaintingStyle.fill;
@@ -98,6 +91,7 @@ class ChatBubblePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
+    // 꼬리, 모서리, 본문의 크기 및 위치를 정의합니다.
     const double tailWidth = 12;
     const double tailHeight = 10;
     const double borderRadius = 14;
@@ -106,7 +100,7 @@ class ChatBubblePainter extends CustomPainter {
     final Path path = Path();
 
     if (isUser) {
-      // 사용자 말풍선: 꼬리가 오른쪽 상단에 위치하도록 로직 수정
+      // 사용자 말풍선: 꼬리가 오른쪽 상단에 위치하도록 경로를 그립니다.
       path.moveTo(size.width, bodyTopY + tailHeight / 2);
       path.quadraticBezierTo(
         size.width - tailWidth * 0.5, bodyTopY,
@@ -130,9 +124,8 @@ class ChatBubblePainter extends CustomPainter {
         size.width - tailWidth * 0.5, bodyTopY + tailHeight * 0.5,
         size.width, bodyTopY + tailHeight / 2,
       );
-          
     } else {
-      // 챗봇 말풍선: 꼬리가 왼쪽 상단에 위치 (기존 코드와 동일)
+      // 챗봇 말풍선: 꼬리가 왼쪽 상단에 위치하도록 경로를 그립니다.
       path.moveTo(0, bodyTopY + tailHeight / 2);
       path.quadraticBezierTo(
         tailWidth * 0.5, bodyTopY,
@@ -166,9 +159,10 @@ class ChatBubblePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    // 위젯의 속성이 변경될 때만 다시 그리도록 최적화합니다.
     return oldDelegate is ChatBubblePainter &&
         (oldDelegate.bubbleColor != bubbleColor ||
             oldDelegate.borderColor != borderColor ||
             oldDelegate.isUser != isUser);
   }
-}
+} 

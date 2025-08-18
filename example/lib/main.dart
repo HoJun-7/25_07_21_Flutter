@@ -23,6 +23,10 @@ import 'package:intl/intl.dart'; // ✅ Intl.defaultLocale
 import 'package:intl/date_symbol_data_local.dart'; // ✅ initializeDateFormatting
 // ============================================================================
 
+// ================ ▼ ① Google Fonts 런타임 다운로드 금지 (추가된 부분) ================
+import 'package:google_fonts/google_fonts.dart';
+// ============================================================================
+
 Future<void> main() async {
   // --------------------- ▼ intl 로케일 초기화 (에러 원인 해결) ---------------------
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,14 +34,19 @@ Future<void> main() async {
   await initializeDateFormatting('ko_KR', null);
   // -----------------------------------------------------------------------------
 
+  // --------------------- ▼ ① Google Fonts 런타임 다운로드 금지 ---------------------
+  // 폰트를 assets로 번들한 상태에서 런타임 네트워크 페치 비활성화
+  GoogleFonts.config.allowRuntimeFetching = false;
+  // -----------------------------------------------------------------------------
+
   //const String globalBaseUrl = "http://127.0.0.1:5000/api";
-  //const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
+  const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
   // const String globalBaseUrl = "https://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //flutter build Web 할때
   // const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; 
   // const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
   //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
   //const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
-  const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
+  //const String globalBaseUrl = "http://192.168.0.15:5000/api"; //HJ_computer 기준 집 주소
 
   if (!kIsWeb) {
     HttpOverrides.global = MyHttpOverrides(); // ✅ 웹이 아닐 때만 실행
@@ -75,9 +84,6 @@ Future<void> main() async {
             authViewModel: context.read<AuthViewModel>(), // AuthViewModel 주입
           ),
           update: (context, authViewModel, previousChatbotViewModel) {
-            // AuthViewModel이 변경될 때마다 ChatbotViewModel을 새로 생성하거나 업데이트할 수 있습니다.
-            // 여기서는 AuthViewModel이 변경되면 ChatbotViewModel 내부에서 이를 감지하므로,
-            // 기존 인스턴스를 반환하거나 필요에 따라 새로운 인스턴스를 생성합니다.
             // 대부분의 경우 이전 인스턴스를 반환하면 됩니다.
             return previousChatbotViewModel ??
                 ChatbotViewModel(
