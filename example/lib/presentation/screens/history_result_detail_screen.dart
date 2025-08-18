@@ -650,13 +650,16 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
         children: [
           const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          if (filteredDiseaseLabels.isNotEmpty) ...[
+          if (_showDisease) ...[
             const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
-            ...filteredDiseaseLabels.map((label) {
-              final String className = (label is Map<String, dynamic>) ? (label['class_name'] ?? '알 수 없음') : '알 수 없음';
-              final icon = diseaseLabelMap[className] ?? "❓";
-              return Text("$icon : $className", style: textTheme.bodyMedium);
-            }),
+            if (filteredDiseaseLabels.isNotEmpty)
+              ...filteredDiseaseLabels.map((label) {
+                final String className = (label is Map<String, dynamic>) ? (label['class_name'] ?? '알 수 없음') : '알 수 없음';
+                final icon = diseaseLabelMap[className] ?? "❓";
+                return Text("$icon : $className", style: textTheme.bodyMedium);
+              })
+            else
+              const Text("❓ : 알 수 없음", style: TextStyle(fontSize: 14)), // 이미지와 동일하게 '알 수 없음' 표시
             const SizedBox(height: 8),
           ],
           if (_showHygiene) ...[
@@ -672,7 +675,7 @@ class _HistoryResultDetailScreenState extends State<HistoryResultDetailScreen> {
             Text('FDI 번호: $model3ToothNumber', style: textTheme.bodyMedium),
             const SizedBox(height: 8),
           ],
-          if (filteredDiseaseLabels.isEmpty && hygieneLabels.isEmpty && model3ToothNumber == 'Unknown')
+          if (!_showDisease && !_showHygiene && model3ToothNumber == 'Unknown')
             Text('감지된 내용이 없습니다.', style: textTheme.bodyMedium),
         ],
       ),
