@@ -343,36 +343,23 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
   Widget _buildXraySummaryCard(String modelName, int count) {
     final predictions = widget.model1Result['predictions'] as List<dynamic>?;
 
-    String summaryText = '감지된 객체가 없습니다.';
+    final Map<String, int> classCounts = {};
     if (predictions != null && predictions.isNotEmpty) {
-      final Map<String, int> classCounts = {};
       for (final pred in predictions) {
         final className = pred['class_name'] ?? 'Unknown';
         if (className == '정상치아') continue;
         classCounts[className] = (classCounts[className] ?? 0) + 1;
       }
-
-      if (classCounts.isNotEmpty) {
-        final lines = classCounts.entries
-            .map((e) => '${e.key} ${e.value}개 감지')
-            .toList();
-        summaryText = lines.join('\n');
-      }
     }
-
-    if (_implantResults.isNotEmpty) {
-      summaryText += "\n\n[임플란트 제조사 분류 결과]";
-      final countMap = <String, int>{};
-
-      for (final result in _implantResults) {
-        final name = result['predicted_manufacturer_name'] ?? '알 수 없음';
-        countMap[name] = (countMap[name] ?? 0) + 1;
-      }
-
-      countMap.forEach((name, cnt) {
-        summaryText += "\n-> $name: $cnt개";
-      });
-    }
+    
+    // ✅ 클래스별 색상을 정의
+    final Map<String, Color> colorMap = {
+        '치아 우식증': Colors.red,
+        '임플란트': Colors.blue,
+        '보철물': Colors.yellow,
+        '근관치료': Colors.green,
+        '상실치아': Colors.black,
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -386,7 +373,44 @@ class _UploadXrayResultDetailScreenState extends State<UploadXrayResultDetailScr
         children: [
           const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Text(summaryText),
+          // ✅ 클래스별 색깔 동그라미 및 개수 표시
+          if (classCounts.isNotEmpty)
+            ...classCounts.entries.map((e) {
+              final className = e.key;
+              final count = e.value;
+              final color = colorMap[className] ?? Colors.grey;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('$className ${count}개 감지'),
+                  ],
+                ),
+              );
+            }).toList(),
+          if (classCounts.isEmpty)
+            const Text('감지된 객체가 없습니다.'),
+          if (_implantResults.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text('[임플란트 제조사 분류 결과]', style: TextStyle(fontWeight: FontWeight.bold)),
+            ..._implantResults.map((result) {
+              final name = result['predicted_manufacturer_name'] ?? '알 수 없음';
+              final count = 1; // 분류 결과는 개별 임플란트이므로 항상 1
+              return Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text('-> $name: ${count}개'),
+              );
+            }).toList(),
+          ],
         ],
       ),
     );
