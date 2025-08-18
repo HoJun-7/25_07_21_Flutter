@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // ✅ kIsWeb
+import 'package:flutter/foundation.dart'; // kIsWeb
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -67,6 +67,10 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     });
   }
 
+  /// 모바일 여부 (웹은 무조건 false로 둬서 웹 레이아웃 그대로 유지)
+  bool _isMobile(BuildContext context) =>
+      !kIsWeb && MediaQuery.of(context).size.width < 600;
+
   /// ✅ 웹에서만 콘텐츠 최소 (너비/높이) 보장: 작아지면 해당 축으로 스크롤 생성
   Widget _minSizeOnWeb(Widget child, {double minWidth = 1000, double minHeight = 720}) {
     if (!kIsWeb) return child;
@@ -80,8 +84,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         final vCtrl = ScrollController();
 
         Widget content = child;
-       
-        // 세로가 너무 좁으면: 세로 스크롤 + 고정 높이로 Expanded들이 안전하게 동작
+
         if (needsV) {
           content = Scrollbar(
             controller: vCtrl,
@@ -93,7 +96,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             ),
           );
         }
-        // 가로가 너무 좁으면: 가로 스크롤 + 고정 너비
         if (needsH) {
           content = Scrollbar(
             controller: hCtrl,
@@ -112,13 +114,121 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final isMobile = _isMobile(context);
+
+    // ───────────── 모바일 전용: 앱바 + 드로어 + 세로 스택 ─────────────
+    if (isMobile) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          title: const Text('MediTooth'),
+          backgroundColor: const Color(0xFF2D9CDB),
+        ),
+        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              // 상단 KPI 카드 3개 (한 줄에 꽉 차면 줄바꿈)
+              _KpiWrap(onGo: (tab) => context.push('/d_telemedicine_application', extra: {'initialTab': tab})),
+              const SizedBox(height: 12),
+
+              // 가운데 상태 카드
+              _MobileCard(
+                child: SizedBox(
+                  height: 100,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildIconStat(Icons.cloud, "단체", 13680, Colors.blue),
+                      _buildIconStat(Icons.check_circle, "정상", 10470, Colors.green),
+                      Consumer<DoctorDashboardViewModel>(
+                        builder: (_, vm, __) => _buildIconStat(
+                          Icons.warning,
+                          "위험",
+                          vm.unreadNotifications.clamp(0, 9999).toInt(),
+                          Colors.red,
+                        ),
+                      ),
+                      _buildIconStat(Icons.remove_circle_outline, "의사 수", 3208, Colors.orange),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 최근 7일
+              _MobileCard(
+                title: const _SubChartTitle(text: "최근 7일 신청 건수", color: Color(0xFFEB5757)),
+                child: const SizedBox(height: 220, child: _Last7DaysLineChartFancy()),
+              ),
+              const SizedBox(height: 12),
+
+              // 시간대별
+              _MobileCard(
+                title: const _SubChartTitle(text: "시간대별 건수", color: Color(0xFF2F80ED)),
+                child: const SizedBox(height: 200, child: _HourlyLineChartFancy()),
+              ),
+              const SizedBox(height: 12),
+
+              // 사진(원본+오버레이 순환)
+              _MobileCard(
+                titleText: "사진",
+                child: const SizedBox(height: 220, child: _ImageCard()),
+              ),
+              const SizedBox(height: 12),
+
+              // 성별/연령
+              _MobileCard(
+                titleText: "성별 · 연령대",
+                child: const SizedBox(height: 220, child: _DemographicsSplitPanel()),
+              ),
+              const SizedBox(height: 12),
+
+              // 영상 타입 비율
+              _MobileCard(
+                titleText: "영상 타입 비율",
+                child: const SizedBox(height: 260, child: _VideoTypePieChart()),
+              ),
+              const SizedBox(height: 12),
+
+              // 알림 + 캘린더
+              _MobileCard(
+                titleText: "읽지 않은 알림",
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 160,
+                      child: ListView.builder(
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          return const ListTile(
+                            leading: Icon(Icons.warning, color: Colors.red),
+                            title: Text("위험 알림"),
+                            subtitle: Text("상세 내용 표시"),
+                            dense: true,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(height: 340, child: _buildCalendar()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // ───────────── 웹: 기존 레이아웃 유지 ─────────────
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-      body: _minSizeOnWeb( // ✅ 최소 너비/높이 보장 래퍼
+      body: _minSizeOnWeb(
         Row(
           children: [
             _buildSideMenu(),
@@ -149,7 +259,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 좌측 메뉴 (아래코드 이식) =====================
+  // ===================== 좌측 메뉴 (웹) =====================
   Widget _buildSideMenu() {
     return Container(
       width: 220,
@@ -180,7 +290,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 상단 상태바 =====================
+  // ===================== 상단 상태바 (웹) =====================
   Widget _buildTopBar() {
     return Container(
       color: Colors.white,
@@ -189,7 +299,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         builder: (context, vm, _) {
           return Row(
             children: [
-              // 좌측: 3지표 카드 (라벨은 위코드 유지)
               Expanded(
                 flex: 2,
                 child: Container(
@@ -226,8 +335,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 가운데 상태 카드 (샘플)
               Expanded(
                 flex: 3,
                 child: Container(
@@ -242,20 +349,13 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     children: [
                       _buildIconStat(Icons.cloud, "단체", 13680, Colors.blue),
                       _buildIconStat(Icons.check_circle, "정상", 10470, Colors.green),
-                      _buildIconStat(
-                        Icons.warning,
-                        "위험",
-                        vm.unreadNotifications.clamp(0, 9999).toInt(),
-                        Colors.red,
-                      ),
+                      _buildIconStat(Icons.warning, "위험", vm.unreadNotifications.clamp(0, 9999).toInt(), Colors.red),
                       _buildIconStat(Icons.remove_circle_outline, "의사 수", 3208, Colors.orange),
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 우측 날씨 카드 (아래코드 표기 이식: 날짜 문자열만 변경)
               Container(
                 height: 80,
                 width: 200,
@@ -321,11 +421,10 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 중앙 차트 영역 =====================
+  // ===================== 중앙 차트 영역 (웹) =====================
   Widget _buildChartsArea() {
     return Column(
       children: [
-        // ── 상단: (왼) 최근7일 + 시간대별  (오) 사진(자동 순환 + 3분할 탭)
         Expanded(
           child: Row(
             children: [
@@ -336,7 +435,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        // ── 하단: (왼) 성별·연령대  (오) 영상 타입 비율
         Expanded(
           child: Row(
             children: [
@@ -350,7 +448,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ‘한 칸’에 위/아래 그래프를 넣은 카드
   Widget _combinedLineChartsCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -393,7 +490,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 우측 알림 패널 (아래코드 이식) =====================
+  // ===================== 우측 알림 패널 (웹) =====================
   Widget _buildAlertsPanel() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -452,6 +549,83 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 }
+
+/// ───────────────────────── 모바일 전용 보조 위젯들 ─────────────────────────
+class _MobileCard extends StatelessWidget {
+  final Widget child;
+  final Widget? title;
+  final String? titleText;
+  const _MobileCard({Key? key, required this.child, this.title, this.titleText}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) title!,
+          if (title == null && titleText != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(titleText!, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _KpiWrap extends StatelessWidget {
+  final void Function(int tab) onGo;
+  const _KpiWrap({Key? key, required this.onGo}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<DoctorDashboardViewModel>(
+      builder: (_, vm, __) {
+        final items = [
+          ("오늘의 진료", vm.requestsToday, 0),
+          ("진단 대기", vm.unreadNotifications, 1),
+          ("진단 완료", vm.answeredToday, 2),
+        ];
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((e) {
+            return GestureDetector(
+              onTap: () => onGo(e.$3),
+              child: Container(
+                width: (MediaQuery.of(context).size.width - 12 * 2 - 8 * 2) / 3, // 3칸 균등
+                constraints: const BoxConstraints(minWidth: 100, maxWidth: 200, minHeight: 72),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF00B4DB), Color(0xFF0083B0)]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('${e.$2}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(e.$1, style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+/// ───────────────────────── 공용/기존 위젯들 ─────────────────────────
 
 // 미니 섹션 타이틀
 class _SubChartTitle extends StatelessWidget {
@@ -644,7 +818,7 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 시간대별 라인차트 (23시 라벨 보장) =====================
+/// ===================== 시간대별 라인차트 =====================
 class _HourlyLineChartFancy extends StatelessWidget {
   const _HourlyLineChartFancy({Key? key}) : super(key: key);
 
@@ -698,7 +872,6 @@ class _HourlyLineChartFancy extends StatelessWidget {
                   final i = value.toInt();
                   if (i < 0 || i >= labels.length) return const SizedBox.shrink();
 
-                  // 3시간 간격 + 마지막(23시) 강제 표시
                   final isTick = (i % 3 == 0) || (i == labels.length - 1);
                   if (!isTick) return const SizedBox.shrink();
 
@@ -765,7 +938,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진: “원본 + 해당 오버레이들”만 2초마다 Fade 순환, 좌/우로 케이스 전환 =====================
+/// ===================== 사진 카드(원본 + 오버레이 순환) =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -774,8 +947,8 @@ class _ImageCard extends StatefulWidget {
 }
 
 class _ImageCardState extends State<_ImageCard> {
-  int _caseIndex = 0;   // 어떤 케이스(=image item)
-  int _layerIndex = 0;  // 해당 케이스의 레이어(원본/오버레이)
+  int _caseIndex = 0;
+  int _layerIndex = 0;
   Timer? _auto;
   DateTime? _pausedUntil;
 
@@ -799,21 +972,11 @@ class _ImageCardState extends State<_ImageCard> {
       final vm = context.read<DoctorDashboardViewModel>();
       final items = vm.imageItems;
 
-      // 데이터 소스가 없으면 imageUrls를 케이스로만 사용(레이어 1개) → 레이어 순환 불가
-      if (items.isEmpty) {
-        final urls = vm.imageUrls;
-        if (urls.isEmpty) return;
-        // 케이스 자동이동 금지: 요구사항에 따라 레이어만 순환해야 하므로 여기선 아무 것도 안 함
-        return;
-      }
+      if (items.isEmpty) return;
 
-      // 현재 케이스의 레이어 시퀀스만 순환 (케이스는 자동 변경하지 않음!)
       final current = items[_caseIndex.clamp(0, items.length - 1)];
       final layers = vm.layerKeysFor(current);
-      if (layers.isEmpty || layers.length == 1) {
-        // 레이어가 0/1개면 바뀌는 것 없음
-        return;
-      }
+      if (layers.isEmpty || layers.length == 1) return;
 
       setState(() {
         _layerIndex = (_layerIndex + 1) % layers.length;
@@ -826,7 +989,6 @@ class _ImageCardState extends State<_ImageCard> {
   }
 
   void _showFullscreen(BuildContext context, String url) {
-    // 전체화면 동안 자동 순환 잠시 정지
     _pauseAuto(seconds: 8);
 
     showGeneralDialog(
@@ -875,7 +1037,6 @@ class _ImageCardState extends State<_ImageCard> {
   Widget build(BuildContext context) {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
 
-    // 1) 우선 imageItems(원본+오버레이) 사용
     final items = vm.imageItems;
     String currentUrl;
     int casesCount;
@@ -885,8 +1046,7 @@ class _ImageCardState extends State<_ImageCard> {
       _caseIndex = _caseIndex.clamp(0, items.length - 1);
       final item = items[_caseIndex];
 
-      // 이 케이스의 레이어(원본+오버레이) 순서를 가져오기
-      final layers = vm.layerKeysFor(item); // ['original','model1'..] or ['original','xmodel1'..]
+      final layers = vm.layerKeysFor(item);
       if (layers.isEmpty) {
         layersCountForCurrent = 1;
         _layerIndex = 0;
@@ -899,7 +1059,6 @@ class _ImageCardState extends State<_ImageCard> {
       }
       casesCount = items.length;
     } else {
-      // 2) fallback: imageUrls만 있는 경우 (레이어 한 개짜리 케이스)
       final urls = (vm.imageUrls.isNotEmpty)
           ? vm.imageUrls
           : <String>['https://picsum.photos/seed/dash0/1200/800'];
@@ -915,7 +1074,7 @@ class _ImageCardState extends State<_ImageCard> {
       _pauseAuto();
       setState(() {
         _caseIndex = (_caseIndex - 1 + casesCount) % casesCount;
-        _layerIndex = 0; // 새로운 케이스는 원본부터
+        _layerIndex = 0;
       });
     }
 
@@ -924,7 +1083,7 @@ class _ImageCardState extends State<_ImageCard> {
       _pauseAuto();
       setState(() {
         _caseIndex = (_caseIndex + 1) % casesCount;
-        _layerIndex = 0; // 새로운 케이스는 원본부터
+        _layerIndex = 0;
       });
     }
 
@@ -935,7 +1094,6 @@ class _ImageCardState extends State<_ImageCard> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // ====== 페이드 전환으로 “해당 케이스의 레이어만” 순환 ======
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 420),
             switchInCurve: Curves.easeOutCubic,
@@ -943,7 +1101,6 @@ class _ImageCardState extends State<_ImageCard> {
             transitionBuilder: (child, anim) =>
                 FadeTransition(opacity: anim, child: child),
             child: KeyedSubtree(
-              // 케이스/레이어 조합이 바뀔 때마다 새로운 키 → 페이드 발생
               key: ValueKey<String>('case$_caseIndex-layer$_layerIndex-$currentUrl'),
               child: Image.network(
                 currentUrl,
@@ -957,34 +1114,19 @@ class _ImageCardState extends State<_ImageCard> {
             ),
           ),
 
-          // ====== 3분할 탭(← 이전 케이스 / 중앙 전체화면 / → 다음 케이스) ======
+          // 3분할 탭
           Positioned.fill(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _OverlayTapZone(
-                  onTap: prevCase,
-                  child: const SizedBox.shrink(),
-                  align: Alignment.centerLeft,
-                  flex: 1,
-                ),
-                _OverlayTapZone(
-                  onTap: openFull,
-                  child: const SizedBox.shrink(),
-                  align: Alignment.center,
-                  flex: 2,
-                ),
-                _OverlayTapZone(
-                  onTap: nextCase,
-                  child: const SizedBox.shrink(),
-                  align: Alignment.centerRight,
-                  flex: 1,
-                ),
+                _OverlayTapZone(onTap: prevCase, child: const SizedBox.shrink(), align: Alignment.centerLeft, flex: 1),
+                _OverlayTapZone(onTap: openFull, child: const SizedBox.shrink(), align: Alignment.center, flex: 2),
+                _OverlayTapZone(onTap: nextCase, child: const SizedBox.shrink(), align: Alignment.centerRight, flex: 1),
               ],
             ),
           ),
 
-          // ====== 하단 인덱스(케이스/레이어) ======
+          // 하단 인덱스
           Positioned(
             left: 8,
             right: 8,
@@ -1045,7 +1187,7 @@ class _OverlayTapZoneState extends State<_OverlayTapZone> {
             duration: const Duration(milliseconds: 120),
             alignment: widget.align,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            color: Colors.black.withOpacity(_opacity), // 투명 레이어
+            color: Colors.black.withOpacity(_opacity),
             child: widget.child,
           ),
         ),

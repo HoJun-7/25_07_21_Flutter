@@ -35,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isDuplicate = true;
   bool _isIdChecked = false;
 
-  static const Color primaryBlue = Color(0xFF5F97F7);
+  static const Color primaryBlue = Color(0xFF3869A8);
   static const Color lightBlueBackground = Color(0xFFB4D4FF);
 
   static const Color patientRoleColor = Color(0xFF90CAF9);

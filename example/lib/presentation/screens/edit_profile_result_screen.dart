@@ -12,7 +12,7 @@ class EditProfileResultScreen extends StatelessWidget {
     required this.message,
   });
 
-  static const Color primaryBlue = Color(0xFF3F8CD4);
+  static const Color primaryBlue = Color(0xFF3869A8);
   static const Color pageBg = Color(0xFFEAF4FF);
 
   @override
@@ -77,7 +77,7 @@ class _ResultCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
