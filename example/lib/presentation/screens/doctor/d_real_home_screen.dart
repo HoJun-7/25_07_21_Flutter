@@ -154,19 +154,19 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildClickableNumber(
-                        "오늘의 요청",
+                        "오늘의 진료",
                         vm.requestsToday,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 0}),
                       ),
                       _buildClickableNumber(
-                        "읽지 않은 알림",
+                        "진단 대기",
                         vm.unreadNotifications,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 1}),
                       ),
                       _buildClickableNumber(
-                        "오늘의 응답",
+                        "진단 완료",
                         vm.answeredToday,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 2}),
