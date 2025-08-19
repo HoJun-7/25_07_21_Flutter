@@ -91,10 +91,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
             final String? uid =
                 (map['user_id'] ?? map['userId'] ?? map['patient_id'])?.toString();
             return uid == currentUserId;
-           }).toList();
+          }).toList();
         }
         print('✅ 클라 필터 후: ${reservations.length}건');
-        _reservationCount = reservations.length;  // ← 필터된 개수로 반영
+        _reservationCount = reservations.length; // 필터된 개수로 반영
         } else {
           print('❌ 예약 내역 요청 실패');
         }
@@ -297,27 +297,31 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ],
           ),
         ),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5))
-              ],
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only( // BorderRadius.vertical 대신 BorderRadius.only 사용
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+              bottomLeft: Radius.circular(30), // 하단 왼쪽도 둥글게
+              bottomRight: Radius.circular(30), // 하단 오른쪽도 둥글게
             ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              child: Column(
-                children: [
-                  _buildMenuItem(context, Icons.person_outline, '개인정보 수정', '/reauth'),
-                  _buildMenuItem(context, Icons.logout, '로그아웃', '/login', isLogout: true),
-                  _buildMenuItem(context, Icons.delete_outline, '회원 탈퇴', '', isDelete: true),
-                ],
-              ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -5))
+            ],
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildMenuItem(context, Icons.person_outline, '개인정보 수정', '/reauth'),
+                _buildMenuItem(context, Icons.logout, '로그아웃', '/login', isLogout: true),
+                _buildMenuItem(context, Icons.delete_outline, '회원 탈퇴', '', isDelete: true),
+              ],
             ),
           ),
         ),
