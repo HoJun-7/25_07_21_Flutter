@@ -376,11 +376,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("서울시 서대문구", style: TextStyle(color: Colors.white, fontSize: 12)),
+                            Text("대전광역시 서구", style: TextStyle(color: Colors.white, fontSize: 12)),
                             Text("미세먼지 보통", style: TextStyle(color: Colors.white70, fontSize: 10)),
                           ],
                         ),
-                        Text("20°C",
+                        Text("30°C",
                             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
                     )
@@ -504,18 +504,22 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           const Text("읽지 않은 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           Expanded(
-            child: ListView.builder(
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  leading: const Icon(Icons.warning, color: Colors.red),
-                  title: Text("위험 알림 ${index + 1}"),
-                  subtitle: const Text("상세 내용 표시"),
-                  dense: true,
-                );
-              },
-            ),
-          ),
+  child: ListView.builder(
+    itemCount: 5,
+    itemBuilder: (context, index) {
+      return ListTile(
+        leading: const Icon(Icons.warning, color: Colors.red),
+        title: Text("위험 알림 ${index + 1}"),
+        subtitle: const Text("상세 내용 표시"),
+        dense: true,
+        onTap: () {
+          context.push('/d_telemedicine_application', extra: {'initialTab': 1});
+        },
+      );
+    },
+  ),
+),
+  
           const SizedBox(height: 16),
           _buildCalendar(),
         ],
@@ -937,7 +941,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진 카드(원본 + 오버레이 순환) =====================
+/// ===================== 사진 카드(원본 + 오버레이 순환 + 썸네일/설명) =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -1019,7 +1023,8 @@ class _ImageCardState extends State<_ImageCard> {
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.grey.shade200,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                    child: const Icon(Icons.broken_image,
+                        color: Colors.grey, size: 48),
                   ),
                 ),
               ),
@@ -1027,8 +1032,13 @@ class _ImageCardState extends State<_ImageCard> {
           ),
         );
       },
-      transitionBuilder: (_, anim, __, child) =>
-          FadeTransition(opacity: anim, child: ScaleTransition(scale: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic), child: child)),
+      transitionBuilder: (_, anim, __, child) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+          child: child,
+        ),
+      ),
     );
   }
 
@@ -1088,69 +1098,146 @@ class _ImageCardState extends State<_ImageCard> {
 
     void openFull() => _showFullscreen(context, currentUrl);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kImageRadius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 420),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, anim) =>
-                FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(
-              key: ValueKey<String>('case$_caseIndex-layer$_layerIndex-$currentUrl'),
-              child: Image.network(
-                currentUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
-                ),
-              ),
-            ),
-          ),
-
-          // 3분할 탭
-          Positioned.fill(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      children: [
+        // 큰 이미지 뷰어
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kImageRadius),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                _OverlayTapZone(onTap: prevCase, child: const SizedBox.shrink(), align: Alignment.centerLeft, flex: 1),
-                _OverlayTapZone(onTap: openFull, child: const SizedBox.shrink(), align: Alignment.center, flex: 2),
-                _OverlayTapZone(onTap: nextCase, child: const SizedBox.shrink(), align: Alignment.centerRight, flex: 1),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) =>
+                      FadeTransition(opacity: anim, child: child),
+                  child: KeyedSubtree(
+                    key: ValueKey<String>(
+                        'case$_caseIndex-layer$_layerIndex-$currentUrl'),
+                    child: Image.network(
+                      currentUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey.shade200,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.broken_image,
+                            color: Colors.grey, size: 48),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 좌/우/가운데 탭
+                Positioned.fill(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _OverlayTapZone(
+                          onTap: prevCase,
+                          child: const SizedBox.shrink(),
+                          align: Alignment.centerLeft,
+                          flex: 1),
+                      _OverlayTapZone(
+                          onTap: openFull,
+                          child: const SizedBox.shrink(),
+                          align: Alignment.center,
+                          flex: 2),
+                      _OverlayTapZone(
+                          onTap: nextCase,
+                          child: const SizedBox.shrink(),
+                          align: Alignment.centerRight,
+                          flex: 1),
+                    ],
+                  ),
+                ),
+
+                // 하단 인덱스
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${_caseIndex + 1} / $casesCount'
+                        '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
+        ),
 
-          // 하단 인덱스
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(999),
+        const SizedBox(height: 8),
+
+        // 썸네일 목록
+        SizedBox(
+          height: 60,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: casesCount,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (context, i) {
+              final thumbUrl = (items.isNotEmpty)
+                  ? vm.resolveUrl(items[i], 'original')
+                  : vm.imageUrls[i];
+              return GestureDetector(
+                onTap: () {
+                  _pauseAuto();
+                  setState(() {
+                    _caseIndex = i;
+                    _layerIndex = 0;
+                  });
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    thumbUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 60,
+                      height: 60,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.broken_image,
+                          size: 24, color: Colors.grey),
+                    ),
+                  ),
                 ),
-                child: Text(
-                  '${_caseIndex + 1} / $casesCount'
-                  '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                ),
-              ),
-            ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+
+        // 메타데이터/설명
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            "촬영일: 2025-08-17 | 설명: 치아 상태 점검",
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
+      ],
     );
   }
 }
 
+/// ===================== Overlay Tap Zone =====================
 class _OverlayTapZone extends StatefulWidget {
   final VoidCallback onTap;
   final Widget child;
