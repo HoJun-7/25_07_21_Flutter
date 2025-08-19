@@ -23,3 +23,5 @@ example/assets/models에 옮기기
 # 실행
 cd example
 flutter clean; flutter pub get; flutter run
+
+dart run flutter_native_splash:create  스플래시 화면 만들기
