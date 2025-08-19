@@ -1,4 +1,3 @@
-// lib/presentation/screens/history_xray_result_detail_screen.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -7,11 +6,11 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; // ✅ AI 소견 관련 날짜 포맷팅을 위해 추가
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/user.dart';
-import '/data/service/http_service.dart';
+import '/data/service/http_service.dart'; // ✅ Consult 요청을 위해 추가
 
 class HistoryXrayResultDetailScreen extends StatefulWidget {
   final String originalImageUrl;
@@ -23,8 +22,6 @@ class HistoryXrayResultDetailScreen extends StatefulWidget {
   final String baseUrl;
   final String isRequested;
   final String isReplied;
-  // 옵션: 목록 화면에서 같이 넘겨줄 수 있는 제조사 분류 결과
-  final List<dynamic>? implantClassificationResult;
 
   const HistoryXrayResultDetailScreen({
     super.key,
@@ -37,57 +34,75 @@ class HistoryXrayResultDetailScreen extends StatefulWidget {
     required this.baseUrl,
     required this.isRequested,
     required this.isReplied,
-    this.implantClassificationResult,
   });
 
   @override
-  State<HistoryXrayResultDetailScreen> createState() =>
-      _HistoryXrayResultDetailScreenState();
+  State<HistoryXrayResultDetailScreen> createState() => _HistoryXrayResultDetailScreenState();
 }
 
-class _HistoryXrayResultDetailScreenState
-    extends State<HistoryXrayResultDetailScreen> {
+class _HistoryXrayResultDetailScreenState extends State<HistoryXrayResultDetailScreen> {
   bool _showModel1 = true;
   bool _showModel2 = true;
   bool _isRequested = false;
   bool _isReplied = false;
-
-  // 임플란트 제조사 분류 결과
   List<Map<String, dynamic>> _implantResults = [];
+  bool _isLoadingGemini = true; // ✅ AI 소견 로딩 상태 변수 추가
+  String? _geminiOpinion; // ✅ AI 소견 저장 변수 추가
 
-  bool _isLoadingGemini = true;
-  String? _geminiOpinion;
-  String? _doctorComment; // (응답 완료 시) 의사 코멘트
+  // ✅ 추가: 의사 코멘트
+  String? _doctorComment;
 
   Uint8List? originalImageBytes;
   Uint8List? overlay1Bytes;
   Uint8List? overlay2Bytes;
 
-  String get _relativePath =>
-      widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
+  String get _relativePath => widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
 
   @override
   void initState() {
     super.initState();
     _isRequested = widget.isRequested == 'Y';
     _isReplied = widget.isReplied == 'Y';
-
     _loadImages();
-    _getGeminiOpinion();
+    _loadImplantManufacturerResults();
+    _getGeminiOpinion(); // ✅ 화면 진입 시 바로 AI 소견을 불러오도록 호출
 
-    // extras로 넘어온 제조사 분류 결과 먼저 사용
-    _implantResults = _parseImplantList(widget.implantClassificationResult);
-    // 없으면 서버에서 폴백 조회
-    if (_implantResults.isEmpty) {
-      _loadImplantManufacturerResults();
-    }
-
+    // ✅ 추가: 의사 응답이 완료된 경우 코멘트 가져오기
     if (_isReplied) {
       _fetchDoctorComment();
     }
   }
 
-  // ========= 이미지 로딩 (model2는 분류본 폴백 시도) =========
+  // ✅ 추가: 의사 코멘트 불러오기 (GET /consult/status)
+  Future<void> _fetchDoctorComment() async {
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (token == null) return;
+
+    final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
+
+    try {
+      final response = await http.get(
+        Uri.parse('${widget.baseUrl}/consult/status?user_id=${widget.userId}&image_path=$relativePath'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (!mounted) return;
+        setState(() {
+          _doctorComment = data['doctor_comment'];
+        });
+      } else {
+        // 실패 시에도 UI가 멈추지 않도록 로그만 남김
+        // ignore: avoid_print
+        print('❌ 의사 코멘트 가져오기 실패: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ 서버 요청 실패: $e');
+    }
+  }
+
   Future<void> _loadImages() async {
     final token = await context.read<AuthViewModel>().getAccessToken();
     if (token == null) return;
@@ -95,9 +110,7 @@ class _HistoryXrayResultDetailScreenState
     try {
       final original = await _loadImageWithAuth(widget.originalImageUrl, token);
       final ov1 = await _loadImageWithAuth(widget.model1ImageUrl, token);
-      final ov2 = await _loadModel2WithFallback(widget.model2ImageUrl, token);
-
-      if (!mounted) return;
+      final ov2 = await _loadImageWithAuth(widget.model2ImageUrl, token);
       setState(() {
         originalImageBytes = original;
         overlay1Bytes = ov1;
@@ -109,108 +122,61 @@ class _HistoryXrayResultDetailScreenState
     }
   }
 
+  Future<void> _loadImplantManufacturerResults() async {
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (token == null) return;
+
+    final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
+    final uri = Uri.parse('${widget.baseUrl}/xray_implant_classify');
+
+    try {
+      final res = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"image_path": relativePath}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final results = List<Map<String, dynamic>>.from(data['results']);
+        setState(() {
+          _implantResults = results;
+        });
+      } else {
+        // ignore: avoid_print
+        print("❌ 제조사 분류 API 실패: ${res.body}");
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print("❌ 예외 발생: $e");
+    }
+  }
+
+  void _open3DViewer() {
+    context.push('/dental_viewer', extra: {
+      'glbUrl': 'assets/web/model/open_mouth.glb',
+    });
+  }
+
   Future<Uint8List?> _loadImageWithAuth(String url, String token) async {
     final String resolvedUrl = url.startsWith('http')
         ? url
         : '${widget.baseUrl.replaceAll('/api', '')}${url.startsWith('/') ? '' : '/'}$url';
 
-    final response = await http.get(
-      Uri.parse(resolvedUrl),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+    final response = await http.get(Uri.parse(resolvedUrl), headers: {'Authorization': 'Bearer $token'});
 
     if (response.statusCode != 200) {
       // ignore: avoid_print
       print('❌ 이미지 요청 실패: $resolvedUrl (${response.statusCode})');
     }
+
     return response.statusCode == 200 ? response.bodyBytes : null;
   }
 
-  // ★ 핵심: model2가 404면 *_implant_classified.png 로 재시도
-  Future<Uint8List?> _loadModel2WithFallback(String url, String token) async {
-    final bytes = await _loadImageWithAuth(url, token);
-    if (bytes != null) return bytes;
-
-    // 분류본 파일 네이밍 폴백
-    if (!url.contains('_implant_classified') && url.endsWith('.png')) {
-      final alt = url.replaceFirst('.png', '_implant_classified.png');
-      // ignore: avoid_print
-      print('🔁 model2 폴백 재시도: $alt');
-      return _loadImageWithAuth(alt, token);
-    }
-    return null;
-  }
-
-  // ========= 임플란트 제조사 결과 (폴백 API) =========
-  Future<void> _loadImplantManufacturerResults() async {
-    try {
-      final token = await context.read<AuthViewModel>().getAccessToken();
-      if (token == null) return;
-
-      final uri = Uri.parse('${widget.baseUrl}/xray_implant_classify');
-      final res = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'image_path': _relativePath}),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final parsed = _parseImplantList(data['results']);
-        if (!mounted) return;
-        setState(() => _implantResults = parsed);
-      } else {
-        // ignore: avoid_print
-        print('❌ 제조사 분류 API 실패: ${res.statusCode} ${res.body}');
-      }
-    } catch (e) {
-      // ignore: avoid_print
-      print('❌ 예외 발생: $e');
-    }
-  }
-
-  // 방어적 파싱 (List, List<List>, Map 혼합 안전 처리)
-  List<Map<String, dynamic>> _parseImplantList(dynamic raw) {
-    final List<Map<String, dynamic>> out = [];
-    if (raw is List) {
-      for (final item in raw) {
-        if (item is Map) {
-          out.add(Map<String, dynamic>.from(item));
-        } else if (item is List) {
-          for (final sub in item) {
-            if (sub is Map) out.add(Map<String, dynamic>.from(sub));
-          }
-        }
-      }
-    }
-    return out;
-  }
-
-  // ========= 의사 코멘트 =========
-  Future<void> _fetchDoctorComment() async {
-    final token = await context.read<AuthViewModel>().getAccessToken();
-    if (token == null) return;
-
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '${widget.baseUrl}/consult/status?user_id=${widget.userId}&image_path=$_relativePath',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (!mounted) return;
-        setState(() => _doctorComment = data['doctor_comment']);
-      }
-    } catch (_) {}
-  }
-
-  // ========= Gemini 소견 =========
+  // ✅ (유지) AI 소견 요청
   Future<void> _getGeminiOpinion() async {
     setState(() => _isLoadingGemini = true);
     final authViewModel = context.read<AuthViewModel>();
@@ -241,18 +207,29 @@ class _HistoryXrayResultDetailScreenState
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        setState(() => _geminiOpinion = result['message'] ?? 'AI 소견을 불러오지 못했습니다');
+        final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
+        setState(() {
+          _geminiOpinion = message;
+        });
       } else {
-        setState(() => _geminiOpinion = 'AI 소견 요청 실패: ${response.statusCode}');
+        setState(() {
+          _geminiOpinion = 'AI 소견 요청 실패: ${response.statusCode}';
+        });
+        // ignore: avoid_print
+        print('AI 소견 요청 실패: ${response.statusCode}');
       }
     } catch (e) {
-      setState(() => _geminiOpinion = 'AI 소견 요청 실패: $e');
+      setState(() {
+        _geminiOpinion = 'AI 소견 요청 실패: $e';
+      });
+      // ignore: avoid_print
+      print('업로드 실패: $e');
     } finally {
       setState(() => _isLoadingGemini = false);
     }
   }
 
-  // ========= 비대면 진단 신청/취소 =========
+  // ✅ (유지) Consult 신청: HttpService 사용
   Future<void> _submitConsultRequest(User currentUser) async {
     final now = DateTime.now();
     final formatted = DateFormat('yyyyMMddHHmmss').format(now);
@@ -272,9 +249,12 @@ class _HistoryXrayResultDetailScreenState
     }
   }
 
+  // ✅ (유지) Consult 취소
   Future<void> _cancelConsultRequest() async {
     final token = await context.read<AuthViewModel>().getAccessToken();
     if (token == null) return;
+
+    final relativePath = widget.originalImageUrl.replaceFirst(widget.baseUrl.replaceAll('/api', ''), '');
 
     final response = await http.post(
       Uri.parse('${widget.baseUrl}/consult/cancel'),
@@ -284,7 +264,7 @@ class _HistoryXrayResultDetailScreenState
       },
       body: jsonEncode({
         'user_id': widget.userId,
-        'original_image_url': _relativePath,
+        'original_image_url': relativePath,
       }),
     );
 
@@ -307,15 +287,8 @@ class _HistoryXrayResultDetailScreenState
     );
   }
 
-  void _open3DViewer() {
-    context.push('/dental_viewer', extra: {
-      'glbUrl': 'assets/web/model/open_mouth.glb',
-    });
-  }
-
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
-  // ========= UI =========
   @override
   Widget build(BuildContext context) {
     final currentUser = context.read<AuthViewModel>().currentUser!;
@@ -354,8 +327,9 @@ class _HistoryXrayResultDetailScreenState
           _buildImageCard(),
           const SizedBox(height: 16),
           _buildXraySummaryCard(modelName, count),
-          const SizedBox(height: 16),
-          _buildGeminiOpinionCard(),
+          const SizedBox(height: 16), // ✅ AI 소견 카드와 간격
+          _buildGeminiOpinionCard(), // ✅ AI 소견 카드
+          // ✅ 추가: 의사 코멘트 카드 (응답 완료 + 코멘트가 존재할 때만)
           if (_isReplied && (_doctorComment?.trim().isNotEmpty ?? false)) ...[
             const SizedBox(height: 16),
             _buildDoctorCommentCard(_doctorComment!.trim()),
@@ -367,11 +341,9 @@ class _HistoryXrayResultDetailScreenState
             _buildActionButton(Icons.image, '원본 이미지 저장', _saveOriginalImage),
             const SizedBox(height: 12),
             if (!_isRequested)
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청',
-                  () => _submitConsultRequest(currentUser))
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 비대면 진단 신청', () => _submitConsultRequest(currentUser))
             else if (_isRequested && !_isReplied)
-              _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소',
-                  _cancelConsultRequest),
+              _buildActionButton(Icons.medical_services, 'AI 예측 기반 진단 신청 취소', _cancelConsultRequest),
             const SizedBox(height: 12),
             _buildActionButton(Icons.view_in_ar, '3D로 보기', _open3DViewer),
           ]
@@ -391,6 +363,7 @@ class _HistoryXrayResultDetailScreenState
     await ImageGallerySaver.saveImage(originalImageBytes!, quality: 100, name: "original_image");
   }
 
+  // ✅ AI 소견 카드
   Widget _buildGeminiOpinionCard() {
     return Container(
       decoration: BoxDecoration(
@@ -426,6 +399,7 @@ class _HistoryXrayResultDetailScreenState
     );
   }
 
+  // ✅ 추가: 의사 코멘트 카드
   Widget _buildDoctorCommentCard(String comment) {
     return Container(
       decoration: BoxDecoration(
@@ -463,8 +437,7 @@ class _HistoryXrayResultDetailScreenState
         ),
       );
 
-  Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) =>
-      Container(
+  Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) => Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(color: const Color(0xFFEAEAEA), borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -511,14 +484,17 @@ class _HistoryXrayResultDetailScreenState
       }
     }
 
-    // 업로드 화면과 동일한 색상
+    // ✅ 클래스별 색상을 정의
     final Map<String, Color> colorMap = {
       '치아 우식증': Colors.red,
       '임플란트': Colors.blue,
       '보철물': Colors.yellow,
-      '근관치료': Colors.black,
-      '상실치아': Colors.green,
+      '근관치료': Colors.green,
+      '상실치아': Colors.black,
     };
+
+    // ✅ 결과 텍스트를 볼드로 표시하기 위한 스타일
+    final bold = Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold);
 
     return Container(
       decoration: BoxDecoration(
@@ -532,68 +508,49 @@ class _HistoryXrayResultDetailScreenState
         children: [
           const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-
           if (classCounts.isNotEmpty)
             ...classCounts.entries.map((e) {
-              final color = colorMap[e.key] ?? Colors.grey;
+              final className = e.key;
+              final count = e.value;
+              final color = colorMap[className] ?? Colors.grey;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Row(
                   children: [
-                    Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Text('${e.key} ${e.value}개 감지'),
+                    Text('$className ${count}개 감지', style: bold),
                   ],
                 ),
               );
-            }).toList()
-          else
-            const Text('감지된 객체가 없습니다.'),
-
-          const SizedBox(height: 10),
-          const Text('[임플란트 제조사 분류 결과]', style: TextStyle(fontWeight: FontWeight.bold)),
+            }).toList(),
+          if (classCounts.isEmpty)
+            Text('감지된 객체가 없습니다.', style: bold),
           if (_implantResults.isNotEmpty) ...[
-            ...(() {
-              // ★ class id별로 집계 + 이름 표시 (모든 클래스 자동 대응)
-              final Map<int, Map<String, dynamic>> legend = {};
-              for (final r in _implantResults) {
-                final id = (r['predicted_manufacturer_class'] as num?)?.toInt();
-                if (id == null) continue;
-
-                final displayName =
-                    (r['display_name'] ?? r['predicted_manufacturer_name'] ?? '알 수 없음') as String;
-
-                if (legend.containsKey(id)) {
-                  legend[id]!['count'] = (legend[id]!['count'] as int) + 1;
-                } else {
-                  legend[id] = {'name': displayName, 'count': 1};
-                }
-              }
-
-              final entries = legend.entries.toList()
-                ..sort((a, b) => a.key.compareTo(b.key));
-
-              return entries.map((e) {
-                final id = e.key;
-                final name = e.value['name'] as String;
-                final cnt = e.value['count'] as int;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text('-> $id: $name${cnt > 1 ? " (${cnt}개)" : ""}'),
-                );
-              }).toList();
-            })(),
-          ] else ...[
-            const SizedBox(height: 4),
-            const Text('감지된 임플란트 제조사 분류 결과가 없습니다.'),
+            const SizedBox(height: 10),
+            const Text('[임플란트 제조사 분류 결과]', style: TextStyle(fontWeight: FontWeight.bold)),
+            ..._implantResults.map((result) {
+              final name = result['predicted_manufacturer_name'] ?? '알 수 없음';
+              final count = 1; // 분류 결과는 개별 임플란트이므로 항상 1
+              return Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text('-> $name: ${count}개', style: bold),
+              );
+            }).toList(),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) =>
-      ElevatedButton.icon(
+  Widget _buildActionButton(IconData icon, String label, VoidCallback? onPressed) => ElevatedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white),
         label: Text(label, style: const TextStyle(color: Colors.white)),

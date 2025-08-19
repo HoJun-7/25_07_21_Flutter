@@ -177,13 +177,16 @@ class _UploadScreenState extends State<UploadScreen> {
           });
         }
       } else {
+        // ignore: avoid_print
         print('서버 오류: ${response.statusCode}');
+        // ignore: avoid_print
         print('응답 본문: $responseBody');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('서버 오류 발생')),
         );
       }
     } catch (e) {
+      // ignore: avoid_print
       print('업로드 실패: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('업로드 실패: $e')),
@@ -199,7 +202,11 @@ class _UploadScreenState extends State<UploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 진단'),
+        // ✅ 타이틀 볼드 처리
+        title: const Text(
+          'AI 진단',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: const Color(0xFF3869A8),
         foregroundColor: Colors.white,
@@ -216,7 +223,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Color(0xFF3869A8), width: 1.5),
+                  border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
                 ),
                 child: const Center(
                   child: Text(
@@ -225,35 +232,54 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: ToggleButtons(
-                  isSelected: [_selectedTypeIndex == 0, _selectedTypeIndex == 1],
-                  onPressed: (int index) {
-                    setState(() {
-                      _selectedTypeIndex = index;
-                    });
-                  },
+
+              // ✅ 토글 영역: 폭을 360으로 맞추고, 선택 안 된 버튼은 흰색 배경으로 보이도록 컨테이너에 흰 배경/테두리 적용
+              Container(
+                width: 360,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white, // ← 비선택 상태 배경이 흰색으로 보이도록
                   borderRadius: BorderRadius.circular(12),
-                  selectedColor: Colors.white,
-                  fillColor: const Color(0xFF3869A8),
-                  color: Colors.black87,
-                  constraints: const BoxConstraints(minHeight: 36, minWidth: 140),
-                  children: const [
-                    Text("일반사진", style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("X-ray 사진", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
+                  border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+                ),
+                child: LayoutBuilder(
+                  builder: (_, constraints) {
+                    // 두 버튼이 동일 폭이 되도록 최소폭을 1/2로 설정
+                    final half = (constraints.maxWidth / 2);
+                    return ToggleButtons(
+                      isSelected: [_selectedTypeIndex == 0, _selectedTypeIndex == 1],
+                      onPressed: (int index) {
+                        setState(() {
+                          _selectedTypeIndex = index;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      selectedColor: Colors.white,
+                      fillColor: const Color(0xFF3869A8), // 선택 시 파란 배경
+                      color: Colors.black87, // 비선택 텍스트 색
+                      borderColor: Colors.transparent, // 외곽선은 부모 컨테이너가 담당
+                      selectedBorderColor: Colors.transparent,
+                      constraints: BoxConstraints(minHeight: 36, minWidth: half - 6),
+                      children: const [
+                        Text("일반사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("X-ray 사진", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    );
+                  },
                 ),
               ),
+
               const SizedBox(height: 20),
+
               Container(
                 width: 360,
                 height: 280,
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Color(0xFF3869A8), width: 1.5),
+                  border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
                 ),
                 child: (_imageFile != null || _webImage != null)
                     ? ClipRRect(
@@ -269,7 +295,9 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
               ),
+
               const SizedBox(height: 20),
+
               SizedBox(
                 width: 360,
                 height: 48,
@@ -284,7 +312,9 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 12),
+
               SizedBox(
                 width: 360,
                 height: 48,
