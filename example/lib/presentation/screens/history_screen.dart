@@ -12,11 +12,11 @@ import '/presentation/model/history.dart';
 import 'history_result_detail_screen.dart';
 import 'history_xray_result_detail_screen.dart';
 
-// ✅ 색상 팔레트 정의 (요청에 맞게 하드값 업데이트)
+// ✅ 색상 팔레트 정의
 const Color primaryColor = Color(0xFF3869A8);       // AppBar/헤더
-const Color secondaryColor = Color(0xFFDCE7F6);     // 전체 배경 (아래쪽 코드 값)
+const Color secondaryColor = Color(0xFFDCE7F6);     // 전체 배경
 const Color cardColor = Colors.white;               // 카드 배경
-const Color chipTrackColor = Color(0xFFF1F2F4);     // 칩 트랙(아래쪽 코드 값)
+const Color chipTrackColor = Color(0xFFF1F2F4);     // 칩 트랙
 const Color textColor = Color(0xFF1E2741);          // 본문 텍스트
 const Color subtitleColor = Color(0xFF8B92A4);      // 보조 텍스트
 const Color completedColor = Color(0xFF4CAF50);     // 응답 완료 배지
@@ -35,7 +35,6 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<String> statuses = ['ALL', '신청 안함', '응답 대기중', '응답 완료'];
 
-  // 위쪽 코드 포맷 유지
   final _dateFmt = DateFormat('yyyy.MM.dd');
   final _timeFmt = DateFormat('HH:mm');
 
@@ -85,7 +84,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           child: kIsWeb
               ? Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600), // ⬅ 아래쪽 코드 값으로 고정
+                    constraints: const BoxConstraints(maxWidth: 600),
                     child: _buildMainBody(viewModel, currentUser),
                   ),
                 )
@@ -95,7 +94,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // ✅ 본문을 분리 (웹/모바일 공용)
+  // ✅ 본문
   Widget _buildMainBody(HistoryViewModel viewModel, dynamic currentUser) {
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
@@ -103,7 +102,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (viewModel.error != null) {
-      return Center(child: Text('오류: ${viewModel.error}', style: const TextStyle(color: Colors.red)));
+      return Center(child: Text('오류: ${viewModel.error}', style: TextStyle(color: Colors.red.shade400)));
     }
     if (currentUser == null) {
       return const Center(child: Text('로그인이 필요합니다.'));
@@ -149,7 +148,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return all;
   }
 
-  // ⬇⬇⬇ 아래쪽 코드의 칩 색 매핑을 이식 (원색 매핑)
   Color _getChipColor(String status) {
     switch (status) {
       case 'ALL':
@@ -157,7 +155,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case '신청 안함':
         return Colors.blue;
       case '응답 대기중':
-        return Colors.yellow.shade700;
+        return Colors.yellow;
       case '응답 완료':
         return Colors.green;
       default:
@@ -165,7 +163,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  // ⬇⬇⬇ 아래쪽 스타일로 상태 칩 구현
   Widget _buildStatusChips() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -186,7 +183,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 bottom: 0,
                 child: Container(
                   width: itemWidth,
-                  margin: const EdgeInsets.symmetric(vertical: 4), // ⬅ 이식 포인트
+                  margin: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(
                     color: _getChipColor(statuses[_selectedIndex]),
                     borderRadius: BorderRadius.circular(20),
@@ -209,7 +206,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         child: Text(
                           statuses[index],
                           style: TextStyle(
-                            color: _selectedIndex == index ? Colors.white : Colors.black87, // ⬅ 이식 포인트
+                            color: _selectedIndex == index ? Colors.white : Colors.black87,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
@@ -291,9 +288,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final statusColor = _getStatusColor(record);
 
       children.add(
-        InkWell(
+        PressableCard(
           onTap: () {
-            // ⬇⬇⬇ 아래쪽 코드의 'Y'/'N' 정규화 이식
             final isReq = record.isRequested == 'Y' ? 'Y' : 'N';
             final isRep = record.isReplied == 'Y' ? 'Y' : 'N';
 
@@ -311,78 +307,65 @@ class _HistoryScreenState extends State<HistoryScreen> {
               },
             );
           },
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.15),
-                  spreadRadius: 2,
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _AuthThumb(
+                  url: originalImageUrl,        // 절대 URL
+                  baseUrl: widget.baseUrl,      // 토큰 발급용
+                  size: 80,
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // ⬇⬇⬇ 썸네일: 인증 처리 위젯으로 교체
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _AuthThumb(
-                    url: originalImageUrl,        // 절대 URL
-                    baseUrl: widget.baseUrl,      // 토큰 발급용
-                    size: 80,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // 본문
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              ),
+              const SizedBox(width: 16),
+              // 본문
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '진단 이미지 (${isXray ? 'X-ray' : '일반'})',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      timeStr,
+                      style: const TextStyle(fontSize: 14, color: subtitleColor),
+                    ),
+                    const SizedBox(height: 8),
+                    if (statusText == '응답 완료')
                       Text(
-                        '진단 이미지 (${isXray ? 'X-ray' : '일반'})',
-                        style: const TextStyle(
+                        _getSummaryResult(record),
+                        style: const TextStyle(fontSize: 14, color: textColor),
+                      ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: textColor,
+                          fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(fontSize: 14, color: subtitleColor),
-                      ),
-                      const SizedBox(height: 8),
-                      if (statusText == '응답 완료')
-                        Text(
-                          _getSummaryResult(record),
-                          style: const TextStyle(fontSize: 14, color: textColor),
-                        ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                // 삭제 버튼(위쪽 코드 기능 유지)
-                GestureDetector(
+              ),
+              // 삭제 버튼 - 원형 클릭 영역도 딱 맞게
+              Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
                   onTap: () {
                     showDialog(
                       context: context,
@@ -393,17 +376,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           actions: <Widget>[
                             TextButton(
                               child: const Text('취소', style: TextStyle(color: subtitleColor)),
-                              onPressed: () {
-                                Navigator.of(dialogContext).pop();
-                              },
+                              onPressed: () => Navigator.of(dialogContext).pop(),
                             ),
                             TextButton(
                               child: const Text('삭제', style: TextStyle(color: Colors.red)),
                               onPressed: () async {
-                                // TODO: 삭제 로직 구현
-                                // 예: await context.read<HistoryViewModel>().deleteRecord(record.id);
-                                // 이후 setState 또는 재조회
-                                // print('기록 ID ${record.id} 삭제 요청');
+                                // TODO: 삭제 로직
                                 Navigator.of(dialogContext).pop();
                               },
                             ),
@@ -415,14 +393,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withOpacity(0.06),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.delete_outline, size: 24, color: subtitleColor),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
@@ -454,7 +432,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  // ✅ 응답 완료 요약 텍스트(위쪽 코드 유지)
+  // ✅ 응답 완료 요약 텍스트
   String _getSummaryResult(HistoryRecord record) {
     final m1 = record.model1InferenceResult ?? {};
     final m2 = record.model2InferenceResult ?? {};
@@ -488,7 +466,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 }
 
-// ⬇⬇⬇ 인증 썸네일 위젯(아래쪽 코드 이식)
+// -----------------------------
+// 인증 썸네일 위젯
+// -----------------------------
 class _AuthThumb extends StatefulWidget {
   final String url;      // 절대 URL (imageBaseUrl + path)
   final String baseUrl;  // api base
@@ -569,6 +549,98 @@ class _AuthThumbState extends State<_AuthThumb> {
           : (_bytes != null
               ? Image.memory(_bytes!, fit: BoxFit.cover)
               : const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
+    );
+  }
+}
+
+// -----------------------------
+// 눌림 애니메이션 카드 (라운드 모양과 클릭 범위 일치)
+// -----------------------------
+class PressableCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry margin;
+  final EdgeInsetsGeometry padding;
+  final BorderRadiusGeometry borderRadius;
+  final Color background;
+
+  const PressableCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    this.padding = const EdgeInsets.all(16),
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
+    this.background = cardColor,
+  });
+
+  @override
+  State<PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<PressableCard> {
+  bool _pressed = false;
+  bool _hovered = false;
+
+  void _setPressed(bool v) => setState(() => _pressed = v);
+  void _setHovered(bool v) => setState(() => _hovered = v);
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.borderRadius as BorderRadius? ?? BorderRadius.circular(16);
+
+    // 바깥에서만 그림자 (여긴 히트테스트 없음)
+    final shadow = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: [
+          // 아래쪽 부드러운 그림자
+          BoxShadow(
+            color: const Color(0x2A000000),
+            blurRadius: _pressed ? 10 : (_hovered ? 20 : 16),
+            spreadRadius: _pressed ? 0.5 : 1.2,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: _innerMaterial(r),
+    );
+
+    return Padding(
+      padding: widget.margin,
+      child: shadow,
+    );
+  }
+
+  // 실제 클릭 가능한 재질 레이어
+  Widget _innerMaterial(BorderRadius r) {
+    final shape = RoundedRectangleBorder(borderRadius: r);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      transform: Matrix4.identity()
+        ..translate(0.0, _pressed ? 2.0 : 0.0)
+        ..scale(_pressed ? 0.985 : 1.0, _pressed ? 0.985 : 1.0),
+      child: Material(
+        color: widget.background,
+        elevation: 0, // 그림자는 바깥 컨테이너에서 처리
+        shape: shape,
+        clipBehavior: Clip.antiAlias, // ✅ 코너/리플 완전 클립
+        child: InkWell(
+          // ✅ 둥근 모양에 맞춘 클릭/리플/히트테스트
+          customBorder: shape,
+          onTap: widget.onTap,
+          onHighlightChanged: (v) => _setPressed(v),
+          onHover: (v) => _setHovered(v),
+          child: Padding(
+            padding: widget.padding,
+            child: widget.child,
+          ),
+        ),
+      ),
     );
   }
 }
