@@ -132,11 +132,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
                   child: Form(
                     key: _formKey,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -153,16 +154,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ],
                       ),
+                      // 🔧 핵심: 내부도 Column만 두지 말고, 필요시 또 스크롤 가능
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // 프로필 아바타 + 이름 라벨
                           Row(
                             children: [
-                              CircleAvatar(
+                              const CircleAvatar(
                                 radius: 24,
                                 backgroundColor: bg,
-                                child: const Icon(Icons.person, size: 28, color: Colors.black54),
+                                child: Icon(Icons.person, size: 28, color: Colors.black54),
                               ),
                               const SizedBox(width: 12),
                               const Text('내 정보', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -237,12 +239,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 backgroundColor: primary,
                                 foregroundColor: Colors.white,
                                 disabledBackgroundColor: primary.withOpacity(0.5),
-                                disabledForegroundColor: Colors.white70, 
+                                disabledForegroundColor: Colors.white70,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                               child: _saving
                                   ? const SizedBox(
-                                      width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+                                      width: 22, height: 22,
+                                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                                    )
                                   : const Text('저장', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                             ),
                           ),
@@ -339,10 +343,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildGenderButtons() {
-    const selectedColor = Color(0xFF3F8CD4);
+    const maleColor = Color(0xFF3F8CD4);
+    const femaleColor = Color(0xFFE53935);
     const unselectedBg = Color(0xFFE9EDF3);
 
-    Widget genderChip(String label, String value) {
+
+    Widget genderChip(String label, String value, Color activeColor) {
       final selected = _selectedGender == value;
       return Expanded(
         child: InkWell(
@@ -351,7 +357,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: selected ? selectedColor : unselectedBg,
+              color: selected ? activeColor : unselectedBg,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -376,9 +382,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return Row(
       children: [
-        genderChip('남', 'M'),
+        genderChip('남', 'M',maleColor),
         const SizedBox(width: 12),
-        genderChip('여', 'F'),
+        genderChip('여', 'F',femaleColor),
       ],
     );
   }
@@ -419,3 +425,4 @@ class _PhoneNumberFormatter extends TextInputFormatter {
     );
   }
 }
+

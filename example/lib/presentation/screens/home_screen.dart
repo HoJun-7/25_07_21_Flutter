@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -105,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           body: Stack(
             children: [
-              // 배경
+              // 배경 그라데이션
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -116,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // 본문
+              // 본문 (항상 스크롤)
               SafeArea(
                 child: Center(
                   child: ConstrainedBox(
@@ -125,58 +126,37 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, constraints) {
                         final dpr = MediaQuery.of(context).devicePixelRatio;
 
-                        // 하단 네비/제스처 영역 감안 (프로젝트 상황에 맞게 조정 가능)
-                        final double reservedBottom = kIsWeb ? 0 : 76;
+                        // 패딩/영역 계산
                         final double paddingH = 16;
                         final double topSpacer = kToolbarHeight + 8;
 
                         final double maxW = constraints.maxWidth - paddingH * 2;
-                        final double maxH = constraints.maxHeight - reservedBottom - 12;
+                        final double maxH = constraints.maxHeight; // 정보용 (스크롤 구조)
 
-                        // 헤더 영역 스케일
-                        const double headerBase = 250;
-                        final double headerH = (maxH * 0.34).clamp(180, headerBase);
+                        // 헤더 스케일 계산(높이는 고정하지 않음)
+                        final double headerBase = 250;
+                        final double headerH = math.max(140, maxH * 0.34);
+                        final double headerScale = (headerH / headerBase).clamp(0.75, 1.0);
+                        final double logoSize = (150 * headerScale).clamp(110, 150);
+                        final double titleSize = (28 * headerScale).clamp(20, 28);
 
-                        // ── 버튼을 "자연스러운" 정사각형 비율로 맞추되,
-                        //    화면이 작으면 비율을 자동 조정해서 2행이 정확히 들어가도록 계산
+                        // Grid 타일 계산
                         const int crossCount = 2;
                         final double crossSpacing = 14;
                         final double mainSpacing = 14;
 
                         final double tileW = (maxW - crossSpacing) / crossCount;
                         const double naturalAspect = 1.05; // 살짝 가로가 긴 정사각형 느낌
-                        final double desiredGridH = 2 * (tileW / naturalAspect) + mainSpacing;
 
-                        // 화면이 충분한지(자연 비율 기준 총 필요 높이) 판단
-                        final double totalNeededH = topSpacer + headerH + desiredGridH;
-                        final bool fits = totalNeededH <= maxH;
-
-                        // 부족할 때 비율/높이 보정 값
-                        final double gridMaxH = (maxH - headerH - topSpacer).clamp(140, maxH);
-
-                        double gridH;
-                        double effectiveAspect;
-                        if (desiredGridH <= gridMaxH) {
-                          gridH = desiredGridH;
-                          effectiveAspect = naturalAspect;
-                        } else {
-                          gridH = gridMaxH;
-                          final double tileHToFit = (gridH - mainSpacing) / 2;
-                          effectiveAspect = tileW / tileHToFit;
-                        }
-
-                        // 로고/타이틀 스케일
-                        final double headerScale = (headerH / headerBase).clamp(0.75, 1.0);
-                        final double logoSize = (150 * headerScale).clamp(110, 150);
-                        final double titleSize = (28 * headerScale).clamp(20, 28);
-
-                        // 타일 내부 요소 스케일
+                        // 아이콘/텍스트 스케일
                         final double iconSize = (tileW * 0.34).clamp(48, 66);
                         final double fontSize = (tileW * 0.13).clamp(14, 18);
 
-                        Widget header = SizedBox(
-                          height: headerH,
+                        // ✅ 헤더: 고정 높이(SizedBox(height: ...)) 제거 → 자연 높이 + 스크롤 포함
+                        Widget header = Padding(
+                          padding: EdgeInsets.only(bottom: 12 * headerScale),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
@@ -209,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
 
-                        // 타일 4개 공통
+                        // 타일 4개
                         List<Widget> gridChildren = [
                           _buildIconCardButton(
                             context,
@@ -256,46 +236,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ];
 
-                        // 레이아웃 분기: fits면 고정, 아니면 스크롤 모드
-                        return Padding(
-                          padding: EdgeInsets.fromLTRB(paddingH, topSpacer, paddingH, 0),
-                          child: fits
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    header,
-                                    SizedBox(
-                                      height: gridH,
-                                      child: GridView.count(
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        crossAxisCount: crossCount,
-                                        crossAxisSpacing: crossSpacing,
-                                        mainAxisSpacing: mainSpacing,
-                                        childAspectRatio: effectiveAspect,
-                                        children: gridChildren,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : SingleChildScrollView(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      header,
-                                      // 스크롤 모드에서는 고정 높이 제거 + shrinkWrap
-                                      GridView.count(
-                                        shrinkWrap: true,
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        crossAxisCount: crossCount,
-                                        crossAxisSpacing: crossSpacing,
-                                        mainAxisSpacing: mainSpacing,
-                                        childAspectRatio: effectiveAspect,
-                                        children: gridChildren,
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                  ),
+                        // ✅ 항상 스크롤: 부모 SingleChildScrollView, 내부 GridView는 shrinkWrap + 비스크롤
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(paddingH, topSpacer, paddingH, 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                header, // ← 자연 높이로 스크롤에 포함
+                                GridView.count(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  crossAxisCount: crossCount,
+                                  crossAxisSpacing: crossSpacing,
+                                  mainAxisSpacing: mainSpacing,
+                                  childAspectRatio: naturalAspect,
+                                  children: gridChildren,
                                 ),
+                              ],
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -366,20 +327,36 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(22),
         child: Padding(
           padding: const EdgeInsets.all(14.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: iconSize, color: iconColor),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: textColor),
+          // ▼▼▼ 오버플로우 방지: 내용 자동 축소 + 말줄임 ▼▼▼
+          child: FittedBox(
+            fit: BoxFit.scaleDown, // 카드가 작아지면 내부를 축소
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 80, maxWidth: 160),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // 불필요 높이 차지 방지
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: iconSize, color: iconColor),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
+          // ▲▲▲ 오버플로우 방지 ▲▲▲
         ),
       ),
     );
   }
 }
+
