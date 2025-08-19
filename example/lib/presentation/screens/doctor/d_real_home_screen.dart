@@ -504,18 +504,22 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           const Text("읽지 않은 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           Expanded(
-            child: ListView.builder(
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  leading: const Icon(Icons.warning, color: Colors.red),
-                  title: Text("위험 알림 ${index + 1}"),
-                  subtitle: const Text("상세 내용 표시"),
-                  dense: true,
-                );
-              },
-            ),
-          ),
+  child: ListView.builder(
+    itemCount: 5,
+    itemBuilder: (context, index) {
+      return ListTile(
+        leading: const Icon(Icons.warning, color: Colors.red),
+        title: Text("위험 알림 ${index + 1}"),
+        subtitle: const Text("상세 내용 표시"),
+        dense: true,
+        onTap: () {
+          context.push('/d_telemedicine_application', extra: {'initialTab': 1});
+        },
+      );
+    },
+  ),
+),
+  
           const SizedBox(height: 16),
           _buildCalendar(),
         ],
