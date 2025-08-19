@@ -161,6 +161,19 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
 
+    final List<String> model2DetectedLabels =
+        (model2?['detected_labels'] as List? ?? [])
+            .whereType<String>()
+            .map((e) => e.trim())
+            .toList();
+    
+    // ✅ 추가된 부분: model1에서 label만 추출
+    final List<String> model1DetectedLabels = 
+        (model1?['detected_labels'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map((e) => (e['label'] as String).trim())
+            .toList();
+
     try {
       final response = await http.post(
         Uri.parse('${widget.baseUrl}/multimodal_gemini'),
@@ -171,9 +184,10 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         body: jsonEncode({
           'image_url': widget.originalImageUrl,
           'inference_result_id': widget.inferenceResultId,
-          'model1Label': model1?['label'] ?? '감지되지 않음',
+          // ✅ 수정된 부분: model1Label 대신 model1DetectedLabels를 사용
+          'model1Labels': model1DetectedLabels,
           'model1Confidence': model1?['confidence'] ?? 0.0,
-          'model2Label': model2?['label'] ?? '감지되지 않음',
+          'model2Labels': model2DetectedLabels,
           'model2Confidence': model2?['confidence'] ?? 0.0,
           'model3ToothNumber': model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
           'model3Confidence': model3?['confidence'] ?? 0.0,
@@ -212,7 +226,10 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final model1 = widget.modelInfos[1];
     final model2 = widget.modelInfos[2];
     final model3 = widget.modelInfos[3];
+    
+    // ✅ 수정된 부분: model1DetectedLabels를 객체 리스트로 받음
     final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
+
     final List<String> model2DetectedLabels =
         (model2?['detected_labels'] as List? ?? [])
             .map((e) => e.toString().trim())
@@ -308,10 +325,10 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),// 250814 변경
+            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            _buildStyledToggle('질병', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),// 250814 변경
-            _buildStyledToggle('위생', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),// 250814 변경
+            _buildStyledToggle('질병', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+            _buildStyledToggle('위생', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
             _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
           ],
         ),
@@ -330,47 +347,43 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   }
 
   final Map<String, Color> diseaseColorMap = {
-    '충치 초기': const Color.fromARGB(255, 255, 255,   0), // 노랑
-    '충치 중기': const Color.fromARGB(255, 255, 165,   0), // 주황
-    '충치 말기': const Color.fromARGB(255, 255,   0,   0), // 빨강
-
-    '잇몸 염증 초기': const Color.fromARGB(255, 255,   0, 255), // 마젠타
-    '잇몸 염증 중기': const Color.fromARGB(255, 165,   0, 255), // 보라빛
-    '잇몸 염증 말기': const Color.fromARGB(255,   0,   0, 255), // 파랑
-
-    '치주질환 초기': const Color.fromARGB(255,   0, 255, 255), // 시안
-    '치주질환 중기': const Color.fromARGB(255,   0, 255, 165), // 연두빛
-    '치주질환 말기': const Color.fromARGB(255,   0, 255,   0), // 초록
+    '충치 초기': const Color.fromARGB(255, 255, 255, 0), // 노랑
+    '충치 중기': const Color.fromARGB(255, 255, 165, 0), // 주황
+    '충치 말기': const Color.fromARGB(255, 255, 0, 0), // 빨강
+    '잇몸 염증 초기': const Color.fromARGB(255, 255, 0, 255), // 마젠타
+    '잇몸 염증 중기': const Color.fromARGB(255, 165, 0, 255), // 보라빛
+    '잇몸 염증 말기': const Color.fromARGB(255, 0, 0, 255), // 파랑
+    '치주질환 초기': const Color.fromARGB(255, 0, 255, 255), // 시안
+    '치주질환 중기': const Color.fromARGB(255, 0, 255, 165), // 연두빛
+    '치주질환 말기': const Color.fromARGB(255, 0, 255, 0), // 초록
   };
 
+  // hygieneColorMap: 백엔드 YOLO_CLASS_MAP과 동일한 키로 통일
   final Map<String, Color> hygieneColorMap = {
-    // 교정장치
-    "교정장치": const Color.fromARGB(255, 138,  43, 226), // 보라
-
-    // 금니 (골드 크라운) = 실버/회색
+    "교정장치": const Color.fromARGB(255, 138, 43, 226),
     "금니 (골드 크라운)": const Color.fromARGB(255, 192, 192, 192),
-    "금니 (골드크라운)":  const Color.fromARGB(255, 192, 192, 192), // 표기 변형 대비
-
-    // 은니 (메탈 크라운) = 골드
-    "은니 (메탈 크라운)": const Color.fromARGB(255, 255, 215,   0),
-    "은니 (메탈크라운)":  const Color.fromARGB(255, 255, 215,   0),
-
-    // 세라믹 = 검정
+    "은니 (메탈 크라운)": const Color.fromARGB(255, 255, 215, 0),
     "도자기소재 치아 덮개(세라믹 크라운)": const Color.fromARGB(255, 0, 0, 0),
-    "세라믹":                                   const Color.fromARGB(255, 0, 0, 0),
-
-    // 아말감 = 파랑
     "아말감 충전재": const Color.fromARGB(255, 0, 0, 255),
-
-    // 지르코니아 = 초록
     "도자기소재 치아 덮개(지르코니아 크라운)": const Color.fromARGB(255, 0, 255, 0),
-    "지르코니아":                                 const Color.fromARGB(255, 0, 255, 0),
-
-    // 치석 단계
-    "치석 1 단계": const Color.fromARGB(255, 255, 255,   0), // 노랑
-    "치석 2 단계": const Color.fromARGB(255, 255, 165,   0), // 주황
-    "치석 3 단계": const Color.fromARGB(255, 255,   0,   0), // 빨강
+    "치석 1 단계": const Color.fromARGB(255, 255, 255, 0),
+    "치석 2 단계": const Color.fromARGB(255, 255, 165, 0),
+    "치석 3 단계": const Color.fromARGB(255, 255, 0, 0),
   };
+
+  String _normalizeHygiene(String raw) {
+    final s = raw.trim().toLowerCase();
+    if (s.contains('골드') || s.contains('gcr')) return '금니 (골드 크라운)';
+    if (s.contains('메탈') || s.contains('mcr')) return '은니 (메탈 크라운)';
+    if (s.contains('세라믹') || s.contains('ccr')) return '도자기소재 치아 덮개(세라믹 크라운)';
+    if (s.contains('아말감')) return '아말감 충전재';
+    if (s.contains('지르코니아')) return '도자기소재 치아 덮개(지르코니아 크라운)';
+    if (s.contains('치석') && s.contains('1')) return '치석 1 단계';
+    if (s.contains('치석') && s.contains('2')) return '치석 2 단계';
+    if (s.contains('치석') && s.contains('3')) return '치석 3 단계';
+    if (s.contains('교정')) return '교정장치';
+    return raw.trim();
+  }
 
   Widget _buildSummaryCard({
     required List<dynamic> model1DetectedLabels,
@@ -381,20 +394,22 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     required double model3Confidence,
     required TextTheme textTheme,
   }) {
-    // ✅ 질병 라벨(중복 포함) → 집계용 리스트
+    // ✅ 수정된 부분: model1DetectedLabels에서 'label' 값을 추출하여 집계용 리스트 생성
     final List<String> diseaseLabels = _showDisease
-        ? model1DetectedLabels.whereType<String>().toList()
+        ? (model1DetectedLabels as List<dynamic>)
+            .whereType<Map<String, dynamic>>()
+            .map((item) => item['label'] as String)
+            .toList()
         : <String>[];
-
-    // ✅ 위생 라벨(기존처럼 유니크만 표시)
+        
     final List<String> hygieneLabels = _showHygiene
         ? (model2DetectedLabels.whereType<String>())
-            .where((l) => hygieneColorMap.containsKey(l)) // ← 여기!
+            .map(_normalizeHygiene)
+            .where((l) => hygieneColorMap.containsKey(l))
             .toSet()
             .toList()
         : <String>[];
 
-    // ✅ 질병 라벨 집계 (첫 등장 순서 보존)
     final Map<String, int> diseaseCounts = <String, int>{};
     final Map<String, int> firstSeenIndex = <String, int>{};
     for (var i = 0; i < diseaseLabels.length; i++) {
@@ -415,7 +430,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✅ 질병: “충치 초기 2건” 처럼 집계해서 표시
           if (diseaseEntries.isNotEmpty) ...[
             const Text('질병', style: TextStyle(fontWeight: FontWeight.w600)),
             ...diseaseEntries.map((e) {
@@ -440,7 +454,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             }).toList(),
             const SizedBox(height: 8),
           ],
-          // ✅ 위생: 기존처럼 유니크 리스트만 표시(원하면 여기도 집계로 바꿀 수 있음)
           if (_showHygiene) ...[
             const Text('치석/크라운/충전재', style: TextStyle(fontWeight: FontWeight.w600)),
             if (hygieneLabels.isNotEmpty)
