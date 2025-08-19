@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '/presentation/screens/doctor/d_real_home_screen.dart';
 import '/presentation/screens/doctor/d_telemedicine_application_screen.dart';
 import '/presentation/screens/doctor/d_result_detail_screen.dart';
+import '/presentation/screens/doctor/d_xray_result_detail_screen.dart';
 import '/presentation/screens/doctor/d_calendar_screen.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 import '/presentation/screens/main_scaffold.dart';
@@ -16,9 +17,9 @@ import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
-import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/upload_xray_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
-import '/presentation/screens/history_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/history_xray_result_detail_screen.dart';
 import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
@@ -36,11 +37,12 @@ import '/presentation/screens/find_password_result.dart';
 import '/presentation/screens/dental_viewer_screen.dart';
 import '/presentation/screens/agreement_screen.dart';
 
-
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/viewmodel/find_id_viewmodel.dart';
+// ✅ 추가: 의사용 히스토리 뷰모델 (Provider 주입용)
+import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 
 GoRouter createRouter(String baseUrl) {
   return GoRouter(
@@ -76,7 +78,7 @@ GoRouter createRouter(String baseUrl) {
         path: '/find_password',
         builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
-            GoRoute(
+      GoRoute(
         path: '/find-password-result',
         builder: (context, state) => const FindPasswordResultScreen(),
       ),
@@ -85,7 +87,9 @@ GoRouter createRouter(String baseUrl) {
         builder: (context, state) => const WebPlaceholderScreen(),
       ),
 
+      // ───────────────────────────────────
       // Doctor Shell
+      // ───────────────────────────────────
       ShellRoute(
         builder: (context, state, child) => child,
         routes: [
@@ -105,9 +109,13 @@ GoRouter createRouter(String baseUrl) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
               final initialTab = extra['initialTab'] as int? ?? 0;
-              return DTelemedicineApplicationScreen(
-                baseUrl: passedBaseUrl,
-                initialTab: initialTab,
+
+              return ChangeNotifierProvider(
+                create: (_) => DoctorHistoryViewModel(baseUrl: passedBaseUrl),
+                child: DTelemedicineApplicationScreen(
+                  baseUrl: passedBaseUrl,
+                  initialTab: initialTab,
+                ),
               );
             },
           ),
@@ -126,7 +134,6 @@ GoRouter createRouter(String baseUrl) {
             path: '/d_calendar',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              // ⬇️ 이제 여기서는 화면만 리턴(Scaffold 제거)
               return DCalendarScreen(baseUrl: passedBaseUrl);
             },
           ),
@@ -141,27 +148,36 @@ GoRouter createRouter(String baseUrl) {
               );
             },
           ),
+
+          // ✅ 일반 사진 상세(상세 화면에서 서버 재조회)
           GoRoute(
-            path: '/d_result_detail', // ✅ 이름 없이 path만 사용
+            path: '/d_result_detail',
             builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-
-              if (extra == null ||
-                  !extra.containsKey('userId') ||
-                  !extra.containsKey('imagePath') ||
-                  !extra.containsKey('baseUrl')) {
-                return const Scaffold(
-                  body: Center(child: Text('잘못된 접근입니다')),
-                );
-              }
-
+              final extra = state.extra as Map;
               return DResultDetailScreen(
                 userId: extra['userId'] as String,
-                originalImageUrl: extra['imagePath'] as String,
+                originalImageUrl: extra['originalImageUrl'] as String,
                 baseUrl: extra['baseUrl'] as String,
+                requestId: extra['requestId'] as int?, // optional
               );
             },
           ),
+
+          // ✅ X-ray 상세(동일 컨셉: 화면 내부에서 재조회)
+          GoRoute(
+            path: '/d_xray_result_detail',
+            builder: (context, state) {
+              final extra = state.extra as Map;
+              return DXrayResultDetailScreen(
+                userId: extra['userId'] as String,
+                originalImageUrl: extra['originalImageUrl'] as String,
+                baseUrl: extra['baseUrl'] as String,
+                requestId: extra['requestId'] as int?, // optional
+              );
+            },
+          ),
+
+          // 같은 화면으로 들어오는 다른 경로도 Provider 주입 동일 적용
           GoRoute(
             path: '/d_telemedicine_application',
             builder: (context, state) {
@@ -169,31 +185,34 @@ GoRouter createRouter(String baseUrl) {
               final initialTab = extra['initialTab'] as int? ?? 0;
               final passedBaseUrl = extra['baseUrl'] as String? ?? baseUrl;
 
-              return DTelemedicineApplicationScreen(
-                baseUrl: passedBaseUrl,
-                initialTab: initialTab,
+              return ChangeNotifierProvider(
+                create: (_) => DoctorHistoryViewModel(baseUrl: passedBaseUrl),
+                child: DTelemedicineApplicationScreen(
+                  baseUrl: passedBaseUrl,
+                  initialTab: initialTab,
+                ),
               );
             },
           ),
         ],
       ),
 
+      // ───────────────────────────────────
       // User Shell
+      // ───────────────────────────────────
       ShellRoute(
         builder: (context, state, child) => MainScaffold(
           child: child,
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot', 
-          builder: (context, state) => const ChatbotScreen()
-          ),
+          GoRoute(path: '/chatbot', builder: (context, state) => const ChatbotScreen()),
           GoRoute(
             path: '/multimodal_result',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
               final responseText = extra?['responseText'] ?? '응답이 없습니다.';
-              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
+              return MultimodalResponseScreen(responseText: responseText);
             },
           ),
           GoRoute(
@@ -207,9 +226,8 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/dental_viewer',
             builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?; 
-              final glbUrl = extra?['glbUrl'] 
-                  ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
+              final extra = state.extra as Map<String, dynamic>?;
+              final glbUrl = extra?['glbUrl'] ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
               return DentalViewerScreen(glbUrl: glbUrl);
             },
           ),
@@ -220,14 +238,8 @@ GoRouter createRouter(String baseUrl) {
               return MyPageScreen(baseUrl: passedBaseUrl);
             },
           ),
-          GoRoute(
-            path: '/reauth',
-            builder: (context, state) => const ReauthScreen(),
-          ),
-          GoRoute(
-            path: '/edit-profile',
-            builder: (context, state) => const EditProfileScreen(),
-          ),
+          GoRoute(path: '/reauth', builder: (context, state) => const ReauthScreen()),
+          GoRoute(path: '/edit-profile', builder: (context, state) => const EditProfileScreen()),
           GoRoute(
             path: '/edit_profile_result',
             builder: (context, state) {
@@ -250,11 +262,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final baseUrl = extra['baseUrl'] as String? ?? '';
-
-              // 중요: dynamic으로 안전 캐스팅
-              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>()
-                            ?? const <String, dynamic>{};
-
+              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
               return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
@@ -358,7 +366,6 @@ GoRouter createRouter(String baseUrl) {
                 (key, value) => MapEntry(int.parse(key.toString()), Map<String, dynamic>.from(value)),
               );
 
-              // ✅ 문자열로 명확히 변환
               final String isRequested = (extra['isRequested'] ?? 'N').toString();
               final String isReplied = (extra['isReplied'] ?? 'N').toString();
 

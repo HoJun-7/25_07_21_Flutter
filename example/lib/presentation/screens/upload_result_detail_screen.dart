@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // ✅ 추가
 
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/user.dart';
@@ -502,29 +503,102 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     );
   }
 
-  final Map<String, String> diseaseLabelMap = {
-    "충치 초기": "🔴",
-    "충치 중기": "🟡",
-    "충치 말기": "🟠",
-    "잇몸 염증 초기": "🔵",
-    "잇몸 염증 중기": "🟢",
-    "잇몸 염증 말기": "⚪",
-    "치주질환 초기": "⚫",
-    "치주질환 중기": "🟩",
-    "치주질환 말기": "🟣",
+  // =========================
+  // 🎨 팔레트 기반 색상 렌더링
+  // =========================
+
+  // 질환(충치/염증/치주) 폴백 HEX (백엔드 disease PALETTE 기준)
+  static const Map<String, String> _kDiseaseHexFallback = {
+    // 충치: 초기=노랑 → 중기=주황 → 말기=빨강
+    "충치 초기": "#FFFF00",   // 노랑
+    "충치 중기": "#FFA500",   // 주황
+    "충치 말기": "#FF0000",   // 빨강
+
+    // 잇몸 염증
+    "잇몸 염증 초기": "#90CAF9",
+    "잇몸 염증 중기": "#1E88E5",
+    "잇몸 염증 말기": "#0D47A1",
+
+    // 치주질환
+    "치주질환 초기": "#B2FF9E",
+    "치주질환 중기": "#66BB6A",
+    "치주질환 말기": "#1B5E20",
   };
 
-  final Map<String, String> hygieneLabelMap = {
-    "교정장치 (ortho)": "🔴",
-    "골드 (gcr)": "🟣",
-    "메탈크라운 (mcr)": "🟡",
-    "세라믹 (cecr)": "⚪",
-    "아말감 (am)": "⚫",
-    "지르코니아 (zircr)": "🟢",
-    "치석 단계1 (tar1)": "🟠",
-    "치석 단계2 (tar2)": "🔵",
-    "치석 단계3 (tar3)": "🟤",
+  // 보철/치석 폴백 HEX (사용자 지정 새 팔레트)
+  static const Map<String, String> _kHygieneHexFallback = {
+    "교정장치 (ortho)": "#1E1E1E", // 다크 그레이
+    "골드 (gcr)": "#FFD700",      // 골드
+    "메탈크라운 (mcr)": "#A9A9A9", // 메탈
+    "세라믹 (cecr)": "#F5F5F5",   // 화이트 스모크
+    "아말감 (am)": "#C0C0C0",     // 실버
+    "지르코니아 (zircr)": "#DC143C", // 크림슨 레드
+    // 치석: 연한 노랑 → 진한 노랑/오렌지 → 황갈색
+    "치석 단계1 (tar1)": "#FFFF99",
+    "치석 단계2 (tar2)": "#FFCC00",
+    "치석 단계3 (tar3)": "#CC9900",
   };
+
+  Color _hexToColor(String hex) {
+    var v = hex.replaceAll('#', '');
+    if (v.length == 6) v = 'FF$v';
+    return Color(int.parse(v, radix: 16));
+    // 서버에서 A를 함께 보낸다면 그대로 사용하도록 확장 가능
+  }
+
+  Color? _colorFromServerPalette(Map<String, dynamic>? palette, String label) {
+    if (palette == null) return null;
+    final value = palette[label];
+    if (value is String && value.startsWith('#')) {
+      return _hexToColor(value);
+    }
+    return null;
+  }
+
+  // model1 질환 라벨 정규화 (String/Map 혼재 대응)
+  List<String> _normalizeDiseaseLabels(List<dynamic> raw) {
+    return raw.map((e) {
+      if (e is String) return e.trim();
+      if (e is Map) {
+        final v = e['class_name'] ?? e['label'];
+        return v == null ? '' : v.toString().trim();
+      }
+      return '';
+    }).where((s) => s.isNotEmpty).toList();
+  }
+
+  Color _colorForDiseaseLabel(String label) {
+    final Map<String, dynamic>? serverPal = widget.modelInfos[1]?['palette']; // model1 팔레트
+    final fromServer = _colorFromServerPalette(serverPal, label);
+    if (fromServer != null) return fromServer;
+    final hex = _kDiseaseHexFallback[label] ?? "#999999";
+    return _hexToColor(hex);
+  }
+
+  Color _colorForHygieneLabel(String label) {
+    final Map<String, dynamic>? serverPal = widget.modelInfos[2]?['palette']; // model2 팔레트
+    final fromServer = _colorFromServerPalette(serverPal, label);
+    if (fromServer != null) return fromServer;
+    final hex = _kHygieneHexFallback[label] ?? "#999999";
+    return _hexToColor(hex);
+  }
+
+  Widget _labelRow(String label, Color color, TextStyle? style) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: style)),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSummaryCard({
     required List<dynamic> model1DetectedLabels,
@@ -535,14 +609,15 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     required double model3Confidence,
     required TextTheme textTheme,
   }) {
-    final filteredDiseaseLabels = _showDisease ? model1DetectedLabels : <dynamic>[];
-    final List<String> hygieneLabels = _showHygiene
-        ? model2DetectedLabels
-            .whereType<String>()
-            .where((l) => hygieneLabelMap.containsKey(l))
-            .toSet()
-            .toList()
+    final List<String> diseaseLabels = _showDisease
+        ? _normalizeDiseaseLabels(model1DetectedLabels).toSet().toList()
         : <String>[];
+
+    final List<String> hygieneLabels = _showHygiene
+        ? model2DetectedLabels.whereType<String>().toSet().toList()
+        : <String>[];
+
+    final bold = textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold);
 
     return Container(
       decoration: BoxDecoration(
@@ -556,35 +631,42 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         children: [
           const Text('진단 요약', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          if (filteredDiseaseLabels.isNotEmpty) ...[
+
+          // 🔹 질환
+          if (_showDisease) ...[
             const Text('충치/잇몸 염증/치주질환', style: TextStyle(fontWeight: FontWeight.w600)),
-            ...filteredDiseaseLabels.map((label) {
-              final icon = diseaseLabelMap[label] ?? "❓";
-              return Text("$icon : $label", style: textTheme.bodyMedium);
-            }),
-            const SizedBox(height: 8),
-          ],
-          if (_showHygiene) ...[
-            const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
-            if (hygieneLabels.isNotEmpty)
-              ...hygieneLabels.map((l) => Text("${hygieneLabelMap[l]} : $l", style: textTheme.bodyMedium))
+            if (diseaseLabels.isNotEmpty)
+              ...diseaseLabels.map((label) => _labelRow(label, _colorForDiseaseLabel(label), bold))
             else
               Text('감지되지 않음', style: textTheme.bodyMedium),
             const SizedBox(height: 8),
           ],
+
+          // 🔹 보철/치석
+          if (_showHygiene) ...[
+            const Text('치석/보철물', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (hygieneLabels.isNotEmpty)
+              ...hygieneLabels.map((label) => _labelRow(label, _colorForHygieneLabel(label), bold))
+            else
+              Text('감지되지 않음', style: textTheme.bodyMedium),
+            const SizedBox(height: 8),
+          ],
+
+          // 🔹 치아번호
           if (_showToothNumber && model3ToothNumber != 'Unknown') ...[
             const Text('치아번호', style: TextStyle(fontWeight: FontWeight.w600)),
             Text('FDI 번호: $model3ToothNumber', style: textTheme.bodyMedium),
             const SizedBox(height: 8),
           ],
-          if (filteredDiseaseLabels.isEmpty && hygieneLabels.isEmpty && model3ToothNumber == 'Unknown')
+
+          if (!_showDisease && !_showHygiene && model3ToothNumber == 'Unknown')
             Text('감지된 내용이 없습니다.', style: textTheme.bodyMedium),
         ],
       ),
     );
   }
 
-  // ✅ X-ray와 동일한 스타일의 AI 소견 카드
+  // ✅ X-ray와 동일한 스타일의 AI 소견 카드 (Markdown 렌더링)
   Widget _buildGeminiOpinionCard() {
     return Container(
       decoration: BoxDecoration(
@@ -609,12 +691,23 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            _isLoadingGemini
-                ? 'AI 소견을 불러오는 중입니다...'
-                : _geminiOpinion ?? 'AI 소견을 불러오지 못했습니다.',
-            style: const TextStyle(fontSize: 16, height: 1.5),
-          ),
+          if (_isLoadingGemini)
+            const Text('AI 소견을 불러오는 중입니다...', style: TextStyle(fontSize: 16, height: 1.5))
+          else
+            MarkdownBody(
+              data: _geminiOpinion ?? 'AI 소견을 불러오지 못했습니다.',
+              selectable: true, // 복사/드래그 가능
+              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                p: const TextStyle(fontSize: 16, height: 1.5),
+                strong: const TextStyle(fontSize: 16, height: 1.5, fontWeight: FontWeight.bold),
+                h1: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                listBullet: const TextStyle(fontSize: 16),
+              ),
+              onTapLink: (text, href, title) {
+                // 필요시 링크 처리
+              },
+            ),
         ],
       ),
     );
