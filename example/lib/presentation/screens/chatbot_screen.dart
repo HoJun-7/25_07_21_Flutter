@@ -53,7 +53,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   static const double profileImageSize = 40.0;
   static const double kWebMaxWidth = 600; // ⬅ 웹 고정 폭
 
-  // ✅ 알림 팝업 상태(홈/대시보드 패턴)
+  // ✅ 알림 팝업 상태
   bool _isNotificationPopupVisible = false;
   final List<String> _notifications = const [
     '새로운 진단 결과가 도착했습니다.',
@@ -156,20 +156,18 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   }
 
   // ✅ 면책사항(입력창 아래)
-  Widget _buildDisclaimerBottom({required bool compact}) {
+  Widget _buildDisclaimerBottom() {
     return Padding(
-      padding: const EdgeInsets.only(top: 6.0),
+      padding: const EdgeInsets.only(top: 8.0),
       child: Center(
         child: Text(
           '※ 본 챗봇은 참고용 정보만 제공하며, 정확한 진단은 의료 전문가와 상담하시기 바랍니다.',
           style: GoogleFonts.notoSansKr(
-            fontSize: compact ? 11.5 : 12.5,
+            fontSize: 12.5,
             color: _Palette.textSecondary,
-            height: 1.15,
+            height: 1.2,
           ),
           textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -233,6 +231,8 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         onTap: _closeNotificationPopup,
         child: Scaffold(
           backgroundColor: _Palette.surface,
+          // ✅ 키보드가 올라오면 본문을 줄여서 오버플로우 방지
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             flexibleSpace: Container(
               decoration: const BoxDecoration(
@@ -294,74 +294,15 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             ],
           ),
           // ✅ Stack: 본문(웹 폭 고정) + 알림 팝업 오버레이
-          body: Stack(
-            children: [
-              SafeArea(
-                child: kIsWeb
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
-                          child: _buildChatBody(messages, isLoading, imageContainerWidth),
-                        ),
-                      )
-                    : _buildChatBody(messages, isLoading, imageContainerWidth),
-              ),
-
-              // ✅ 알림 팝업 (상단-오른쪽)
-              if (_isNotificationPopupVisible)
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8, right: 12),
-                      child: Material(
-                        elevation: 8,
-                        borderRadius: BorderRadius.circular(12),
-                        color: _Palette.surface,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          child: Container(
-                            width: 280,
-                            padding: const EdgeInsets.all(12),
-                            child: _notifications.isEmpty
-                                ? const Text('알림이 없습니다.',
-                                    style: TextStyle(color: _Palette.textSecondary))
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: _notifications
-                                        .map(
-                                          (msg) => Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 6),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.notifications_active_outlined,
-                                                  color: _Palette.primaryLight,
-                                                  size: 20,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Text(
-                                                    msg,
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      color: _Palette.textPrimary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                          ),
-                        ),
-                      ),
+          body: SafeArea(
+            child: kIsWeb
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+                      child: _buildChatBody(messages, isLoading, imageContainerWidth),
                     ),
-                  ),
-                ),
-            ],
+                  )
+                : _buildChatBody(messages, isLoading, imageContainerWidth),
           ),
         ),
       ),
@@ -369,19 +310,46 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   }
 
   /// 본문(웹/모바일 공통) – 이미지 카드 폭은 [imageContainerWidth] 사용
+  ///
+  /// ✅ 핵심: 입력창+안내문구는 Stack의 하단에 "오버레이"로 고정.
+  ///    메시지 리스트에는 그 높이(+키보드 높이)만큼 하단 패딩을 줘서 겹침/오버플로우를 원천 차단.
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
     final media = MediaQuery.of(context);
-    final bool compact =
-        media.size.height < 560 || media.viewInsets.bottom > 0 || media.textScaler.scale(1) > 1.2;
 
-    return Column(
+    // 입력창·안내문구 예상 높이(기기별 편차 감안 여유 포함)
+    const double inputBarApprox = 60;    // TextField + 버튼
+    const double disclaimerApprox = 32;  // 안내문구 높이
+    const double spacing = 14;           // 입력창-안내문구-여백
+    final double overlayBase = inputBarApprox + disclaimerApprox + spacing;
+
+    // 키보드 높이까지 고려(키보드가 뜨면 오버레이는 위로 떠야 하므로)
+    final double keyboard = media.viewInsets.bottom;
+    final double listBottomPadding = overlayBase + keyboard + 12; // 여유 12
+
+    return Stack(
       children: [
-        Expanded(
+        // 1) 메시지 스크롤 영역
+        Positioned.fill(
           child: ListView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.only(top: 8),
-            itemCount: messages.length,
+            padding: EdgeInsets.only(top: 8, bottom: listBottomPadding),
+            itemCount: isLoading ? messages.length + 1 : messages.length,
             itemBuilder: (_, idx) {
+              if (idx == messages.length && isLoading) {
+                // 로딩 인디케이터를 리스트 맨 아래에 렌더링
+                return Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      _buildProfileAvatar(isUser: false),
+                      const SizedBox(width: 8),
+                      const Text('덴티가 생각 중이에요...',
+                          style: TextStyle(color: _Palette.textSecondary)),
+                    ],
+                  ),
+                );
+              }
+
               final msg = messages[idx];
               final bool isUser = msg.role == 'user';
 
@@ -419,8 +387,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                 isUser ? _Palette.bubbleUser : _Palette.bubbleBot,
                             borderColor:
                                 isUser ? _Palette.borderUser : _Palette.borderBot,
-                            textStyle:
-                                GoogleFonts.notoSansKr(fontSize: 15, color: _Palette.textPrimary),
+                            textStyle: GoogleFonts.notoSansKr(
+                              fontSize: 15,
+                              color: _Palette.textPrimary,
+                            ),
                           ),
                         ),
                         if (isUser) const SizedBox(width: 8),
@@ -552,142 +522,85 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             },
           ),
         ),
-        if (isLoading)
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                _buildProfileAvatar(isUser: false),
-                const SizedBox(width: 8),
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(seconds: 1),
-                  builder: (_, value, __) {
-                    final dots = '.' * ((value * 4).floor() % 4);
-                    return Text('덴티가 생각 중이에요$dots',
-                        style: GoogleFonts.notoSansKr(
-                            color: _Palette.textSecondary, fontSize: 15));
-                  },
-                  onEnd: () => setState(() {}),
-                ),
-              ],
-            ),
-          ),
 
-        // ✅ 입력창 + (바로 아래) 면책문구 — 오버플로우 방지
-        SafeArea(
-          child: Builder(builder: (context) {
-            // Composer 내부만 글자 확대 상한(서브픽셀 1~6px 넘침 방지)
-            final capped = media.copyWith(
-              textScaler: media.textScaler.clamp(
-                maxScaleFactor: compact ? 1.05 : 1.15,
-              ),
-            );
-
-            // 컴팩트 모드에서 더 낮은 높이 사용
-            final double minH = compact ? 50 : 54;
-            final double maxH = compact ? 76 : 96;
-            final double sendSize = compact ? 44 : 48;
-            final double iconSize = compact ? 22 : 24;
-            final double vPad = compact ? 9 : 12;
-            final double hintFs = compact ? 14.5 : 16;
-
-            return MediaQuery(
-              data: capped,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: minH, maxHeight: maxH),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+        // 2) 하단 고정: 입력창 + 안내문구 (오버레이)
+        Positioned(
+          left: 0,
+          right: 0,
+          // 키보드가 뜨면 viewInsets.bottom만큼 자동으로 위로 떠서 가리지 않음
+          bottom: media.viewInsets.bottom,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              minLines: 1,
-                              maxLines: compact ? 2 : 4,
-                              textInputAction: TextInputAction.newline,
-                              decoration: InputDecoration(
-                                hintText: '메시지를 작성해주세요',
-                                hintStyle: GoogleFonts.notoSansKr(
-                                  color: _Palette.textSecondary,
-                                  fontSize: hintFs,
-                                ),
-                                isDense: true,
-                                filled: true,
-                                fillColor: _Palette.fieldFill,
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: vPad,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: const BorderSide(
-                                    color: _Palette.fieldBorder,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: const BorderSide(
-                                    color: _Palette.fieldFocus,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              style: GoogleFonts.notoSansKr(
-                                fontSize: hintFs,
-                                color: _Palette.textPrimary,
-                              ),
-                              onSubmitted: (txt) {
-                                FocusScope.of(context).unfocus();
-                                _sendMessage(txt);
-                              },
-                            ),
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          decoration: InputDecoration(
+                            hintText: '메시지를 작성해주세요',
+                            hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
+                            filled: true,
+                            fillColor: _Palette.fieldFill,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide: BorderSide.none),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide:
+                                    const BorderSide(color: _Palette.fieldBorder, width: 1)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide:
+                                    const BorderSide(color: _Palette.fieldFocus, width: 2)),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: sendSize,
-                            height: sendSize,
-                            child: Material(
-                              color: _Palette.sendBtn,
-                              shape: const CircleBorder(),
-                              elevation: 0,
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () {
-                                  FocusScope.of(context).unfocus();
-                                  _sendMessage(_controller.text);
-                                },
-                                onTapDown: (_) => _sendBtnAnimCtr.forward(),
-                                onTapUp: (_) => _sendBtnAnimCtr.reverse(),
-                                onTapCancel: () => _sendBtnAnimCtr.reverse(),
-                                child: ScaleTransition(
-                                  scale: _sendBtnScale,
-                                  child: Icon(Icons.send, color: Colors.white, size: iconSize),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
+                          onSubmitted: (txt) {
+                            FocusScope.of(context).unfocus();
+                            _sendMessage(txt);
+                          },
+                        ),
                       ),
-                      _buildDisclaimerBottom(compact: compact),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                        onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                        onTapCancel: () => _sendBtnAnimCtr.reverse(),
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                          _sendMessage(_controller.text);
+                        },
+                        child: ScaleTransition(
+                          scale: _sendBtnScale,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _Palette.sendBtn,
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                                ]),
+                            padding: const EdgeInsets.all(12),
+                            child: const Icon(Icons.send, color: Colors.white, size: 24),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                  _buildDisclaimerBottom(), // ⬅ 입력창 바로 아래
+                ],
               ),
-            );
-          }),
+            ),
+          ),
         ),
       ],
     );
   }
 }
+
 
