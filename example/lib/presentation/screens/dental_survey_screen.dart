@@ -62,7 +62,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     '구강위생관리',
     '불소이용',
     '식습관',
-    // '기타',
   ];
 
   late final List<SurveyQuestion> questions;
@@ -194,43 +193,38 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+
+    // 하단 버튼 예상 높이(버튼 50 + 패딩 위아래 16 = 66)
+    const double footerBaseHeight = 66.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFA9C9F5),
+      // 키보드 올라오면 body 위로 줄이기
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('치과 문진', style: TextStyle(color: Colors.white)),
         centerTitle: true,
         backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
+
+      // 본문
       body: SafeArea(
         child: kIsWeb
             ? Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: _buildMainBody(),
+                  child: _buildMainBody(media, footerBaseHeight),
                 ),
               )
-            : _buildMainBody(),
+            : _buildMainBody(media, footerBaseHeight),
       ),
-    );
-  }
 
-  /// 본문(웹/모바일 공통)
-  Widget _buildMainBody() {
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: categories
-                .map((category) => _buildCategoryTile(
-                      category,
-                      categorizedQuestions[category] ?? const [],
-                    ))
-                .toList(),
-          ),
-        ),
-        Padding(
+      // ❗하단 버튼을 bottomNavigationBar로 이동 (Column 밖으로 분리)
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
             onPressed: _submitSurvey,
@@ -243,7 +237,28 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             child: const Text('다음 페이지로 이동', style: TextStyle(fontSize: 18)),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  /// 본문(웹/모바일 공통)
+  ///
+  /// 리스트에 하단 패딩 = (버튼영역 높이 + 여백) + 키보드 높이(viewInsets.bottom)
+  /// → 버튼/키보드와 겹치지 않게 항상 스크롤로 흡수
+  Widget _buildMainBody(MediaQueryData media, double footerBaseHeight) {
+    final double bottomSafePadding = footerBaseHeight + 12.0 + media.viewInsets.bottom;
+
+    return ListView(
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: bottomSafePadding, // 핵심
+      ),
+      children: categories
+          .map((category) => _buildCategoryTile(
+                category,
+                categorizedQuestions[category] ?? const [],
+              ))
+          .toList(),
     );
   }
 
@@ -615,8 +630,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         return Icons.water_drop_outlined;
       case '식습관':
         return Icons.restaurant_outlined;
-      // case '기타':
-      //   return Icons.notes_outlined;
       default:
         return Icons.category_outlined;
     }
