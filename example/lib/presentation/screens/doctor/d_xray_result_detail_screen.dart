@@ -13,7 +13,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class DXrayResultDetailScreen extends StatefulWidget {
   final String userId;
-  /// 상대 경로(ex: /images/original/....png) 또는 절대 URL도 허용
+  /// 상대 경로(ex: /images/original/....png) 또는 절대 URL도 허용 (입력은 뭐가 와도 내부에서 상대 경로로 통일)
   final String originalImageUrl;
   final String baseUrl;
   final int? requestId; // consult_request.id (선택)
@@ -75,11 +75,50 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
   String? _aiOpinion;
   bool _isLoadingOpinion = false;
 
+  // ─────────────────────────────
+  // 경로 유틸 (상대 경로로 통일)
+  // ─────────────────────────────
   String get _cleanBase => widget.baseUrl.replaceAll('/api', '');
-  bool get _isAbsolute => widget.originalImageUrl.startsWith('http');
-  String get _relativeImagePath =>
-      _isAbsolute ? widget.originalImageUrl.replaceFirst(_cleanBase, '') : widget.originalImageUrl;
-  String get _originalFullUrl => _isAbsolute ? widget.originalImageUrl : '$_cleanBase$_relativeImagePath';
+
+  /// 절대/상대 상관없이 "상대 경로"로 정규화
+  String _toRelative(String? maybePath) {
+    if (maybePath == null || maybePath.isEmpty) return '';
+    final p = maybePath.trim();
+
+    // 이미 상대 경로
+    if (p.startsWith('/')) return p;
+
+    // 절대 URL이면 cleanBase 제거 시도
+    if (p.startsWith('http://') || p.startsWith('https://')) {
+      // cleanBase로 시작하면 바로 제거
+      if (p.startsWith(_cleanBase)) {
+        final rel = p.substring(_cleanBase.length);
+        return rel.startsWith('/') ? rel : '/$rel';
+      }
+      // 그 외 절대 URL이면 path만 추출
+      try {
+        final uri = Uri.parse(p);
+        final rel = uri.path.isNotEmpty ? uri.path : '';
+        if (rel.isEmpty) return '';
+        // 쿼리나 fragment 필요 시 붙이고 싶다면 여기서 추가
+        return rel.startsWith('/') ? rel : '/$rel';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    // 기타 형태면 상대 경로로 간주
+    return p.startsWith('/') ? p : '/$p';
+  }
+
+  /// 상대 경로 → 풀 URL
+  String _fullFromRelative(String rel) => '$_cleanBase$rel';
+
+  // 입력 originalImageUrl을 상대 경로로 통일
+  String get _relativeImagePath => _toRelative(widget.originalImageUrl);
+
+  // 항상 상대 → 풀 URL로 변환해서 사용 (절대 URL 금지 정책)
+  String get _originalFullUrl => _fullFromRelative(_relativeImagePath);
 
   @override
   void initState() {
@@ -165,14 +204,23 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       final data = json.decode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       _inferenceResultId = data['_id']?.toString();
 
-      // 오버레이 상대 경로 (키가 다를 때 대비하여 processed_image_path도 폴백)
+      // 오버레이 경로 원본 (키가 다를 때 대비하여 processed_image_path도 폴백)
       final Map<String, dynamic>? m1 =
           (data['model1_inference_result'] as Map?)?.cast<String, dynamic>();
       final Map<String, dynamic>? m2 =
           (data['model2_inference_result'] as Map?)?.cast<String, dynamic>();
 
-      final String? m1Img = (data['model1_image_path'] ?? m1?['processed_image_path']) as String?;
-      final String? m2Img = (data['model2_image_path'] ?? m2?['processed_image_path']) as String?;
+      String? m1ImgRaw = (data['model1_image_path'] ??
+                          data['xray_model1_image_path'] ?? // 폴백 추가
+                          m1?['processed_image_path']) as String?;
+
+      String? m2ImgRaw = (data['model2_image_path'] ??
+                          data['xray_model2_image_path'] ?? // 폴백 추가
+                          m2?['processed_image_path']) as String?;
+
+      // 💡 절대/상대 관계없이 "상대 경로"로 통일
+      final String m1Rel = _toRelative(m1ImgRaw);
+      final String m2Rel = _toRelative(m2ImgRaw);
 
       setState(() {
         _m1UsedModel   = m1?['used_model']?.toString() ?? (m1?['label']?.toString() ?? 'N/A');
@@ -180,10 +228,10 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
         _m1Predictions = (m1?['predictions'] as List?) ?? const [];
       });
 
-      // 2) 토큰 인증으로 이미지 바이트 로딩
+      // 2) 토큰 인증으로 이미지 바이트 로딩 (항상 상대→풀URL 경로 사용)
       final originalBytes = await _getBytesWithAuth(_originalFullUrl, token);
-      final ov1Full = (m1Img != null && m1Img.isNotEmpty) ? '$_cleanBase$m1Img' : null;
-      final ov2Full = (m2Img != null && m2Img.isNotEmpty) ? '$_cleanBase$m2Img' : null;
+      final ov1Full = m1Rel.isNotEmpty ? _fullFromRelative(m1Rel) : null;
+      final ov2Full = m2Rel.isNotEmpty ? _fullFromRelative(m2Rel) : null;
 
       final ov1Bytes = ov1Full != null ? await _getBytesWithAuth(ov1Full, token) : null;
       final ov2Bytes = ov2Full != null ? await _getBytesWithAuth(ov2Full, token) : null;
@@ -222,7 +270,7 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'image_path': _relativeImagePath}),
+        body: jsonEncode({'image_path': _relativeImagePath}), // ✅ 항상 상대 경로 사용
       );
 
       if (res.statusCode == 200) {
@@ -259,11 +307,14 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
 
       final uri = Uri.parse('${widget.baseUrl}/multimodal_gemini_xray');
       final body = jsonEncode({
+        // 원본 이미지도 상대→풀 URL로 전달 (백엔드가 절대 URL 요구 시 이 값 사용)
         'image_url': _originalFullUrl,
         'inference_result_id': _inferenceResultId,
         'model1Label': _m1UsedModel,
         'model1Confidence': _m1Confidence,
         'predictionCount': predictionCount,
+        // 필요 시 상대 경로도 함께 넘기고 싶으면:
+        // 'image_path': _relativeImagePath,
       });
 
       final res = await http.post(
@@ -316,7 +367,7 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
         final statusUri = Uri.parse(
           '${widget.baseUrl}/consult/status'
           '?user_id=${Uri.encodeComponent(widget.userId)}'
-          '&image_path=${Uri.encodeComponent(_relativeImagePath)}',
+          '&image_path=${Uri.encodeComponent(_relativeImagePath)}', // ✅ 상대 경로
         );
         final statusRes = await http.get(statusUri, headers: {'Authorization': 'Bearer $token'});
         if (statusRes.statusCode == 200) {
