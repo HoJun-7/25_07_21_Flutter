@@ -58,11 +58,11 @@ class ClinicsViewModel extends ChangeNotifier {
 
       await Future.delayed(const Duration(seconds: 2)); // API 호출 흉내
       _clinics = [
-        Clinic(name: '서울 스마일 치과', lat: 37.5665, lng: 126.9780, address: '서울시 중구 세종대로 110', phone: '02-123-4567'),
-        Clinic(name: '강남 화이트 치과', lat: 37.4979, lng: 127.0276, address: '서울시 강남구 테헤란로 123', phone: '02-789-0123'),
-        Clinic(name: '홍대 예쁨 치과', lat: 37.5575, lng: 126.9238, address: '서울시 마포구 홍익로 20', phone: '02-456-7890'),
-        Clinic(name: '종로 밝은 치과', lat: 37.5700, lng: 126.9800, address: '서울시 종로구 종로 1', phone: '02-111-2222'),
-        Clinic(name: '여의도 건강 치과', lat: 37.5200, lng: 126.9250, address: '서울시 영등포구 국제금융로 10', phone: '02-333-4444'),
+        Clinic(name: '대전 중앙 치과', lat: 36.3504, lng: 127.3845, address: '대전광역시 서구 둔산로 100', phone: '042-123-4567'),
+        Clinic(name: '유성 스마일 치과', lat: 36.3686, lng: 127.3512, address: '대전광역시 유성구 봉명동 500', phone: '042-789-0123'),
+        Clinic(name: '은행동 하얀이 치과', lat: 36.3274, lng: 127.4277, address: '대전광역시 중구 중앙로 150', phone: '042-456-7890'),
+        Clinic(name: '관저동 행복 치과', lat: 36.3120, lng: 127.3240, address: '대전광역시 서구 관저동 200', phone: '042-111-2222'),
+        Clinic(name: '대덕구 미소 치과', lat: 36.3768, lng: 127.4124, address: '대전광역시 대덕구 신탄진동 300', phone: '042-333-4444'),
       ];
     } catch (e) {
       _errorMessage = '치과 정보를 불러오는데 실패했습니다: ${e.toString()}';
