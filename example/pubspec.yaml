@@ -40,6 +40,9 @@ dependencies:
   intl: ^0.20.2 #추가
   klc: ^0.1.0  #추가
   flutter_markdown: ^0.7.3
+  flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.2
+
   
 dev_dependencies:
   integration_test:
