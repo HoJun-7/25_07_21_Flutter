@@ -23,6 +23,17 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 
+// ✅ 추가된 import
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '/presentation/screens/message_page.dart';
+import '/presentation/screens/home_page.dart';
+import '/services/local_push_notification.dart';
+
+// ✅ navigatorKey 및 알림 플러그인
+final navigatorKey = GlobalKey<NavigatorState>();
+FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Intl.defaultLocale = 'ko_KR';
@@ -35,7 +46,22 @@ Future<void> main() async {
   if (!kIsWeb) {
     HttpOverrides.global = MyHttpOverrides();
   }
-  
+
+  // ✅ 로컬 푸시 알림 초기화
+  await LocalPushNotifications.init();
+
+  // ✅ 앱이 종료된 상태에서 푸시 알림을 탭했을 때
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails =
+      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
+    Future.delayed(const Duration(seconds: 1), () {
+      navigatorKey.currentState!.pushNamed(
+        '/message',
+        arguments: notificationAppLaunchDetails?.notificationResponse?.payload,
+      );
+    });
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -87,6 +113,7 @@ class YOLOExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey, // ✅ 알림 라우팅을 위해 navigatorKey 적용
       title: 'MediTooth',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -100,7 +127,11 @@ class YOLOExampleApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: SplashScreen(baseUrl: baseUrl),
+      routes: {
+        '/': (context) => SplashScreen(baseUrl: baseUrl),
+        '/message': (context) => const MessagePage(),
+        '/home': (context) => const HomePage(),
+      },
     );
   }
 }
