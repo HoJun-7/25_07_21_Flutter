@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb; // 웹 감지
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
+import '/presentation/viewmodel/auth_viewmodel.dart';
 
 const kPrimary = Color(0xFF3869A8);
 
@@ -11,10 +16,10 @@ const double kAnswerHeight = 44;
 const double kAnswerSideInset = 12;
 
 // 알약(세그먼트) 스타일
-const double kSegHeight  = 36;   // 버튼 높이
-const double kSegHPad    = 16;   // 좌우 패딩
-const double kSegDivider = 1.0;  // 구분선 두께
-const double kSegRadius  = 22.0; // 모서리 반경
+const double kSegHeight = 36; // 버튼 높이
+const double kSegHPad = 16; // 좌우 패딩
+const double kSegDivider = 1.0; // 구분선 두께
+const double kSegRadius = 22.0; // 모서리 반경
 
 // 점-스케일 라벨 텍스트
 const kScaleHint = TextStyle(
@@ -22,6 +27,9 @@ const kScaleHint = TextStyle(
   fontWeight: FontWeight.w600,
   color: Color(0xFF6B7280),
 );
+
+// 애니메이션 공통
+const _kPanelAnimDuration = Duration(milliseconds: 260);
 
 enum SurveyType { yesNo, yesNoDontKnow, singleChoice, numeric, text }
 
@@ -32,8 +40,8 @@ class SurveyQuestion {
   final List<String>? options;
 
   int? selectedIndex; // choice 계열
-  int? numberValue;   // numeric
-  String? textValue;  // text
+  int? numberValue; // numeric
+  String? textValue; // text
 
   SurveyQuestion({
     required this.category,
@@ -62,7 +70,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     '구강위생관리',
     '불소이용',
     '식습관',
-    // '기타',
   ];
 
   late final List<SurveyQuestion> questions;
@@ -71,6 +78,10 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   // numeric 컨트롤러
   final Map<String, TextEditingController> _numControllers = {};
+
+  // 🔹 “이전 문진 불러오기” 상단 배너/로딩 상태
+  bool _showLoadPrompt = true;
+  bool _loadingPrev = false;
 
   @override
   void initState() {
@@ -225,12 +236,15 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            children: categories
-                .map((category) => _buildCategoryTile(
-                      category,
-                      categorizedQuestions[category] ?? const [],
-                    ))
-                .toList(),
+            children: [
+              _buildAnimatedLoadPrompt(), // 👈 애니메이션으로 표시/제거
+              ...categories.map(
+                (category) => _buildCategoryTile(
+                  category,
+                  categorizedQuestions[category] ?? const [],
+                ),
+              ),
+            ],
           ),
         ),
         Padding(
@@ -251,6 +265,243 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         ),
       ],
     );
+  }
+
+  /// 🔹 상단 “기존 문진 내역 불러오기” 카드 — 애니메이션 래퍼
+  Widget _buildAnimatedLoadPrompt() {
+    return AnimatedSwitcher(
+      duration: _kPanelAnimDuration,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, anim) {
+        // 크기 접힘 + 페이드 + 살짝 위/아래 슬라이드
+        final slide = Tween<Offset>(
+          begin: const Offset(0, -0.04),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
+        return SizeTransition(
+          sizeFactor: anim,
+          axisAlignment: -1.0,
+          child: FadeTransition(
+            opacity: anim,
+            child: SlideTransition(position: slide, child: child),
+          ),
+        );
+      },
+      child: _showLoadPrompt
+          ? _buildLoadPreviousCard(key: const ValueKey('prompt'))
+          : const SizedBox.shrink(key: ValueKey('prompt-empty')),
+    );
+  }
+
+  /// 🔹 상단 “기존 문진 내역 불러오기” 카드 (실제 UI)
+  Widget _buildLoadPreviousCard({Key? key}) {
+    return Container(
+      key: key,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE1E6EF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.history, color: kPrimary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '기존 문진 내역을 불러오시겠습니까?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF333333),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '이전에 작성한 문진 응답을 자동으로 채워 넣을 수 있어요. 필요 시 항목별로 수정도 가능합니다.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _loadingPrev ? null : _onTapLoadPrev,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(42),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: _loadingPrev
+                      ? const SizedBox(
+                          width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.download_rounded),
+                  label: const Text('예, 불러오기'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _loadingPrev ? null : () => setState(() => _showLoadPrompt = false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(42),
+                    side: const BorderSide(color: kPrimary),
+                    foregroundColor: kPrimary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('아니요, 새로 작성'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onTapLoadPrev() async {
+    setState(() => _loadingPrev = true);
+    try {
+      final prev = await _fetchPreviousSurvey(); // 🔁 API 연동
+      if (prev == null || prev.isEmpty) {
+        await _showNoDataDialog();
+      } else {
+        _applySurveyAnswers(prev);
+        setState(() => _showLoadPrompt = false); // 👈 애니메이션으로 접힘
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('이전 문진 응답을 불러왔습니다.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('불러오는 중 오류가 발생했습니다: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPrev = false);
+    }
+  }
+
+  /// 🔁 실제 API 호출: GET {baseUrl}/survey/latest?user_id=...
+  Future<Map<String, dynamic>?> _fetchPreviousSurvey() async {
+    final authViewModel = context.read<AuthViewModel>();
+    final token = await authViewModel.getAccessToken();
+    final registerId = authViewModel.currentUser?.registerId;
+
+    if (token == null) {
+      throw Exception('로그인 토큰이 없습니다.');
+    }
+    if (registerId == null || registerId.isEmpty) {
+      throw Exception('user_id(registerId)가 없습니다.');
+    }
+
+    final uri = Uri.parse('${widget.baseUrl}/survey/latest')
+        .replace(queryParameters: {'user_id': registerId});
+
+    // ignore: avoid_print
+    print('[survey] GET $uri');
+    // ignore: avoid_print
+    print('[survey] Authorization: Bearer ${token.substring(0, 12)}...');
+
+    final resp = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    // ignore: avoid_print
+    print('[survey] status=${resp.statusCode}, body=${resp.body}');
+
+    if (resp.statusCode != 200) {
+      throw Exception('서버 오류: ${resp.statusCode}');
+    }
+
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    if (body['ok'] == true && body['data'] != null) {
+      final data = Map<String, dynamic>.from(body['data']);
+      final answers = Map<String, dynamic>.from(data['answers'] as Map? ?? const {});
+      return answers.isEmpty ? null : answers;
+    }
+    return null;
+  }
+
+  /// 기록 없음 팝업
+  Future<void> _showNoDataDialog() async {
+    if (!mounted) return;
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('알림'),
+        content: const Text('이전 문진 데이터가 존재하지않습니다. 직접 작성해주세요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔧 불러온 응답을 현재 질문 리스트에 반영
+  void _applySurveyAnswers(Map<String, dynamic> ans) {
+    for (final q in questions) {
+      final v = ans[q.question];
+      if (v == null) continue;
+
+      switch (q.type) {
+        case SurveyType.yesNo:
+        case SurveyType.yesNoDontKnow:
+        case SurveyType.singleChoice:
+          if (q.options != null && v is String) {
+            final idx = q.options!.indexOf(v);
+            if (idx >= 0) q.selectedIndex = idx;
+          }
+          break;
+
+        case SurveyType.numeric:
+          if (v is int) {
+            q.numberValue = v;
+          } else if (v is String) {
+            final n = int.tryParse(v);
+            if (n != null) q.numberValue = n;
+          }
+          final controller = _numControllers.putIfAbsent(
+            q.question,
+            () => TextEditingController(text: '${q.numberValue ?? 0}'),
+          );
+          final s = (q.numberValue ?? 0).toString();
+          controller.value = TextEditingValue(
+              text: s, selection: TextSelection.collapsed(offset: s.length));
+          break;
+
+        case SurveyType.text:
+          if (v is String) q.textValue = v;
+          break;
+      }
+    }
+    setState(() {});
   }
 
   Widget _buildCategoryTile(String category, List<SurveyQuestion> qs) {
@@ -277,7 +528,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         leading: Icon(_getCategoryIcon(category), color: kPrimary, size: 30),
         title: Text(
           category,
-          // 🔧 볼드 강화
           style: const TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.w700,
@@ -302,7 +552,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🔧 문항 텍스트 볼드 처리
             Text(
               q.question,
               style: const TextStyle(
@@ -337,7 +586,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         );
 
       case SurveyType.numeric:
-        // 숫자 입력 + 스테퍼
         final controller = _numControllers.putIfAbsent(
           q.question,
           () => TextEditingController(text: '${q.numberValue ?? 0}'),
@@ -440,18 +688,16 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         alignment: Alignment.centerLeft,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // 자연 너비 = 가장 긴 텍스트 + 패딩
             final maxTextW = items.isEmpty ? 0.0 : items.map(_measureTextWidth).reduce(math.max);
             double pillW = maxTextW + kSegHPad * 2;
 
-            // 화면을 넘기면 가용 폭에 맞춰 균등 분배
             final totalSeparatorsW = (items.length - 1) * kSegDivider;
             final maxAvail = constraints.maxWidth;
             final naturalGroupW = pillW * items.length + totalSeparatorsW;
 
             if (naturalGroupW > maxAvail) {
               pillW = (maxAvail - totalSeparatorsW) / items.length;
-              pillW = pillW.clamp(68.0, 9999.0); // 최소 너비
+              pillW = pillW.clamp(68.0, 9999.0);
             }
 
             return ClipRRect(
@@ -524,7 +770,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
     const double boost = 5.0; // 선택 시 확대
     final double maxDot = baseSizes.fold<double>(0, (p, e) => math.max(p, e)) + boost;
-    final double safeInset = math.max(8.0, maxDot / 2 + 2); // 좌우 여유
+    final double safeInset = math.max(8.0, maxDot / 2 + 2);
 
     const double lineTop = 8.0;
     const double lineBottom = 18.0;
@@ -546,7 +792,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             return Stack(
               clipBehavior: Clip.none,
               children: [
-                // 라인
                 Positioned.fill(
                   top: lineTop,
                   bottom: lineBottom,
@@ -555,7 +800,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                   ),
                 ),
 
-                // 점들
                 ...List.generate(count, (i) {
                   final t = count == 1 ? 0.0 : i / (count - 1);
                   final cx = safeInset + t * usableW;
@@ -589,7 +833,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                   );
                 }),
 
-                // 하단 좌/우 라벨
                 Positioned(
                   left: 0,
                   right: 0,
@@ -634,8 +877,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         return Icons.water_drop_outlined;
       case '식습관':
         return Icons.restaurant_outlined;
-      // case '기타':
-      //   return Icons.notes_outlined;
       default:
         return Icons.category_outlined;
     }
