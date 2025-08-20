@@ -83,106 +83,6 @@ class _AgreementScreenState extends State<AgreementScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mainContent = Column(
-      children: [
-        const SizedBox(height: 20),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  // ▶ 카드 상단은 흰색 + Tab 스타일만 파란톤
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: primaryBlue, // ▶ 선택 라벨
-                      unselectedLabelColor: Colors.grey,
-                      labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      indicatorColor: primaryBlue, // ▶ 인디케이터 컬러
-                      indicatorWeight: 3,
-                      tabs: const [
-                        Tab(text: '이용약관'),
-                        Tab(text: '개인정보 수집·이용'),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        termsHtmlContent.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
-                            : Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: SingleChildScrollView(
-                                  child: Html(data: termsHtmlContent),
-                                ),
-                              ),
-                        appendixHtmlContent.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
-                            : Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: SingleChildScrollView(
-                                  child: Html(data: appendixHtmlContent),
-                                ),
-                              ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              _buildCheckboxTile(
-                label: '이용약관에 동의합니다.',
-                value: isTermsChecked,
-                onChanged: (val) => setState(() => isTermsChecked = val ?? false),
-              ),
-              _buildCheckboxTile(
-                label: '개인정보 수집 및 이용에 동의합니다.',
-                value: isPrivacyChecked,
-                onChanged: (val) => setState(() => isPrivacyChecked = val ?? false),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: isAllAgreed ? _goToRegister : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isAllAgreed ? primaryBlue : Colors.grey.shade400, // ▶ 버튼 컬러 통일
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: isAllAgreed ? 2 : 0,
-                  ),
-                  child: const Text('다음'),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ],
-    );
-
     return Scaffold(
       backgroundColor: lightBlueBackground, // ▶ 배경 컬러 통일
       appBar: AppBar(
@@ -193,14 +93,154 @@ class _AgreementScreenState extends State<AgreementScreen>
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: kIsWeb
-            ? Center(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+            final maxWidth = kIsWeb ? 450.0 : double.infinity;
+
+            // 화면 높이에 비례한 카드 높이 (너무 크거나 작지 않게 클램프)
+            final double cardHeight =
+                (constraints.maxHeight * 0.55).clamp(320.0, 560.0);
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: 16 + bottomInset),
+              child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 450),
-                  child: mainContent,
+                  constraints: BoxConstraints(
+                    maxWidth: maxWidth,
+                    // 화면보다 내용이 적을 때는 화면 높이에 맞추고,
+                    // 많을 때는 SingleChildScrollView로 스크롤
+                    minHeight: constraints.maxHeight,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 20),
+
+                        // ▼ 카드 영역: Expanded 제거 → 고정/가변 높이 SizedBox로 변경
+                        SizedBox(
+                          height: cardHeight,
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                // ▶ 카드 상단은 흰색 + Tab 스타일만 파란톤 (기존과 동일)
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: TabBar(
+                                    controller: _tabController,
+                                    labelColor: primaryBlue,
+                                    unselectedLabelColor: Colors.grey,
+                                    labelStyle: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    indicatorColor: primaryBlue,
+                                    indicatorWeight: 3,
+                                    tabs: const [
+                                      Tab(text: '이용약관'),
+                                      Tab(text: '개인정보 수집·이용'),
+                                    ],
+                                  ),
+                                ),
+
+                                // ▼ 카드 내부는 기존처럼 TabBarView + 본문 스크롤 유지
+                                Expanded(
+                                  child: TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      termsHtmlContent.isEmpty
+                                          ? const Center(
+                                              child:
+                                                  CircularProgressIndicator())
+                                          : Padding(
+                                              padding:
+                                                  const EdgeInsets.all(16.0),
+                                              child: SingleChildScrollView(
+                                                child: Html(
+                                                    data: termsHtmlContent),
+                                              ),
+                                            ),
+                                      appendixHtmlContent.isEmpty
+                                          ? const Center(
+                                              child:
+                                                  CircularProgressIndicator())
+                                          : Padding(
+                                              padding:
+                                                  const EdgeInsets.all(16.0),
+                                              child: SingleChildScrollView(
+                                                child: Html(
+                                                    data: appendixHtmlContent),
+                                              ),
+                                            ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ▼ 체크박스/버튼 영역 (그대로)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Column(
+                            children: [
+                              _buildCheckboxTile(
+                                label: '이용약관에 동의합니다.',
+                                value: isTermsChecked,
+                                onChanged: (val) => setState(
+                                    () => isTermsChecked = val ?? false),
+                              ),
+                              _buildCheckboxTile(
+                                label: '개인정보 수집 및 이용에 동의합니다.',
+                                value: isPrivacyChecked,
+                                onChanged: (val) => setState(
+                                    () => isPrivacyChecked = val ?? false),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: ElevatedButton(
+                                  onPressed: isAllAgreed ? _goToRegister : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isAllAgreed
+                                        ? primaryBlue
+                                        : Colors.grey.shade400,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: isAllAgreed ? 2 : 0,
+                                  ),
+                                  child: const Text('다음'),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              )
-            : mainContent,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
