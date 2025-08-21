@@ -10,11 +10,7 @@ import 'package:http/http.dart' as http;
 import '/presentation/viewmodel/doctor/d_history_viewmodel.dart';
 import '/presentation/model/doctor/d_history.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart'; // 모바일 드로어
-import '/presentation/viewmodel/auth_viewmodel.dart';     // 썸네일 토큰
-
-// (참고) 화면 전환은 라우터 path 로만 하므로 상세화면 import 는 필수 아님
-// import 'd_result_detail_screen.dart';
-// import 'd_xray_result_detail_screen.dart';
+import '/presentation/viewmodel/auth_viewmodel.dart'; // 썸네일 토큰
 
 /// 화면에서 편하게 쓰기 위한 보조 getter 들(충돌 방지: isXray 는 d_history.dart 에서만 정의)
 extension DoctorRecordUi on DoctorHistoryRecord {
@@ -118,9 +114,9 @@ class _DTelemedicineApplicationScreenState
   }
 
   List<DoctorHistoryRecord> _getFilteredRecords(
-    List<DoctorHistoryRecord> all,
-    String selectedStatus,
-  ) {
+      List<DoctorHistoryRecord> all,
+      String selectedStatus,
+      ) {
     // ✅ 대소문자 무시 검색
     final keyword = _searchController.text.trim().toLowerCase();
     return all.where((r) {
@@ -215,60 +211,60 @@ class _DTelemedicineApplicationScreenState
       child: isMobile
           // ===================== 모바일: AppBar + Drawer =====================
           ? Scaffold(
-              backgroundColor: const Color(0xFFAAD0F8),
-              appBar: AppBar(
-                title: const Text('진료 현황'),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none),
-                    onPressed: _toggleNotificationPopup,
-                  ),
-                ],
-              ),
-              drawer: DoctorDrawer(baseUrl: widget.baseUrl),
-              body: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _closeNotificationPopup,
-                child: Stack(
-                  children: [
-                    SafeArea(child: _buildMainBody()),
-                    _buildNotificationPopup(),
-                  ],
-                ),
-              ),
-            )
-          // ===================== 웹/데스크톱: 좌측 고정 사이드바 + 본문 =====================
+        backgroundColor: const Color(0xFFAAD0F8),
+        appBar: AppBar(
+          title: const Text('진료 현황'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none),
+              onPressed: _toggleNotificationPopup,
+            ),
+          ],
+        ),
+        drawer: DoctorDrawer(baseUrl: widget.baseUrl),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeNotificationPopup,
+          child: Stack(
+            children: [
+              SafeArea(child: _buildMainBody()),
+              _buildNotificationPopup(),
+            ],
+          ),
+        ),
+      )
+      // ===================== 웹/데스크톱: 좌측 고정 사이드바 + 본문 =====================
           : Scaffold(
-              resizeToAvoidBottomInset: false,
-              backgroundColor: const Color(0xFFAAD0F8),
-              body: _minSizeOnWeb(
-                Row(
-                  children: [
-                    _buildSideMenu(),
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: _closeNotificationPopup,
-                        child: Stack(
-                          children: [
-                            SafeArea(
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 800),
-                                  child: _buildMainBody(),
-                                ),
-                              ),
-                            ),
-                            _buildNotificationPopup(),
-                          ],
+        resizeToAvoidBottomInset: false,
+        backgroundColor: const Color(0xFFAAD0F8),
+        body: _minSizeOnWeb(
+          Row(
+            children: [
+              _buildSideMenu(),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _closeNotificationPopup,
+                  child: Stack(
+                    children: [
+                      SafeArea(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints:
+                            const BoxConstraints(maxWidth: 800),
+                            child: _buildMainBody(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      _buildNotificationPopup(),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -290,35 +286,35 @@ class _DTelemedicineApplicationScreenState
               padding: const EdgeInsets.all(12),
               child: items.isEmpty
                   ? const Text('알림이 없습니다.',
-                      style: TextStyle(color: Colors.black54))
+                  style: TextStyle(color: Colors.black54))
                   : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: items
-                          .map(
-                            (msg) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.notifications_active_outlined,
-                                    color: Colors.blueAccent,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      msg,
-                                      style: const TextStyle(
-                                          fontSize: 14, color: Colors.black87),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
+                mainAxisSize: MainAxisSize.min,
+                children: items
+                    .map(
+                      (msg) => Padding(
+                    padding:
+                    const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active_outlined,
+                          color: Colors.blueAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            msg,
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.black87),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                )
+                    .toList(),
+              ),
             ),
           ),
         );
@@ -374,23 +370,23 @@ class _DTelemedicineApplicationScreenState
               child: viewModel.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _selectedIndex = index;
-                          _currentPage = 0;
-                        });
-                      },
-                      itemCount: statuses.length,
-                      itemBuilder: (context, index) {
-                        final filtered =
-                            _getFilteredRecords(allRecords, statuses[index]);
-                        final paginated = _getPaginatedRecords(filtered);
-                        final totalPages = _getTotalPages(filtered);
-                        return _buildListView(
-                            filtered, paginated, totalPages);
-                      },
-                    ),
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                    _currentPage = 0;
+                  });
+                },
+                itemCount: statuses.length,
+                itemBuilder: (context, index) {
+                  final filtered =
+                      _getFilteredRecords(allRecords, statuses[index]);
+                  final paginated = _getPaginatedRecords(filtered);
+                  final totalPages = _getTotalPages(filtered);
+                  return _buildListView(
+                      filtered, paginated, totalPages);
+                },
+              ),
             ),
           ],
         );
@@ -452,7 +448,7 @@ class _DTelemedicineApplicationScreenState
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(
                     color:
-                        _getSelectedColorByStatus(statuses[_selectedIndex]),
+                    _getSelectedColorByStatus(statuses[_selectedIndex]),
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
@@ -496,16 +492,16 @@ class _DTelemedicineApplicationScreenState
   }
 
   Widget _buildListView(
-    List<DoctorHistoryRecord> records,
-    List<DoctorHistoryRecord> paginated,
-    int totalPages,
-  ) {
+      List<DoctorHistoryRecord> records,
+      List<DoctorHistoryRecord> paginated,
+      int totalPages,
+      ) {
     // ✅ 이미지 base URL (API base에서 /api 제거)
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
     // ✅ 하단 페이지 표시(0건일 때 0/0로 안전)
     final displayCurrent = totalPages == 0 ? 0 : (_currentPage + 1);
-    final displayTotal   = totalPages == 0 ? 0 : totalPages;
+    final displayTotal = totalPages == 0 ? 0 : totalPages;
 
     return Column(
       children: [
@@ -521,155 +517,159 @@ class _DTelemedicineApplicationScreenState
             child: records.isEmpty
                 ? const Center(child: Text('일치하는 환자가 없습니다.'))
                 : ListView.separated(
-                    itemCount: paginated.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final patient = paginated[i];
+              itemCount: paginated.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final patient = paginated[i];
 
-                      // 썸네일 URL (없으면 null)
-                      final thumbPath =
-                          patient.originalImagePath ?? patient.imagePath ?? '';
-                      final hasThumb = thumbPath.isNotEmpty;
-                      final thumbUrl = hasThumb ? '$imageBaseUrl$thumbPath' : null;
+                // 썸네일 URL (없으면 null)
+                final thumbPath =
+                    patient.originalImagePath ?? patient.imagePath ?? '';
+                final hasThumb = thumbPath.isNotEmpty;
+                final thumbUrl = hasThumb ? '$imageBaseUrl$thumbPath' : null;
 
-                      return PressableCard(
-                        shadow: false,
-                        borderRadius:
-                            const BorderRadius.all(Radius.circular(14)),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 12),
-                        margin: EdgeInsets.zero,
-                        onTap: () {
-                          // ✅ X-ray 여부에 따라 다른 상세화면으로
-                          final route = patient.isXray
-                              ? '/d_xray_result_detail'
-                              : '/d_result_detail';
+                return PressableCard(
+                  shadow: false,
+                  borderRadius:
+                  const BorderRadius.all(Radius.circular(14)),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 10, horizontal: 12),
+                  margin: EdgeInsets.zero,
+                  onTap: () async {
+                    // ✅ X-ray 여부에 따라 다른 상세화면으로
+                    final route = patient.isXray
+                        ? 'doctor-xray-result-detail'
+                        : 'doctor-photo-result-detail';
 
-                          // ===== ▼▼▼ 환자쪽과 동일한 페이로드 구성 ▼▼▼ =====
-                          final relOrAbs = patient.originalImageUrl; // 상대 or 절대
-                          if (relOrAbs.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('이미지 경로가 비어 있습니다.')),
-                            );
-                            return;
-                          }
-
-                          // 원본 절대 URL
-                          final originalImageUrl = relOrAbs.startsWith('http')
-                              ? relOrAbs
-                              : '$imageBaseUrl${relOrAbs.startsWith('/') ? '' : '/'}$relOrAbs';
-
-                          // 파일명 추출 (오버레이 URL 조합용)
-                          final filename = relOrAbs.split('/').isNotEmpty
-                              ? relOrAbs.split('/').last
-                              : relOrAbs;
-
-                          // 오버레이 절대 URL 맵 (환자쪽 규칙과 동일)
-                          final Map<int, String> processedImageUrls = patient.isXray
-                              ? {
-                                  1: '$imageBaseUrl/images/xmodel1/$filename',
-                                  2: '$imageBaseUrl/images/xmodel2/$filename',
-                                }
-                              : {
-                                  1: '$imageBaseUrl/images/model1/$filename',
-                                  2: '$imageBaseUrl/images/model2/$filename',
-                                  3: '$imageBaseUrl/images/model3/$filename',
-                                };
-
-                          // 모델 결과(팔레트/라벨 등) 그대로
-                          final modelInfos = patient.modelInfos;
-
-                          // consult 상태
-                          final isRequested = 'Y';
-                          final isReplied = (patient.isReplied == 'Y') ? 'Y' : 'N';
-
-                          // 상세 화면 이동 (환자쪽과 동일 키명)
-                          context.push(
-                            route,
-                            extra: {
-                              'userId': patient.userId,
-                              'originalImageUrl': originalImageUrl,        // ✅ 절대 URL
-                              'processedImageUrls': processedImageUrls,    // ✅ 오버레이 절대 URL
-                              'modelInfos': modelInfos,                    // ✅ 팔레트/라벨 등
-                              'inferenceResultId': patient.inferenceResultId,
-                              'baseUrl': widget.baseUrl,
-                              'isRequested': isRequested,
-                              'isReplied': isReplied,
-                              if (patient.requestId != null)
-                                'requestId': patient.requestId,
-                            },
-                          );
-                          // ===== ▲▲▲ 변경 끝 ▲▲▲ =====
-                        },
-                        child: Row(
-                          children: [
-                            // 썸네일
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: hasThumb
-                                  ? _AuthThumb(
-                                      url: thumbUrl!,
-                                      baseUrl: widget.baseUrl,
-                                      size: 56,
-                                    )
-                                  : Container(
-                                      width: 56,
-                                      height: 56,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF3F6FB),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: Colors.grey.shade400,
-                                            width: 0.5),
-                                      ),
-                                      child: const Icon(Icons.image_not_supported,
-                                          size: 20, color: Colors.grey),
-                                    ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(patient.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('날짜 : ${patient.date}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold)),
-                                Text('시간 : ${patient.time}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                            const Spacer(),
-                            Container(
-                              height: 64,
-                              width: 64,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color:
-                                    _getSelectedColorByStatus(patient.status),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                patient.status,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
+                    // ===== ▼▼▼ 환자쪽과 동일한 페이로드 구성 ▼▼▼ =====
+                    final relOrAbs = patient.originalImageUrl; // 상대 or 절대
+                    if (relOrAbs.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('이미지 경로가 비어 있습니다.')),
                       );
-                    },
+                      return;
+                    }
+
+                    // 원본 절대 URL
+                    final originalImageUrl = relOrAbs.startsWith('http')
+                        ? relOrAbs
+                        : '$imageBaseUrl${relOrAbs.startsWith('/') ? '' : '/'}$relOrAbs';
+
+                    // 파일명 추출 (오버레이 URL 조합용)
+                    final filename = relOrAbs.split('/').isNotEmpty
+                        ? relOrAbs.split('/').last
+                        : relOrAbs;
+
+                    // 오버레이 절대 URL 맵 (환자쪽 규칙과 동일)
+                    final Map<int, String> processedImageUrls = patient.isXray
+                        ? {
+                      1: '$imageBaseUrl/images/xmodel1/$filename',
+                      2: '$imageBaseUrl/images/xmodel2/$filename',
+                    }
+                        : {
+                      1: '$imageBaseUrl/images/model1/$filename',
+                      2: '$imageBaseUrl/images/model2/$filename',
+                      3: '$imageBaseUrl/images/model3/$filename',
+                    };
+
+                    // 모델 결과(팔레트/라벨 등) 그대로
+                    final modelInfos = patient.modelInfos;
+
+                    // consult 상태
+                    final isRequested = 'Y';
+                    final isReplied = (patient.isReplied == 'Y') ? 'Y' : 'N';
+
+                    // 상세 화면 이동 (환자쪽과 동일 키명)
+                    final result = await context.pushNamed<bool>(
+                      route,
+                      extra: {
+                        'userId': patient.userId,
+                        'originalImageUrl': originalImageUrl,       // ✅ 절대 URL
+                        'processedImageUrls': processedImageUrls,    // ✅ 오버레이 절대 URL
+                        'modelInfos': modelInfos,                  // ✅ 팔레트/라벨 등
+                        'inferenceResultId': patient.inferenceResultId,
+                        'baseUrl': widget.baseUrl,
+                        'isRequested': isRequested,
+                        'isReplied': isReplied,
+                        if (patient.requestId != null)
+                          'requestId': patient.requestId,
+                      },
+                    );
+                    // 상세 화면에서 true를 반환하면 목록을 새로고침합니다.
+                    if (result == true && mounted) {
+                      context.read<DoctorHistoryViewModel>().fetchConsultRecords();
+                    }
+                    // ===== ▲▲▲ 변경 끝 ▲▲▲ =====
+                  },
+                  child: Row(
+                    children: [
+                      // 썸네일
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: hasThumb
+                            ? _AuthThumb(
+                          url: thumbUrl!,
+                          baseUrl: widget.baseUrl,
+                          size: 56,
+                        )
+                            : Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F6FB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.grey.shade400,
+                                width: 0.5),
+                          ),
+                          child: const Icon(Icons.image_not_supported,
+                              size: 20, color: Colors.grey),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(patient.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('날짜 : ${patient.date}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                          Text('시간 : ${patient.time}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const Spacer(),
+                      Container(
+                        height: 64,
+                        width: 64,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color:
+                          _getSelectedColorByStatus(patient.status),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          patient.status,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -777,19 +777,19 @@ class _AuthThumbState extends State<_AuthThumb> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade400, width: 0.5),
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.antiAlias, // 모서리/리플/히트테스트 완전 일치
       child: _loading
           ? const Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      )
           : (_bytes != null
-              ? Image.memory(_bytes!, fit: BoxFit.cover)
-              : const Icon(Icons.image_not_supported,
-                  size: 20, color: Colors.grey)),
+          ? Image.memory(_bytes!, fit: BoxFit.cover)
+          : const Icon(Icons.image_not_supported,
+          size: 20, color: Colors.grey)),
     );
   }
 }

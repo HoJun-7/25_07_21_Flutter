@@ -1,13 +1,28 @@
 // lib/widgets/chat_bubble.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // ✅ Markdown 지원
+import 'package:flutter/foundation.dart' show kIsWeb;    // ✅ 웹 분기
+import 'dart:math' as math;
 
-// 말풍선 모양과 텍스트를 담고 있는 위젯
+/// 말풍선 위젯 (기본: Text, 옵션: Markdown)
 class ChatBubble extends StatelessWidget {
   final String message;
   final bool isUser;
   final Color bubbleColor;
   final Color borderColor;
   final TextStyle? textStyle;
+
+  /// ✅ 마크다운 렌더링 여부 (기본 false → 기존 동작 유지)
+  final bool renderMarkdown;
+
+  /// ✅ 마크다운 스타일 커스터마이즈(선택)
+  final MarkdownStyleSheet? markdownStyle;
+
+  /// ✅ 마크다운 링크 탭 핸들러(선택)
+  final void Function(String text, String? href, String? title)? onTapLink;
+
+  /// ✅ 마크다운 선택 가능 여부(복사/드래그)
+  final bool selectableMarkdown;
 
   const ChatBubble({
     super.key,
@@ -16,20 +31,46 @@ class ChatBubble extends StatelessWidget {
     required this.bubbleColor,
     required this.borderColor,
     this.textStyle,
+    this.renderMarkdown = false,
+    this.markdownStyle,
+    this.onTapLink,
+    this.selectableMarkdown = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    // 텍스트에 적용될 기본 스타일을 정의합니다.
-    final TextStyle defaultTextStyle = const TextStyle(fontSize: 15, color: Colors.black);
+    // 기본 텍스트 스타일(라인 높이 포함)
+    final TextStyle baseStyle =
+        (textStyle ?? const TextStyle(fontSize: 15, color: Colors.black))
+            .copyWith(height: 1.5);
 
-    // 말풍선 본문 위젯 (텍스트)을 정의합니다.
-    final Widget bubbleContent = Text(
-      message,
-      style: textStyle ?? defaultTextStyle,
-    );
+    // 1) 본문: Markdown or Text (기존 레이아웃 유지)
+    final Widget bubbleContent = renderMarkdown
+        ? MarkdownBody(
+            data: message,
+            selectable: selectableMarkdown,
+            onTapLink: onTapLink,
+            styleSheet: (markdownStyle ??
+                    MarkdownStyleSheet.fromTheme(Theme.of(context)))
+                .copyWith(
+              p: baseStyle,
+              strong: baseStyle.copyWith(fontWeight: FontWeight.bold),
+              h1: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              h3: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              listBullet: baseStyle,
+              blockquote:
+                  const TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+          )
+        : Text(
+            message,
+            softWrap: true,
+            overflow: TextOverflow.visible,
+            style: baseStyle,
+          );
 
-    // CustomPaint를 사용하여 꼬리 모양을 그리는 말풍선 위젯을 정의합니다.
+    // 2) 꼬리 달린 말풍선
     final Widget bubbleWithTail = CustomPaint(
       painter: ChatBubblePainter(
         bubbleColor: bubbleColor,
@@ -37,37 +78,76 @@ class ChatBubble extends StatelessWidget {
         isUser: isUser,
       ),
       child: Container(
-        // 사용자/챗봇에 따라 마진을 다르게 설정하여 위치를 조정합니다.
         margin: EdgeInsets.fromLTRB(
           isUser ? 0 : 12.0,
           8.0,
           isUser ? 12.0 : 0,
           0,
         ),
-        // 텍스트와 말풍선 경계선 사이의 패딩을 설정합니다.
         padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
         child: bubbleContent,
       ),
     );
 
+    // 3) 정렬 + (웹에서만) 반응형 가로 폭 제한
     return Align(
-      // 말풍선이 화면의 끝에 정렬되도록 합니다.
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        // 말풍선의 최대 너비를 화면 너비의 75%로 제한하여 오버플로를 방지합니다.
-        constraints: BoxConstraints(
-          maxWidth:  MediaQuery.of(context).size.width * (isUser ? 0.2 : 0.3),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          child: bubbleWithTail,
-        ),
-      ),
+      child: kIsWeb
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                final double colWidth = constraints.maxWidth; // 채팅 컬럼 가용폭
+
+                // 화면군별 상한(px) — 네가 올린 로직 유지
+                double capPx;
+                if (colWidth >= 1200) {
+                  capPx = 420; // 큰 데스크톱
+                } else if (colWidth >= 900) {
+                  capPx = 380; // 데스크톱/대형 태블릿
+                } else if (colWidth >= 600) {
+                  capPx = 340; // 태블릿
+                } else {
+                  capPx = double.infinity; // 모바일(웹 좁은 폭)에서는 비율만 적용
+                }
+
+                // 비율 기반 목표 폭 (웹에서만 적용)
+                final double wanted = colWidth * 0.43;
+                final double maxBubbleWidth = math.min(wanted, capPx);
+
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                  child: const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                    child: SizedBox.shrink(), // placeholder, 아래 Builder에서 대체
+                  ),
+                )._replaceChild(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4.0),
+                    child: bubbleWithTail,
+                  ),
+                );
+              },
+            )
+          : Padding(
+              // ✅ 앱(모바일/데스크톱): 별도 최대폭 제한 없음
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: bubbleWithTail,
+            ),
     );
   }
 }
 
-// 말풍선 꼬리를 그리는 CustomPainter
+/// ConstrainedBox child 교체용 확장 (가독성 보조)
+extension _ChildReplace on ConstrainedBox {
+  ConstrainedBox _replaceChild(Widget child) => ConstrainedBox(
+        constraints: constraints,
+        child: child,
+      );
+}
+
+/// 말풍선 꼬리를 그리는 페인터 (원본 그대로)
 class ChatBubblePainter extends CustomPainter {
   final Color bubbleColor;
   final Color borderColor;
@@ -81,7 +161,6 @@ class ChatBubblePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 말풍선 채우기 색상과 테두리 색상을 정의합니다.
     final paint = Paint()
       ..color = bubbleColor
       ..style = PaintingStyle.fill;
@@ -91,7 +170,6 @@ class ChatBubblePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
-    // 꼬리, 모서리, 본문의 크기 및 위치를 정의합니다.
     const double tailWidth = 12;
     const double tailHeight = 10;
     const double borderRadius = 14;
@@ -100,69 +178,93 @@ class ChatBubblePainter extends CustomPainter {
     final Path path = Path();
 
     if (isUser) {
-      // 사용자 말풍선: 꼬리가 오른쪽 상단에 위치하도록 경로를 그립니다.
+      // 사용자: 꼬리 오른쪽
       path.moveTo(size.width, bodyTopY + tailHeight / 2);
       path.quadraticBezierTo(
-        size.width - tailWidth * 0.5, bodyTopY,
-        size.width - tailWidth, bodyTopY,
+        size.width - tailWidth * 0.5,
+        bodyTopY,
+        size.width - tailWidth,
+        bodyTopY,
       );
 
       path.lineTo(borderRadius, bodyTopY);
-      path.arcToPoint(Offset(0, bodyTopY + borderRadius),
-          radius: const Radius.circular(borderRadius), clockwise: false);
+      path.arcToPoint(
+        Offset(0, bodyTopY + borderRadius),
+        radius: const Radius.circular(borderRadius),
+        clockwise: false,
+      );
 
       path.lineTo(0, size.height - borderRadius);
-      path.arcToPoint(Offset(borderRadius, size.height),
-          radius: const Radius.circular(borderRadius), clockwise: false);
+      path.arcToPoint(
+        Offset(borderRadius, size.height),
+        radius: const Radius.circular(borderRadius),
+        clockwise: false,
+      );
 
       path.lineTo(size.width - tailWidth - borderRadius, size.height);
-      path.arcToPoint(Offset(size.width - tailWidth, size.height - borderRadius),
-          radius: const Radius.circular(borderRadius), clockwise: false);
+      path.arcToPoint(
+        Offset(size.width - tailWidth, size.height - borderRadius),
+        radius: const Radius.circular(borderRadius),
+        clockwise: false,
+      );
 
       path.lineTo(size.width - tailWidth, bodyTopY + tailHeight);
       path.quadraticBezierTo(
-        size.width - tailWidth * 0.5, bodyTopY + tailHeight * 0.5,
-        size.width, bodyTopY + tailHeight / 2,
+        size.width - tailWidth * 0.5,
+        bodyTopY + tailHeight * 0.5,
+        size.width,
+        bodyTopY + tailHeight / 2,
       );
     } else {
-      // 챗봇 말풍선: 꼬리가 왼쪽 상단에 위치하도록 경로를 그립니다.
+      // 챗봇: 꼬리 왼쪽
       path.moveTo(0, bodyTopY + tailHeight / 2);
       path.quadraticBezierTo(
-        tailWidth * 0.5, bodyTopY,
-        tailWidth, bodyTopY,
+        tailWidth * 0.5,
+        bodyTopY,
+        tailWidth,
+        bodyTopY,
       );
 
       path.lineTo(size.width - borderRadius, bodyTopY);
-      path.arcToPoint(Offset(size.width, bodyTopY + borderRadius),
-          radius: const Radius.circular(borderRadius), clockwise: true);
+      path.arcToPoint(
+        Offset(size.width, bodyTopY + borderRadius),
+        radius: const Radius.circular(borderRadius),
+        clockwise: true,
+      );
 
       path.lineTo(size.width, size.height - borderRadius);
-      path.arcToPoint(Offset(size.width - borderRadius, size.height),
-          radius: const Radius.circular(borderRadius), clockwise: true);
+      path.arcToPoint(
+        Offset(size.width - borderRadius, size.height),
+        radius: const Radius.circular(borderRadius),
+        clockwise: true,
+      );
 
       path.lineTo(tailWidth + borderRadius, size.height);
-      path.arcToPoint(Offset(tailWidth, size.height - borderRadius),
-          radius: const Radius.circular(borderRadius), clockwise: true);
+      path.arcToPoint(
+        Offset(tailWidth, size.height - borderRadius),
+        radius: const Radius.circular(borderRadius),
+        clockwise: true,
+      );
 
       path.lineTo(tailWidth, bodyTopY + tailHeight);
       path.quadraticBezierTo(
-        tailWidth * 0.5, bodyTopY + tailHeight * 0.5,
-        0, bodyTopY + tailHeight / 2,
+        tailWidth * 0.5,
+        bodyTopY + tailHeight * 0.5,
+        0,
+        bodyTopY + tailHeight / 2,
       );
     }
 
     path.close();
-
     canvas.drawPath(path, paint);
     canvas.drawPath(path, borderPaint);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    // 위젯의 속성이 변경될 때만 다시 그리도록 최적화합니다.
     return oldDelegate is ChatBubblePainter &&
         (oldDelegate.bubbleColor != bubbleColor ||
             oldDelegate.borderColor != borderColor ||
             oldDelegate.isUser != isUser);
   }
-} 
+}

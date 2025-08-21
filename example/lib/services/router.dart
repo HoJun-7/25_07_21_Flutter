@@ -149,8 +149,9 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
 
-          // ✅ 일반 사진 상세(상세 화면에서 서버 재조회)
+          // ✅ 변경된 부분: 이름(name)을 추가하고 경로를 명확하게 변경
           GoRoute(
+            name: 'doctor-photo-result-detail',
             path: '/d_result_detail',
             builder: (context, state) {
               final extra = state.extra as Map;
@@ -163,8 +164,9 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
 
-          // ✅ X-ray 상세(동일 컨셉: 화면 내부에서 재조회)
+          // ✅ 변경된 부분: 이름(name)을 추가하고 경로를 명확하게 변경
           GoRoute(
+            name: 'doctor-xray-result-detail',
             path: '/d_xray_result_detail',
             builder: (context, state) {
               final extra = state.extra as Map;

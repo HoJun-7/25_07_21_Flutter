@@ -13,6 +13,7 @@ import '/presentation/viewmodel/auth_viewmodel.dart';
 
 class DXrayResultDetailScreen extends StatefulWidget {
   final String userId;
+
   /// 상대 경로(ex: /images/original/....png) 또는 절대 URL도 허용 (입력은 뭐가 와도 내부에서 상대 경로로 통일)
   final String originalImageUrl;
   final String baseUrl;
@@ -205,26 +206,24 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       _inferenceResultId = data['_id']?.toString();
 
       // 오버레이 경로 원본 (키가 다를 때 대비하여 processed_image_path도 폴백)
-      final Map<String, dynamic>? m1 =
-          (data['model1_inference_result'] as Map?)?.cast<String, dynamic>();
-      final Map<String, dynamic>? m2 =
-          (data['model2_inference_result'] as Map?)?.cast<String, dynamic>();
+      final Map<String, dynamic>? m1 = (data['model1_inference_result'] as Map?)?.cast<String, dynamic>();
+      final Map<String, dynamic>? m2 = (data['model2_inference_result'] as Map?)?.cast<String, dynamic>();
 
       String? m1ImgRaw = (data['model1_image_path'] ??
-                          data['xray_model1_image_path'] ?? // 폴백 추가
-                          m1?['processed_image_path']) as String?;
+              data['xray_model1_image_path'] ?? // 폴백 추가
+              m1?['processed_image_path']) as String?;
 
       String? m2ImgRaw = (data['model2_image_path'] ??
-                          data['xray_model2_image_path'] ?? // 폴백 추가
-                          m2?['processed_image_path']) as String?;
+              data['xray_model2_image_path'] ?? // 폴백 추가
+              m2?['processed_image_path']) as String?;
 
       // 💡 절대/상대 관계없이 "상대 경로"로 통일
       final String m1Rel = _toRelative(m1ImgRaw);
       final String m2Rel = _toRelative(m2ImgRaw);
 
       setState(() {
-        _m1UsedModel   = m1?['used_model']?.toString() ?? (m1?['label']?.toString() ?? 'N/A');
-        _m1Confidence  = (m1?['confidence'] as num?)?.toDouble() ?? 0.0;
+        _m1UsedModel = m1?['used_model']?.toString() ?? (m1?['label']?.toString() ?? 'N/A');
+        _m1Confidence = (m1?['confidence'] as num?)?.toDouble() ?? 0.0;
         _m1Predictions = (m1?['predictions'] as List?) ?? const [];
       });
 
@@ -400,22 +399,29 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
           _doctorOpinionController.text = opinionText;
         });
 
-        showDialog(
+        // 💡 수정된 부분: showDialog의 Future가 완료된 후 context.pop() 실행
+        final dialogResult = await showDialog(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (BuildContext dialogContext) => AlertDialog(
             title: const Text('제출 완료'),
             content: const Text('의사 의견이 저장되었습니다.'),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context); // close dialog
-                  context.pop(true);      // 목록 새로고침 신호
+                  if (Navigator.of(dialogContext).canPop()) {
+                    Navigator.of(dialogContext).pop(true);
+                  }
                 },
                 child: const Text('확인'),
               ),
             ],
           ),
         );
+        
+        // 다이얼로그가 닫히면 이전 화면으로 돌아감
+        if (mounted && context.canPop()) {
+          context.pop(true);
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('저장 실패: ${res.statusCode} ${res.body}')),
@@ -434,10 +440,10 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
   // UI
   // ─────────────────────────────
   BoxDecoration _cardDecoration() => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+  );
 
   Widget _buildStatusBadge() {
     final Color bg = _isReplied ? const Color(0xFF4CAF50) : const Color(0xFFFF9800);
@@ -457,53 +463,53 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
   }
 
   Widget _buildToggleCard() => Container(
-        decoration: _cardDecoration(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle("구강 상태 분석", _showModel1, (v) => setState(() => _showModel1 = v)),
-            _buildStyledToggle("임플란트/제조사", _showModel2, (v) => setState(() => _showModel2 = v)),
-          ],
-        ),
-      );
+    decoration: _cardDecoration(),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        _buildStyledToggle("구강 상태 분석", _showModel1, (v) => setState(() => _showModel1 = v)),
+        _buildStyledToggle("임플란트/제조사", _showModel2, (v) => setState(() => _showModel2 = v)),
+      ],
+    ),
+  );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0xFFEAEAEA), borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text(label, style: const TextStyle(fontSize: 15)), Switch(value: value, onChanged: onChanged)],
-        ),
-      );
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    decoration: BoxDecoration(color: const Color(0xFFEAEAEA), borderRadius: BorderRadius.circular(12)),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(label, style: const TextStyle(fontSize: 15)), Switch(value: value, onChanged: onChanged)],
+    ),
+  );
 
   Widget _buildImageCard() => Container(
-        decoration: _cardDecoration(),
-        padding: const EdgeInsets.all(16),
-        child: AspectRatio(
-          aspectRatio: 4 / 3,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (_originalBytes != null)
-                  // X-ray는 비율 유지가 중요 → contain
-                  Image.memory(_originalBytes!, fit: BoxFit.contain)
-                else
-                  const Center(child: CircularProgressIndicator()),
-                if (_showModel1 && _overlay1Bytes != null)
-                  Image.memory(_overlay1Bytes!, fit: BoxFit.contain),
-                if (_showModel2 && _overlay2Bytes != null)
-                  Image.memory(_overlay2Bytes!, fit: BoxFit.contain),
-              ],
-            ),
-          ),
+    decoration: _cardDecoration(),
+    padding: const EdgeInsets.all(16),
+    child: AspectRatio(
+      aspectRatio: 4 / 3,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_originalBytes != null)
+              // X-ray는 비율 유지가 중요 → contain
+              Image.memory(_originalBytes!, fit: BoxFit.contain)
+            else
+              const Center(child: CircularProgressIndicator()),
+            if (_showModel1 && _overlay1Bytes != null)
+              Image.memory(_overlay1Bytes!, fit: BoxFit.contain),
+            if (_showModel2 && _overlay2Bytes != null)
+              Image.memory(_overlay2Bytes!, fit: BoxFit.contain),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _buildXraySummaryCard() {
     // class_name별 카운트(정상치아 제외)
@@ -711,11 +717,11 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       body: SafeArea(
         child: kIsWeb
             ? Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: _buildBody(),
-                ),
-              )
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: _buildBody(),
+          ),
+        )
             : _buildBody(),
       ),
     );
