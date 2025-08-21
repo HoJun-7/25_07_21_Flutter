@@ -23,7 +23,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<String> statuses = ['ALL', '신청 안함', '응답 대기중', '응답 완료'];
-  
+
   final _dateFmt = DateFormat('yyyy-MM-dd');
   final _timeFmt = DateFormat('HH:mm');
 
@@ -61,6 +61,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return false;
       },
       child: Scaffold(
+        // ✅ 키보드 등장 시 자동 회피
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           title: const Text('진료 기록'),
           centerTitle: true,
@@ -68,7 +70,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           foregroundColor: Colors.white,
         ),
         backgroundColor: const Color(0xFFDCE7F6),
-        // ✅ 웹이면 폭 고정 + 가운데 정렬
         body: SafeArea(
           child: kIsWeb
               ? Center(
@@ -83,37 +84,48 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // ✅ 본문을 분리 (웹/모바일 공용)
+  // ✅ CustomScrollView + Sliver 로 변경 (Column 제거)
   Widget _buildMainBody(HistoryViewModel viewModel, dynamic currentUser) {
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
-    return viewModel.isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : viewModel.error != null
-            ? Center(child: Text('오류: ${viewModel.error}'))
-            : currentUser == null
-                ? const Center(child: Text('로그인이 필요합니다.'))
-                : Column(
-                    children: [
-                      _buildStatusChips(),
-                      Expanded(
-                        child: PageView.builder(
-                          controller: _pageController,
-                          onPageChanged: (index) => setState(() => _selectedIndex = index),
-                          itemCount: statuses.length,
-                          itemBuilder: (context, index) {
-                            final filtered = _filterRecords(
-                              viewModel.records
-                                  .where((r) => r.userId == currentUser.registerId)
-                                  .toList(),
-                              statuses[index],
-                            );
-                            return _buildRecordList(filtered, imageBaseUrl);
-                          },
-                        ),
-                      ),
-                    ],
-                  );
+    if (viewModel.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (viewModel.error != null) {
+      return Center(child: Text('오류: ${viewModel.error}'));
+    }
+    if (currentUser == null) {
+      return const Center(child: Text('로그인이 필요합니다.'));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        // 상단 상태 칩 (얇게 조정)
+        SliverToBoxAdapter(child: _buildStatusChips()),
+        // 남은 공간은 PageView가 차지 (작은 높이여도 오버플로우 없음)
+        SliverFillRemaining(
+          hasScrollBody: true,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) => setState(() => _selectedIndex = index),
+              itemCount: statuses.length,
+              itemBuilder: (context, index) {
+                final filtered = _filterRecords(
+                  viewModel.records
+                      .where((r) => r.userId == currentUser.registerId)
+                      .toList(),
+                  statuses[index],
+                );
+                return _buildRecordList(filtered, imageBaseUrl);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   List<HistoryRecord> _filterRecords(List<HistoryRecord> all, String status) {
@@ -137,7 +149,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case '신청 안함':
         return Colors.blue;
       case '응답 대기중':
-        return Colors.yellow.shade700;
+        return Colors.yellow;
       case '응답 완료':
         return Colors.green;
       default:
@@ -145,61 +157,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  // ✅ 더 얇게: height 36, padding 축소
   Widget _buildStatusChips() {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      height: 44,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F2F4),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = constraints.maxWidth / statuses.length;
-          return Stack(
-            children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 250),
-                left: _selectedIndex * itemWidth,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: itemWidth,
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getChipColor(statuses[_selectedIndex]),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-              Row(
-                children: List.generate(statuses.length, (index) {
-                  return GestureDetector(
-                    onTap: () {
-                      _pageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: SizedBox(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: SizedBox(
+        height: 36,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F2F4),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth / statuses.length;
+              return Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 250),
+                    left: _selectedIndex * itemWidth,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
                       width: itemWidth,
-                      child: Center(
-                        child: Text(
-                          statuses[index],
-                          style: TextStyle(
-                            color: _selectedIndex == index ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getChipColor(statuses[_selectedIndex]),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                  );
-                }),
-              ),
-            ],
-          );
-        },
+                  ),
+                  Row(
+                    children: List.generate(statuses.length, (index) {
+                      return GestureDetector(
+                        onTap: () {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: SizedBox(
+                          width: itemWidth,
+                          child: Center(
+                            child: Text(
+                              statuses[index],
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: _selectedIndex == index
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -207,10 +227,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildRecordList(List<HistoryRecord> records, String imageBaseUrl) {
     // 1) 최신순 정렬 (파일명 안의 타임스탬프 기준)
     final sorted = [...records]..sort((a, b) {
-      final at = _extractDateTimeFromFilename(a.originalImagePath);
-      final bt = _extractDateTimeFromFilename(b.originalImagePath);
-      return bt.compareTo(at); // desc
-    });
+        final at = _extractDateTimeFromFilename(a.originalImagePath);
+        final bt = _extractDateTimeFromFilename(b.originalImagePath);
+        return bt.compareTo(at); // desc
+      });
 
     // 2) 날짜 헤더 + 아이템을 순서대로 플랫하게 만든다
     final List<Widget> children = [];
@@ -226,17 +246,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
         currentDate = dateStr;
         children.add(
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
             child: Text(
               dateStr,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3869A8)),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3869A8),
+              ),
             ),
           ),
         );
       }
 
       final isXray = record.imageType == 'xray';
-      final route = isXray ? '/history_xray_result_detail' : '/history_result_detail';
+      final route =
+          isXray ? '/history_xray_result_detail' : '/history_result_detail';
 
       final modelFilename = getModelFilename(record.originalImagePath);
       final modelUrls = isXray
@@ -295,7 +320,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   width: 50,
                   child: Text(
                     timeStr,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -314,9 +343,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       );
     }
 
+    // ✅ PageView 안의 보조 스크롤(오버플로우 방지 핵심 유지)
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: children,
+      primary: false,
+      shrinkWrap: true,
+      physics: const AlwaysScrollableScrollPhysics(),
     );
   }
 
@@ -325,7 +358,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final parts = filename.split('_');
     final timePart = parts[1];
     return DateTime.parse(
-      '${timePart.substring(0, 4)}-${timePart.substring(4, 6)}-${timePart.substring(6, 8)}T${timePart.substring(8, 10)}:${timePart.substring(10, 12)}:${timePart.substring(12, 14)}',
+      '${timePart.substring(0, 4)}-'
+      '${timePart.substring(4, 6)}-'
+      '${timePart.substring(6, 8)}T'
+      '${timePart.substring(8, 10)}:'
+      '${timePart.substring(10, 12)}:'
+      '${timePart.substring(12, 14)}',
     );
   }
 
@@ -408,7 +446,13 @@ class _AuthThumbState extends State<_AuthThumb> {
       ),
       clipBehavior: Clip.antiAlias,
       child: _loading
-          ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+          ? const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           : (_bytes != null
               ? Image.memory(_bytes!, fit: BoxFit.cover)
               : const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
