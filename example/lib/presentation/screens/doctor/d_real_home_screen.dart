@@ -1242,7 +1242,7 @@ class _ImageCardState extends State<_ImageCard> {
       return Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Text(
-          "환자: ${item.user_name} | 촬영일: $dateStr | 설명: $desc",
+          "환자: ${item.userId} | 촬영일: $dateStr | 설명: $desc",
           style: const TextStyle(fontSize: 12, color: Colors.black54),
         ),
       );
