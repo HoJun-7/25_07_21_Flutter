@@ -1,4 +1,4 @@
-// chatbot_screen.dart
+// chatbot_screen.dart (통합 버전, 입력창 폭 고정 수정)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -92,6 +92,16 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _sendBtnAnimCtr.dispose();
     super.dispose();
   }
+
+  // 🔹 웹에서 특정 최대폭을 유지하고, 모바일은 그대로 두는 래퍼
+  Widget _webWidth(Widget child) => kIsWeb
+      ? Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+            child: child,
+          ),
+        )
+      : child;
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -293,16 +303,74 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               ),
             ],
           ),
-          // ✅ Stack: 본문(웹 폭 고정) + 알림 팝업 오버레이
-          body: SafeArea(
-            child: kIsWeb
-                ? Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
-                      child: _buildChatBody(messages, isLoading, imageContainerWidth),
+          // ✅ Stack: 본문(웹 폭 고정) + 알림 팝업 오버레이 + 하단 입력창 오버레이
+          body: Stack(
+            children: [
+              // 본문
+              SafeArea(
+                child: _webWidth(
+                  _buildChatBody(messages, isLoading, imageContainerWidth),
+                ),
+              ),
+
+              // ✅ 알림 팝업 (상단-오른쪽)
+              if (_isNotificationPopupVisible)
+                SafeArea(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, right: 12),
+                      child: Material(
+                        elevation: 8,
+                        borderRadius: BorderRadius.circular(12),
+                        color: _Palette.surface,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: Container(
+                            width: 280,
+                            padding: const EdgeInsets.all(12),
+                            child: _notifications.isEmpty
+                                ? const Text('알림이 없습니다.',
+                                    style: TextStyle(color: _Palette.textSecondary))
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: _notifications
+                                        .map(
+                                          (msg) => Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.notifications_active_outlined,
+                                                  color: _Palette.primaryLight,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    msg,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: _Palette.textPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                          ),
+                        ),
+                      ),
                     ),
-                  )
-                : _buildChatBody(messages, isLoading, imageContainerWidth),
+                  ),
+                ),
+
+              // ✅ 하단 고정: 입력창 + 안내문구 (오버레이, 웹 폭 고정)
+              _buildBottomInputOverlay(),
+            ],
           ),
         ),
       ),
@@ -326,281 +394,286 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     final double keyboard = media.viewInsets.bottom;
     final double listBottomPadding = overlayBase + keyboard + 12; // 여유 12
 
-    return Stack(
-      children: [
-        // 1) 메시지 스크롤 영역
-        Positioned.fill(
-          child: ListView.builder(
-            controller: _scrollController,
-            padding: EdgeInsets.only(top: 8, bottom: listBottomPadding),
-            itemCount: isLoading ? messages.length + 1 : messages.length,
-            itemBuilder: (_, idx) {
-              if (idx == messages.length && isLoading) {
-                // 로딩 인디케이터를 리스트 맨 아래에 렌더링
-                return Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      _buildProfileAvatar(isUser: false),
-                      const SizedBox(width: 8),
-                      const Text('덴티가 생각 중이에요...',
-                          style: TextStyle(color: _Palette.textSecondary)),
-                    ],
-                  ),
-                );
-              }
-
-              final msg = messages[idx];
-              final bool isUser = msg.role == 'user';
-
-              String? imageUrlToDisplay;
-              if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
-                if (_currentMaskSettings['충치/치아/위생 관련'] == true) {
-                  imageUrlToDisplay = msg.imageUrls!['model1'];
-                } else if (_currentMaskSettings['치석/보철물'] == true) {
-                  imageUrlToDisplay = msg.imageUrls!['model2'];
-                } else if (_currentMaskSettings['치아번호'] == true) {
-                  imageUrlToDisplay = msg.imageUrls!['model3'];
-                }
-                imageUrlToDisplay ??= msg.imageUrls!['original'];
-                imageUrlToDisplay ??= msg.imageUrls!.values.first;
-              }
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                child: Column(
-                  crossAxisAlignment:
-                      isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment:
-                          isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!isUser) _buildProfileAvatar(isUser: false),
-                        if (!isUser) const SizedBox(width: 8),
-                        Flexible(
-                          child: ChatBubble(
-                            message: msg.content,
-                            isUser: isUser,
-                            bubbleColor:
-                                isUser ? _Palette.bubbleUser : _Palette.bubbleBot,
-                            borderColor:
-                                isUser ? _Palette.borderUser : _Palette.borderBot,
-                            textStyle: GoogleFonts.notoSansKr(
-                              fontSize: 15,
-                              color: _Palette.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (isUser) const SizedBox(width: 8),
-                        if (isUser) _buildProfileAvatar(isUser: true),
-                      ],
-                    ),
-                    if (imageUrlToDisplay != null)
-                      Align(
-                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          width: imageContainerWidth,
-                          margin: EdgeInsets.only(
-                            top: 10,
-                            left: isUser ? 0 : profileImageSize + 8,
-                            right: isUser ? profileImageSize + 8 : 0,
-                          ),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _Palette.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _Palette.borderBot, width: 1),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color.fromARGB(13, 0, 0, 0),
-                                blurRadius: 5,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '진단 사진 (${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일 ${DateTime.now().hour}시 ${DateTime.now().minute}분 촬영)',
-                                style: GoogleFonts.notoSansKr(
-                                    fontSize: 13, color: _Palette.textSecondary),
-                              ),
-                              const SizedBox(height: 10),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  imageUrlToDisplay,
-                                  width: imageContainerWidth - 24,
-                                  height: imageContainerWidth - 24, // 1:1
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return SizedBox(
-                                      width: imageContainerWidth - 24,
-                                      height: imageContainerWidth - 24,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded /
-                                                  loadingProgress.expectedTotalBytes!
-                                              : null,
-                                          color: _Palette.primary,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return SizedBox(
-                                      width: imageContainerWidth - 24,
-                                      height: imageContainerWidth - 24,
-                                      child: Center(
-                                        child: Icon(Icons.broken_image,
-                                            color: Colors.grey[400], size: 50),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-                              Text(
-                                '마스크 설정',
-                                style: GoogleFonts.notoSansKr(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: _Palette.primaryDark),
-                              ),
-                              const Divider(color: _Palette.fieldBorder, thickness: 0.8),
-                              _buildMaskSettingSwitch(
-                                '충치/치아/위생 관련',
-                                _currentMaskSettings['충치/치아/위생 관련']!,
-                                (bool newValue) {
-                                  setState(() {
-                                    _currentMaskSettings['충치/치아/위생 관련'] = newValue;
-                                    if (newValue) {
-                                      _currentMaskSettings['치석/보철물'] = false;
-                                      _currentMaskSettings['치아번호'] = false;
-                                    }
-                                  });
-                                },
-                              ),
-                              _buildMaskSettingSwitch(
-                                '치석/보철물',
-                                _currentMaskSettings['치석/보철물']!,
-                                (bool newValue) {
-                                  setState(() {
-                                    _currentMaskSettings['치석/보철물'] = newValue;
-                                    if (newValue) {
-                                      _currentMaskSettings['충치/치아/위생 관련'] = false;
-                                      _currentMaskSettings['치아번호'] = false;
-                                    }
-                                  });
-                                },
-                              ),
-                              _buildMaskSettingSwitch(
-                                '치아번호',
-                                _currentMaskSettings['치아번호']!,
-                                (bool newValue) {
-                                  setState(() {
-                                    _currentMaskSettings['치아번호'] = newValue;
-                                    if (newValue) {
-                                      _currentMaskSettings['충치/치아/위생 관련'] = false;
-                                      _currentMaskSettings['치석/보철물'] = false;
-                                    }
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.only(top: 8, bottom: listBottomPadding),
+      itemCount: isLoading ? messages.length + 1 : messages.length,
+      itemBuilder: (_, idx) {
+        // ✅ 로딩 셀 (점 애니메이션)
+        if (idx == messages.length && isLoading) {
+          return Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                _buildProfileAvatar(isUser: false),
+                const SizedBox(width: 8),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(seconds: 1),
+                  builder: (_, value, __) {
+                    final dots = '.' * ((value * 4).floor() % 4);
+                    return Text('덴티가 생각 중이에요$dots',
+                        style: GoogleFonts.notoSansKr(
+                            color: _Palette.textSecondary, fontSize: 15));
+                  },
+                  onEnd: () => setState(() {}),
                 ),
-              );
-            },
-          ),
-        ),
+              ],
+            ),
+          );
+        }
 
-        // 2) 하단 고정: 입력창 + 안내문구 (오버레이)
-        Positioned(
-          left: 0,
-          right: 0,
-          // 키보드가 뜨면 viewInsets.bottom만큼 자동으로 위로 떠서 가리지 않음
-          bottom: media.viewInsets.bottom,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+        final msg = messages[idx];
+        final bool isUser = msg.role == 'user';
+
+        String? imageUrlToDisplay;
+        if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
+          if (_currentMaskSettings['충치/치아/위생 관련'] == true) {
+            imageUrlToDisplay = msg.imageUrls!['model1'];
+          } else if (_currentMaskSettings['치석/보철물'] == true) {
+            imageUrlToDisplay = msg.imageUrls!['model2'];
+          } else if (_currentMaskSettings['치아번호'] == true) {
+            imageUrlToDisplay = msg.imageUrls!['model3'];
+          }
+          imageUrlToDisplay ??= msg.imageUrls!['original'];
+          imageUrlToDisplay ??= msg.imageUrls!.values.first;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          child: Column(
+            crossAxisAlignment:
+                isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment:
+                    isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          decoration: InputDecoration(
-                            hintText: '메시지를 작성해주세요',
-                            hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
-                            filled: true,
-                            fillColor: _Palette.fieldFill,
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide: BorderSide.none),
-                            enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide:
-                                    const BorderSide(color: _Palette.fieldBorder, width: 1)),
-                            focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide:
-                                    const BorderSide(color: _Palette.fieldFocus, width: 2)),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          ),
-                          style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
-                          onSubmitted: (txt) {
-                            FocusScope.of(context).unfocus();
-                            _sendMessage(txt);
-                          },
-                        ),
+                  if (!isUser) _buildProfileAvatar(isUser: false),
+                  if (!isUser) const SizedBox(width: 8),
+                  Flexible(
+                    child: ChatBubble(
+                      message: msg.content,
+                      isUser: isUser,
+                      bubbleColor:
+                          isUser ? _Palette.bubbleUser : _Palette.bubbleBot,
+                      borderColor:
+                          isUser ? _Palette.borderUser : _Palette.borderBot,
+                      textStyle: GoogleFonts.notoSansKr(
+                        fontSize: 15,
+                        color: _Palette.textPrimary,
                       ),
-                      const SizedBox(width: 10),
-                      GestureDetector(
-                        onTapDown: (_) => _sendBtnAnimCtr.forward(),
-                        onTapUp: (_) => _sendBtnAnimCtr.reverse(),
-                        onTapCancel: () => _sendBtnAnimCtr.reverse(),
-                        onTap: () {
-                          FocusScope.of(context).unfocus();
-                          _sendMessage(_controller.text);
-                        },
-                        child: ScaleTransition(
-                          scale: _sendBtnScale,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _Palette.sendBtn,
-                                boxShadow: [
-                                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                                ]),
-                            padding: const EdgeInsets.all(12),
-                            child: const Icon(Icons.send, color: Colors.white, size: 24),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  _buildDisclaimerBottom(), // ⬅ 입력창 바로 아래
+                  if (isUser) const SizedBox(width: 8),
+                  if (isUser) _buildProfileAvatar(isUser: true),
                 ],
               ),
+              if (imageUrlToDisplay != null)
+                Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    width: imageContainerWidth,
+                    margin: EdgeInsets.only(
+                      top: 10,
+                      left: isUser ? 0 : profileImageSize + 8,
+                      right: isUser ? profileImageSize + 8 : 0,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _Palette.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _Palette.borderBot, width: 1),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromARGB(13, 0, 0, 0),
+                          blurRadius: 5,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '진단 사진 (${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일 ${DateTime.now().hour}시 ${DateTime.now().minute}분 촬영)',
+                          style: GoogleFonts.notoSansKr(
+                              fontSize: 13, color: _Palette.textSecondary),
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            imageUrlToDisplay,
+                            width: imageContainerWidth - 24,
+                            height: imageContainerWidth - 24, // 1:1
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return SizedBox(
+                                width: imageContainerWidth - 24,
+                                height: imageContainerWidth - 24,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: _Palette.primary,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return SizedBox(
+                                width: imageContainerWidth - 24,
+                                height: imageContainerWidth - 24,
+                                child: Center(
+                                  child: Icon(Icons.broken_image,
+                                      color: Colors.grey[400], size: 50),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          '마스크 설정',
+                          style: GoogleFonts.notoSansKr(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: _Palette.primaryDark),
+                        ),
+                        const Divider(color: _Palette.fieldBorder, thickness: 0.8),
+                        _buildMaskSettingSwitch(
+                          '충치/치아/위생 관련',
+                          _currentMaskSettings['충치/치아/위생 관련']!,
+                          (bool newValue) {
+                            setState(() {
+                              _currentMaskSettings['충치/치아/위생 관련'] = newValue;
+                              if (newValue) {
+                                _currentMaskSettings['치석/보철물'] = false;
+                                _currentMaskSettings['치아번호'] = false;
+                              }
+                            });
+                          },
+                        ),
+                        _buildMaskSettingSwitch(
+                          '치석/보철물',
+                          _currentMaskSettings['치석/보철물']!,
+                          (bool newValue) {
+                            setState(() {
+                              _currentMaskSettings['치석/보철물'] = newValue;
+                              if (newValue) {
+                                _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                _currentMaskSettings['치아번호'] = false;
+                              }
+                            });
+                          },
+                        ),
+                        _buildMaskSettingSwitch(
+                          '치아번호',
+                          _currentMaskSettings['치아번호']!,
+                          (bool newValue) {
+                            setState(() {
+                              _currentMaskSettings['치아번호'] = newValue;
+                              if (newValue) {
+                                _currentMaskSettings['충치/치아/위생 관련'] = false;
+                                _currentMaskSettings['치석/보철물'] = false;
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ✅ 하단 입력창+면책문구를 오버레이로 올려두는 위젯 (웹에서도 본문과 동일 폭 유지)
+  Widget _buildBottomInputOverlay() {
+    final media = MediaQuery.of(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: media.viewInsets.bottom, // 키보드 인셋만큼 위로
+      child: SafeArea(
+        top: false,
+        child: _webWidth( // ★★★ 핵심: 본문과 같은 폭으로 제한
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: '메시지를 작성해주세요',
+                          hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
+                          filled: true,
+                          fillColor: _Palette.fieldFill,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide:
+                                  const BorderSide(color: _Palette.fieldBorder, width: 1)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide:
+                                  const BorderSide(color: _Palette.fieldFocus, width: 2)),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        ),
+                        style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
+                        onSubmitted: (txt) {
+                          FocusScope.of(context).unfocus();
+                          _sendMessage(txt);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                      onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                      onTapCancel: () => _sendBtnAnimCtr.reverse(),
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        _sendMessage(_controller.text);
+                      },
+                      child: ScaleTransition(
+                        scale: _sendBtnScale,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _Palette.sendBtn,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                              ]),
+                          padding: const EdgeInsets.all(12),
+                          child: const Icon(Icons.send, color: Colors.white, size: 24),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _buildDisclaimerBottom(), // ⬅ 입력창 바로 아래
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
-
 
