@@ -205,49 +205,40 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 하단 버튼 예상 높이(버튼 50 + 패딩 위아래 16 = 82 이지만, 여유 포함해서 66으로 통일 가능)
+    // 기존 구현과 동일하게 66.0을 기준으로 사용
+    const double footerBaseHeight = 66.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFA9C9F5),
+      // 키보드 올라오면 body 위로 줄이기
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text(
           '치과 문진',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
+
+      // 본문
       body: SafeArea(
         child: kIsWeb
             ? Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: _buildMainBody(),
+                  child: _buildMainBody(footerBaseHeight),
                 ),
               )
-            : _buildMainBody(),
+            : _buildMainBody(footerBaseHeight),
       ),
-    );
-  }
 
-  /// 본문(웹/모바일 공통)
-  Widget _buildMainBody() {
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              _buildAnimatedLoadPrompt(), // 👈 애니메이션으로 표시/제거
-              ...categories.map(
-                (category) => _buildCategoryTile(
-                  category,
-                  categorizedQuestions[category] ?? const [],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
+      // ✅ 하단 버튼: bottomNavigationBar로 분리(겹침 방지)
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: ElevatedButton(
             onPressed: _submitSurvey,
@@ -261,6 +252,32 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
               '다음 페이지로 이동',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 본문(웹/모바일 공통)
+  ///
+  /// 리스트에 하단 패딩 = (버튼영역 높이 + 여백) + 키보드 높이(viewInsets.bottom)
+  /// → 버튼/키보드와 겹치지 않게 항상 스크롤로 흡수
+  Widget _buildMainBody(double footerBaseHeight) {
+    final media = MediaQuery.of(context);
+    final double bottomSafePadding =
+        footerBaseHeight + 12.0 + media.viewInsets.bottom; // 핵심 포인트
+
+    return ListView(
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: bottomSafePadding,
+      ),
+      children: [
+        _buildAnimatedLoadPrompt(), // 👈 상단 배너(애니메이션)
+        ...categories.map(
+          (category) => _buildCategoryTile(
+            category,
+            categorizedQuestions[category] ?? const [],
           ),
         ),
       ],
@@ -492,8 +509,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
             () => TextEditingController(text: '${q.numberValue ?? 0}'),
           );
           final s = (q.numberValue ?? 0).toString();
-          controller.value = TextEditingValue(
-              text: s, selection: TextSelection.collapsed(offset: s.length));
+          controller.value =
+              TextEditingValue(text: s, selection: TextSelection.collapsed(offset: s.length));
           break;
 
         case SurveyType.text:

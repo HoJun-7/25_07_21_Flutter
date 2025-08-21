@@ -58,11 +58,12 @@ class ClinicsViewModel extends ChangeNotifier {
 
       await Future.delayed(const Duration(seconds: 2)); // API 호출 흉내
       _clinics = [
-        Clinic(name: '서울 스마일 치과', lat: 37.5665, lng: 126.9780, address: '서울시 중구 세종대로 110', phone: '02-123-4567'),
-        Clinic(name: '강남 화이트 치과', lat: 37.4979, lng: 127.0276, address: '서울시 강남구 테헤란로 123', phone: '02-789-0123'),
-        Clinic(name: '홍대 예쁨 치과', lat: 37.5575, lng: 126.9238, address: '서울시 마포구 홍익로 20', phone: '02-456-7890'),
-        Clinic(name: '종로 밝은 치과', lat: 37.5700, lng: 126.9800, address: '서울시 종로구 종로 1', phone: '02-111-2222'),
-        Clinic(name: '여의도 건강 치과', lat: 37.5200, lng: 126.9250, address: '서울시 영등포구 국제금융로 10', phone: '02-333-4444'),
+        Clinic(name: '대전 스마일 치과', lat: 36.3504, lng: 127.3845, address: '대전시 중구 중앙로 110', phone: '042-123-4567'),
+        Clinic(name: '대전 화이트 치과', lat: 36.3472, lng: 127.3920, address: '대전시 서구 둔산로 123', phone: '042-789-0123'),
+        Clinic(name: '대전 예쁨 치과', lat: 36.3530, lng: 127.3885, address: '대전시 유성구 대학로 20', phone: '042-456-7890'),
+        Clinic(name: '대전 밝은 치과', lat: 36.3515, lng: 127.3950, address: '대전시 동구 중앙로 1', phone: '042-111-2222'),
+        Clinic(name: '대전 건강 치과', lat: 36.3525, lng: 127.3820, address: '대전시 서구 둔산중로 10', phone: '042-333-4444'),
+
       ];
     } catch (e) {
       _errorMessage = '치과 정보를 불러오는데 실패했습니다: ${e.toString()}';

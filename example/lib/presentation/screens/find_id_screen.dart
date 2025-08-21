@@ -14,7 +14,7 @@ class KoreanPhoneNumberFormatter extends TextInputFormatter {
     String f = '';
 
     if (digits.startsWith('02')) {
-      // 서울 국번
+      //
       if (digits.length <= 2) {
         f = digits;
       } else if (digits.length <= 5) {
