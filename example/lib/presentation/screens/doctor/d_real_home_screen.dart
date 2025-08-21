@@ -374,7 +374,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("2025. 8. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    Text("2025. 8. 21  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -382,11 +382,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("서울시 서대문구", style: TextStyle(color: Colors.white, fontSize: 12)),
+                            Text("대전광역시 서구", style: TextStyle(color: Colors.white, fontSize: 12)),
                             Text("미세먼지 보통", style: TextStyle(color: Colors.white70, fontSize: 10)),
                           ],
                         ),
-                        Text("20°C",
+                        Text("30°C",
                             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
                     )

@@ -14,7 +14,7 @@ class ClinicsMapScreen extends StatefulWidget {
 
 class _ClinicsMapScreenState extends State<ClinicsMapScreen> {
   final MapController _mapController = MapController();
-  LatLng _initialCenter = const LatLng(37.5665, 126.9780); // 기본값: 서울 시청
+  LatLng _initialCenter = const LatLng(36.3504, 127.3845); // 기본값: 대전 시청
 
   @override
   void initState() {
