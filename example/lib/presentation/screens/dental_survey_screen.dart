@@ -64,12 +64,12 @@ class DentalSurveyScreen extends StatefulWidget {
 
 class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
   final List<String> categories = const [
-    '(치과)병력과 증상',
-    '구강건강 삶의 질과 인식',
-    '흡연',
-    '구강위생관리',
-    '불소이용',
-    '식습관',
+    '건강과 증상',
+    '구강 생활과 생각',
+    '담배 습관',
+    '양치 습관',
+    '치약 사용',
+    '먹는 습관',
   ];
 
   late final List<SurveyQuestion> questions;
@@ -93,98 +93,100 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     questions = [
       // (치과)병력과 증상
       SurveyQuestion(
-        category: '(치과)병력과 증상',
+        category: '건강과 증상',
         question: '최근 1년간 구강검진을 받거나 예방·관리 목적으로 치과병(의)원에 간 적이 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
       SurveyQuestion(
-        category: '(치과)병력과 증상',
+        category: '건강과 증상',
         question: '현재 당뇨병을 앓고 계십니까?',
         type: SurveyType.yesNoDontKnow,
         options: const ['예', '아니요', '모르겠다'],
       ),
       SurveyQuestion(
-        category: '(치과)병력과 증상',
+        category: '건강과 증상',
         question: '현재 심혈관건강문제를 겪고 계십니까? (예: 고혈압, 고지혈증, 동맥경화증 등)',
         type: SurveyType.yesNoDontKnow,
         options: const ['예', '아니요', '모르겠다'],
       ),
       SurveyQuestion(
-        category: '(치과)병력과 증상',
+        category: '건강과 증상',
         question: '최근 3개월 동안, 치아가 쑤시거나 욱신거리거나 아픈 적 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
       SurveyQuestion(
-        category: '(치과)병력과 증상',
+        category: '건강과 증상',
         question: '최근 3개월 동안, 잇몸이 아프거나 피가 난 적 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
 
-      // 구강건강 삶의 질과 인식
+      // 구강건강 삶의 질과 인식 → 구강 생활과 생각
       SurveyQuestion(
-        category: '구강건강 삶의 질과 인식',
+        category: '구강 생활과 생각',
         question: '최근 3개월 동안, 치아나 입안의 문제로 혹은 틀니 때문에 음식을 씹는 데에 불편감을 느낀 적이 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
       SurveyQuestion(
-        category: '구강건강 삶의 질과 인식',
+        category: '구강 생활과 생각',
         question: '스스로 생각할 때, 자신의 구강건강은 어떤 편이라고 생각합니까?',
         type: SurveyType.singleChoice,
         options: const ['매우 나쁘다', '나쁘다', '보통이다', '좋다', '매우 좋다'],
       ),
 
-      // 흡연
+      // 흡연 → 담배 습관
       SurveyQuestion(
-        category: '흡연',
+        category: '담배 습관',
         question: '담배를 피웁니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
 
+
       // 구강위생관리
+      // 구강위생관리 → 양치 습관
       SurveyQuestion(
-        category: '구강위생관리',
+        category: '양치 습관',
         question: '최근 일주일 동안, 하루 평균 치아를 몇 번 닦았습니까?',
         type: SurveyType.numeric,
       ),
       SurveyQuestion(
-        category: '구강위생관리',
+        category: '양치 습관',
         question: '최근 일주일 동안, 잠자기 직전에 칫솔질을 몇 회 하였습니까?',
         type: SurveyType.singleChoice,
         options: eightLabels, // 0~7회
       ),
       SurveyQuestion(
-        category: '구강위생관리',
+        category: '양치 습관',
         question: '최근 일주일 동안, 치아를 닦을 때 치실 혹은 치간칫솔을 사용하였습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
 
-      // 불소이용
+      // 불소이용 → 치약 사용
       SurveyQuestion(
-        category: '불소이용',
+        category: '치약 사용',
         question: '현재 사용 중인 치약에 불소가 들어 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
 
-      // 식습관
+      // 식습관 → 먹는 습관
       SurveyQuestion(
-        category: '식습관',
+        category: '먹는 습관',
         question: '하루에 달거나 끈적한 간식(과자, 사탕, 케이크 등)을 얼마나 먹습니까?',
         type: SurveyType.singleChoice,
         options: const ['4번 이상', '3번', '2번', '1번', '0번'],
       ),
       SurveyQuestion(
-        category: '식습관',
+        category: '먹는 습관',
         question: '하루에 과일주스나 당분이 첨가된 음료(탄산음료, 스포츠음료 등)를 얼마나 먹습니까?',
         type: SurveyType.singleChoice,
         options: const ['4번이상', '3번', '2번', '1번', '0번'],
-      ),
+      ),    
     ];
 
     categorizedQuestions = {
@@ -209,7 +211,7 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       backgroundColor: const Color(0xFFA9C9F5),
       appBar: AppBar(
         title: const Text(
-          '치과 문진',
+          '구강 건강 체크',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -865,17 +867,17 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
-      case '(치과)병력과 증상':
+      case '건강과 증상':
         return Icons.healing_outlined;
-      case '구강건강 삶의 질과 인식':
+      case '구강 생활과 생각':
         return Icons.sentiment_satisfied_alt_outlined;
-      case '흡연':
+      case '담배 습관':
         return Icons.smoking_rooms_outlined;
-      case '구강위생관리':
+      case '양치 습관':
         return Icons.brush_outlined;
-      case '불소이용':
+      case '치약 사용':
         return Icons.water_drop_outlined;
-      case '식습관':
+      case '먹는 습관':
         return Icons.restaurant_outlined;
       default:
         return Icons.category_outlined;

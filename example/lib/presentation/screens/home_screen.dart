@@ -193,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         List<Widget> gridChildren = [
                           _buildIconCardButton(
                             context,
-                            label: 'AI 진단',
+                            label: 'AI 확인',
                             icon: Icons.camera_alt_rounded,
                             onPressed: () => context.push('/survey'),
                             cardColor: const Color(0xFF6A9EEB),
@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           _buildIconCardButton(
                             context,
-                            label: '실시간 예측하기',
+                            label: '실시간 보기',
                             icon: Icons.videocam_rounded,
                             onPressed: kIsWeb
                                 ? null
@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           _buildIconCardButton(
                             context,
-                            label: '진료 기록',
+                            label: '내 기록',
                             icon: Icons.history_edu_rounded,
                             onPressed: () => context.push('/history'),
                             cardColor: const Color(0xFFFFB380),
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           _buildIconCardButton(
                             context,
-                            label: '주변 치과 찾기',
+                            label: '가까운 병원',
                             icon: Icons.location_on_rounded,
                             onPressed: () => context.push('/clinics'),
                             cardColor: const Color(0xFFC2A8FF),
