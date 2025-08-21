@@ -61,6 +61,7 @@ flutter:
     - assets/logo.png
     - assets/applogo.png
     - assets/splash.png
+    - assets/splash/splash.gif                  # ✅ 추가: GIF 스플래시
     - assets/models/dental_best_float32.tflite
     - assets/web/model/open_mouth.glb
     - assets/web/
@@ -74,6 +75,9 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/splash.png
+  image: assets/splash.png   # 기존 파일
   android: true
   ios: true
+  android_12:
+    color: "#ffffff"
+    image: assets/splash.png

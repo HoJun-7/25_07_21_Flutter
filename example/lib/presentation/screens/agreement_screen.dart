@@ -25,10 +25,9 @@ class _AgreementScreenState extends State<AgreementScreen>
 
   bool get isAllAgreed => isTermsChecked && isPrivacyChecked;
 
-  // ▼ 첫 번째 UI와 동일 톤
+  // 컬러 톤
   static const Color primaryBlue = Color(0xFF3869A8);
   static const Color lightBlueBackground = Color(0xFFB4D4FF);
-  static const Color cardTopBg = Colors.white;
 
   @override
   void initState() {
@@ -38,8 +37,10 @@ class _AgreementScreenState extends State<AgreementScreen>
   }
 
   Future<void> _loadHtmlContents() async {
-    final terms = await rootBundle.loadString('assets/html/toothai_terms_full.html');
-    final appendix = await rootBundle.loadString('assets/html/toothai_terms_appendix1.html');
+    final terms =
+        await rootBundle.loadString('assets/html/toothai_terms_full.html');
+    final appendix =
+        await rootBundle.loadString('assets/html/toothai_terms_appendix1.html');
 
     setState(() {
       termsHtmlContent = terms;
@@ -69,138 +70,171 @@ class _AgreementScreenState extends State<AgreementScreen>
         Checkbox(
           value: value,
           onChanged: onChanged,
-          activeColor: primaryBlue, // ▶ 체크 색상 통일
+          activeColor: primaryBlue,
         ),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 14),
-          ),
-        ),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final mainContent = Column(
-      children: [
-        const SizedBox(height: 20),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  // ▶ 카드 상단은 흰색 + Tab 스타일만 파란톤
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: primaryBlue, // ▶ 선택 라벨
-                      unselectedLabelColor: Colors.grey,
-                      labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      indicatorColor: primaryBlue, // ▶ 인디케이터 컬러
-                      indicatorWeight: 3,
-                      tabs: const [
-                        Tab(text: '이용약관'),
-                        Tab(text: '개인정보 수집·이용'),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        termsHtmlContent.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
-                            : Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: SingleChildScrollView(
-                                  child: Html(data: termsHtmlContent),
-                                ),
-                              ),
-                        appendixHtmlContent.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
-                            : Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: SingleChildScrollView(
-                                  child: Html(data: appendixHtmlContent),
-                                ),
-                              ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              _buildCheckboxTile(
-                label: '이용약관에 동의합니다.',
-                value: isTermsChecked,
-                onChanged: (val) => setState(() => isTermsChecked = val ?? false),
-              ),
-              _buildCheckboxTile(
-                label: '개인정보 수집 및 이용에 동의합니다.',
-                value: isPrivacyChecked,
-                onChanged: (val) => setState(() => isPrivacyChecked = val ?? false),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: isAllAgreed ? _goToRegister : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isAllAgreed ? primaryBlue : Colors.grey.shade400, // ▶ 버튼 컬러 통일
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: isAllAgreed ? 2 : 0,
-                  ),
-                  child: const Text('다음'),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ],
-    );
-
     return Scaffold(
-      backgroundColor: lightBlueBackground, // ▶ 배경 컬러 통일
+      backgroundColor: lightBlueBackground,
       appBar: AppBar(
-        backgroundColor: primaryBlue, // ▶ 상단 바 컬러 통일
+        backgroundColor: primaryBlue,
         title: const Text('약관 동의'),
         centerTitle: true,
         elevation: 0,
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: kIsWeb
-            ? Center(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+            final bool isWideWeb = kIsWeb && constraints.maxWidth >= 768;
+            final double maxWidth = isWideWeb ? 560.0 : (kIsWeb ? 520.0 : double.infinity);
+
+            // 카드 높이를 더 크게 (웹 72%, 모바일 62%), 상/하 한계값도 상향
+            final double factor = kIsWeb ? 0.72 : 0.62;
+            final double minH = kIsWeb ? 420.0 : 380.0;
+            final double maxH = kIsWeb ? 760.0 : 680.0;
+            final double cardHeight =
+                (constraints.maxHeight * factor).clamp(minH, maxH);
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: 16 + bottomInset),
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 450),
-                  child: mainContent,
+                  constraints: BoxConstraints(
+                    maxWidth: maxWidth,
+                    minHeight: constraints.maxHeight, // 화면 높이 채워 자연스러운 배치
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 28), // 상단 여백 약간 키움
+
+                        // ▶ 더 커진 카드
+                        SizedBox(
+                          height: cardHeight,
+                          child: Card(
+                            elevation: 6,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(14),
+                                    ),
+                                  ),
+                                  child: TabBar(
+                                    controller: _tabController,
+                                    labelColor: primaryBlue,
+                                    unselectedLabelColor: Colors.grey,
+                                    labelStyle: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    indicatorColor: primaryBlue,
+                                    indicatorWeight: 3,
+                                    tabs: const [
+                                      Tab(text: '이용약관'),
+                                      Tab(text: '개인정보 수집·이용'),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      termsHtmlContent.isEmpty
+                                          ? const Center(
+                                              child: CircularProgressIndicator(),
+                                            )
+                                          : Padding(
+                                              padding: const EdgeInsets.all(16.0),
+                                              child: SingleChildScrollView(
+                                                child: Html(data: termsHtmlContent),
+                                              ),
+                                            ),
+                                      appendixHtmlContent.isEmpty
+                                          ? const Center(
+                                              child: CircularProgressIndicator(),
+                                            )
+                                          : Padding(
+                                              padding: const EdgeInsets.all(16.0),
+                                              child: SingleChildScrollView(
+                                                child:
+                                                    Html(data: appendixHtmlContent),
+                                              ),
+                                            ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20), // 카드와 체크 사이 간격 살짝 키움
+
+                        // 체크박스/버튼
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Column(
+                            children: [
+                              _buildCheckboxTile(
+                                label: '이용약관에 동의합니다.',
+                                value: isTermsChecked,
+                                onChanged: (val) =>
+                                    setState(() => isTermsChecked = val ?? false),
+                              ),
+                              _buildCheckboxTile(
+                                label: '개인정보 수집 및 이용에 동의합니다.',
+                                value: isPrivacyChecked,
+                                onChanged: (val) => setState(
+                                    () => isPrivacyChecked = val ?? false),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton(
+                                  onPressed: isAllAgreed ? _goToRegister : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isAllAgreed
+                                        ? primaryBlue
+                                        : Colors.grey.shade400,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: isAllAgreed ? 2 : 0,
+                                  ),
+                                  child: const Text('다음'),
+                                ),
+                              ),
+                              const SizedBox(height: 28),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              )
-            : mainContent,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

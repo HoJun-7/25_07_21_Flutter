@@ -98,62 +98,132 @@ Future<void> main() async {
   );
 }
 
-// ▼▼▼ 위쪽 코드의 SplashScreen 이식 (애니메이션 포함) ▼▼▼
+/// ============================================================================
+/// 기존 여러 이미지 애니메이션 SplashScreen ▶▶▶ 주석 처리
+/// (ScaleTransition + FadeTransition 로고 애니메이션)
+/// ============================================================================
+// class SplashScreen extends StatefulWidget {
+//   final String baseUrl;
+//   const SplashScreen({super.key, required this.baseUrl});
+//
+//   @override
+//   State<SplashScreen> createState() => _SplashScreenState();
+// }
+//
+// class _SplashScreenState extends State<SplashScreen>
+//     with SingleTickerProviderStateMixin {
+//   late final AnimationController _controller;
+//   late final Animation<double> _scaleAnimation;
+//   late final Animation<double> _opacityAnimation;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _controller = AnimationController(
+//       vsync: this,
+//       duration: const Duration(seconds: 2),
+//     )..repeat(reverse: true);
+//
+//     _scaleAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
+//       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+//     );
+//
+//     _opacityAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+//       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+//     );
+//   }
+//
+//   @override
+//   void dispose() {
+//     _controller.dispose();
+//     super.dispose();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
+//       body: Center(
+//         child: ScaleTransition(
+//           scale: _scaleAnimation,
+//           child: FadeTransition(
+//             opacity: _opacityAnimation,
+//             child: Image.asset(
+//               'assets/logo.png',
+//               width: 150,
+//               height: 150,
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
 
-class SplashScreen extends StatefulWidget {
+/// ============================================================================
+/// 새 GIF 스플래시 위젯
+/// - GoRouter 없이도 동작: 부모 콜백으로 라우터 화면 전환
+/// - 네이티브 스플래시와 배경/레이아웃을 맞추면 자연스럽게 이어짐
+/// ============================================================================
+class GifSplashScreen extends StatefulWidget {
   final String baseUrl;
-  const SplashScreen({super.key, required this.baseUrl});
+  final VoidCallback onFinished; // ✅ 스플래시 종료 콜백 (부모에서 라우터로 전환)
+
+  const GifSplashScreen({
+    super.key,
+    required this.baseUrl,
+    required this.onFinished,
+  });
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<GifSplashScreen> createState() => _GifSplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _opacityAnimation;
+class _GifSplashScreenState extends State<GifSplashScreen> {
+  final _gif = const AssetImage('assets/splash/splash.gif');
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // GIF 첫 프레임 깜빡임 방지
+      await precacheImage(_gif, context);
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+      // ⬇ 필요한 초기화(토큰/설정 로드 등)를 여기서 수행 가능
+      await _initializeApp();
 
-    // 흔들림/확대 축소
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+      // GIF 길이에 맞게 대기 시간 조절 (예: 2.4초)
+      await Future.delayed(const Duration(milliseconds: 2400));
 
-    // 깜빡임 효과
-    _opacityAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+      if (!mounted) return;
+      widget.onFinished(); // ✅ 부모에 알림 → 라우터로 전환
+    });
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  Future<void> _initializeApp() async {
+    // TODO: secure_storage 토큰, 초기 API 핑 등
+    await Future.delayed(const Duration(milliseconds: 200));
   }
 
   @override
   Widget build(BuildContext context) {
+    // ▼ 정적인 로고와 비슷한 크기를 유지하도록 명시적 사이즈 제약
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    // 화면 짧은 변의 28%를 기본값으로 하고 [180, 260] 범위로 클램프
+    final double targetSize = (shortestSide * 0.28).clamp(200.0, 300.0);
+
     return Scaffold(
-      backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
+      // 배경을 이미지 톤(#F7F9F9)으로 고정해 스플래시-홈 전환 시 이질감 제거
+      backgroundColor: const Color(0xFFF7F9F9),
       body: Center(
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: FadeTransition(
-            opacity: _opacityAnimation,
-            child: Image.asset(
-              'assets/logo.png', // 앱 로고 경로
-              width: 150,
-              height: 150,
-            ),
+        child: SizedBox(
+          width: targetSize,
+          height: targetSize,
+          child: const Image(
+            image: AssetImage('assets/splash/splash.gif'),
+            fit: BoxFit.contain,            // ▼ 박스 안에서만 맞추기
+            filterQuality: FilterQuality.high,
+            isAntiAlias: true,
           ),
         ),
       ),
@@ -161,8 +231,11 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// ▼▼▼ 아래쪽 코드 구조 유지: 단, 스플래시 → 라우터 전환을 YOLOExampleApp 내부에서 처리 ▼▼▼
-
+/// ============================================================================
+/// 앱 루트: 스플래시(일반 MaterialApp) → 라우터(MaterialApp.router)
+/// - 스플래시 동안엔 GoRouter 미사용
+/// - GIF 종료(onFinished) 시 라우터로 스위치
+/// ============================================================================
 class YOLOExampleApp extends StatefulWidget {
   final String baseUrl;
 
@@ -172,31 +245,28 @@ class YOLOExampleApp extends StatefulWidget {
   State<YOLOExampleApp> createState() => _YOLOExampleAppState();
 }
 
-class _YOLOExampleAppState extends State<YOLOExampleApp>
-    with SingleTickerProviderStateMixin {
+class _YOLOExampleAppState extends State<YOLOExampleApp> {
   bool _showRouter = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // 2초 후 MaterialApp.router 화면으로 전환
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _showRouter = true);
-      }
-    });
+  void _finishSplash() {
+    if (mounted) {
+      setState(() => _showRouter = true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_showRouter) {
-      // 스플래시 구간: MaterialApp로 감싸 동일한 테마/로케일을 적용
+      // 스플래시 구간: MaterialApp로 감싸 동일한 테마/로케일 적용
       return MaterialApp(
         title: 'MediTooth',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
+        // ▼ 전역 테마를 유지하면서 배경색만 #F7F9F9로 통일
+        theme: AppTheme.lightTheme.copyWith(
+          scaffoldBackgroundColor: const Color(0xFFF7F9F9),
+        ),
 
-        // ================= ▼ 추가: 로케일 설정 (TableCalendar/DatePicker/Intl 모두 OK) =================
+        // ================= ▼ 로케일 설정 (TableCalendar/DatePicker/Intl 모두 OK) =================
         locale: const Locale('ko', 'KR'), // ✅ 기본 로케일
         supportedLocales: const [
           Locale('ko', 'KR'),
@@ -207,8 +277,11 @@ class _YOLOExampleAppState extends State<YOLOExampleApp>
           GlobalWidgetsLocalizations.delegate,    // ✅ 기본 위젯 현지화
           GlobalCupertinoLocalizations.delegate,  // ✅ 쿠퍼티노 위젯 현지화
         ],
-        // ================================================================================================
-        home: SplashScreen(baseUrl: widget.baseUrl),
+        // =========================================================================================
+        home: GifSplashScreen(
+          baseUrl: widget.baseUrl,
+          onFinished: _finishSplash, // ✅ GIF 끝나면 라우터로 전환
+        ),
       );
     }
 
@@ -217,9 +290,12 @@ class _YOLOExampleAppState extends State<YOLOExampleApp>
       title: 'MediTooth',
       debugShowCheckedModeBanner: false,
       routerConfig: createRouter(widget.baseUrl),
-      theme: AppTheme.lightTheme,
+      // ▼ 전역 테마를 유지하면서 배경색만 #F7F9F9로 통일
+      theme: AppTheme.lightTheme.copyWith(
+        scaffoldBackgroundColor: const Color(0xFFF7F9F9),
+      ),
 
-      // ================= ▼ 추가: 로케일 설정 (TableCalendar/DatePicker/Intl 모두 OK) =================
+      // ================= ▼ 로케일 설정 (TableCalendar/DatePicker/Intl 모두 OK) =================
       locale: const Locale('ko', 'KR'), // ✅ 기본 로케일
       supportedLocales: const [
         Locale('ko', 'KR'),
@@ -230,7 +306,7 @@ class _YOLOExampleAppState extends State<YOLOExampleApp>
         GlobalWidgetsLocalizations.delegate,    // ✅ 기본 위젯 현지화
         GlobalCupertinoLocalizations.delegate,  // ✅ 쿠퍼티노 위젯 현지화
       ],
-      // ================================================================================================
+      // =========================================================================================
     );
   }
 }

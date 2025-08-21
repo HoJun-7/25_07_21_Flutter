@@ -20,7 +20,7 @@ const Color chipTrackColor = Color(0xFFF1F2F4);     // 칩 트랙
 const Color textColor = Color(0xFF1E2741);          // 본문 텍스트
 const Color subtitleColor = Color(0xFF8B92A4);      // 보조 텍스트
 const Color completedColor = Color(0xFF4CAF50);     // 응답 완료 배지
-const Color pendingColor = Color(0xFFFFC107);       // 응답 대기중 배지
+const Color pendingColor = Color(0xFFF59E0B);       // 응답 대기중 배지
 const Color notRequestedColor = Color(0xFF2196F3);  // 신청 안함 배지
 
 class HistoryScreen extends StatefulWidget {
@@ -41,6 +41,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   int _selectedIndex = 0;
   late PageController _pageController;
 
+  // 삭제 진행 중인 inference_id 집합
+  final Set<String> _deletingIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -48,7 +51,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final userId = context.read<AuthViewModel>().currentUser?.registerId;
-      if (userId != null) {
+      if (userId != null && mounted) {
         await context.read<HistoryViewModel>().fetchRecords(userId);
       }
     });
@@ -72,6 +75,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return false;
       },
       child: Scaffold(
+        // ✅ 키보드 등장 시 자동 회피
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
           title: const Text('진료 기록', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
@@ -94,9 +99,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // ✅ 본문
+  // ✅ '/api'만 끝에 붙어있을 때 제거 (실서버에서 흔한 케이스 안정화)
+  String _stripApiSuffix(String url) {
+    if (url.endsWith('/api')) return url.substring(0, url.length - 4);
+    return url;
+  }
+
+  // ✅ 본문 — Sliver 레이아웃 적용
   Widget _buildMainBody(HistoryViewModel viewModel, dynamic currentUser) {
-    final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
+    final imageBaseUrl = _stripApiSuffix(widget.baseUrl);
 
     if (viewModel.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -108,26 +119,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return const Center(child: Text('로그인이 필요합니다.'));
     }
 
-    return Column(
-      children: [
-        _buildStatusChips(),
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) => setState(() => _selectedIndex = index),
-            itemCount: statuses.length,
-            itemBuilder: (context, index) {
-              final filtered = _filterRecords(
-                viewModel.records
-                    .where((r) => r.userId == currentUser.registerId)
-                    .toList(),
-                statuses[index],
-              );
-              if (filtered.isEmpty) {
-                return const Center(child: Text('기록이 없습니다.', style: TextStyle(color: subtitleColor)));
-              }
-              return _buildRecordList(filtered, imageBaseUrl);
-            },
+    return CustomScrollView(
+      slivers: [
+        // 상태 칩 영역
+        SliverToBoxAdapter(child: _buildStatusChips()),
+        // 나머지 공간: PageView가 차지 (SliverFillRemaining로 오버플로우 방지)
+        SliverFillRemaining(
+          hasScrollBody: true,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) => setState(() => _selectedIndex = index),
+              itemCount: statuses.length,
+              itemBuilder: (context, index) {
+                final filtered = _filterRecords(
+                  viewModel.records
+                      .where((r) => r.userId == currentUser.registerId)
+                      .toList(),
+                  statuses[index],
+                );
+                if (filtered.isEmpty) {
+                  return const Center(
+                    child: Text('기록이 없습니다.', style: TextStyle(color: subtitleColor)),
+                  );
+                }
+                return _buildRecordList(filtered, imageBaseUrl, viewModel);
+              },
+            ),
           ),
         ),
       ],
@@ -153,11 +173,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'ALL':
         return Colors.red;
       case '신청 안함':
-        return Colors.blue;
+        return notRequestedColor;
       case '응답 대기중':
-        return Colors.yellow;
+        return pendingColor;
       case '응답 완료':
-        return Colors.green;
+        return completedColor;
       default:
         return Colors.grey;
     }
@@ -193,6 +213,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Row(
                 children: List.generate(statuses.length, (index) {
                   return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () {
                       _pageController.animateToPage(
                         index,
@@ -223,7 +244,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildRecordList(List<HistoryRecord> records, String imageBaseUrl) {
+  Widget _buildRecordList(
+    List<HistoryRecord> records,
+    String imageBaseUrl,
+    HistoryViewModel viewModel,
+  ) {
     // 최신순 정렬 (파일명 안의 타임스탬프 기준)
     final sorted = [...records]..sort((a, b) {
         final at = _extractDateTimeFromFilename(a.originalImagePath);
@@ -286,6 +311,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
       final statusText = _getStatusText(record);
       final statusColor = _getStatusColor(record);
+      final isDeleting = _deletingIds.contains(record.id);
 
       children.add(
         PressableCard(
@@ -340,7 +366,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     if (statusText == '응답 완료')
                       Text(
                         _getSummaryResult(record),
-                        style: const TextStyle(fontSize: 14, color: textColor),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: textColor,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     const SizedBox(height: 8),
                     Container(
@@ -361,42 +393,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ],
                 ),
               ),
-              // 삭제 버튼 - 원형 클릭 영역도 딱 맞게
+              // 삭제 버튼
               Material(
                 type: MaterialType.transparency,
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext dialogContext) {
-                        return AlertDialog(
-                          title: const Text('기록 삭제'),
-                          content: const Text('정말 이 기록을 삭제하시겠습니까?'),
-                          actions: <Widget>[
-                            TextButton(
-                              child: const Text('취소', style: TextStyle(color: subtitleColor)),
-                              onPressed: () => Navigator.of(dialogContext).pop(),
-                            ),
-                            TextButton(
-                              child: const Text('삭제', style: TextStyle(color: Colors.red)),
-                              onPressed: () async {
-                                // TODO: 삭제 로직
-                                Navigator.of(dialogContext).pop();
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
+                  onTap: isDeleting ? null : () => _confirmAndDelete(record, viewModel),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.grey.withOpacity(0.06),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.delete_outline, size: 24, color: subtitleColor),
+                    child: isDeleting
+                        ? const SizedBox(
+                            width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline, size: 24, color: subtitleColor),
                   ),
                 ),
               ),
@@ -406,10 +419,78 @@ class _HistoryScreenState extends State<HistoryScreen> {
       );
     }
 
+    // ✅ PageView 내부 보조 스크롤 (SliverFillRemaining 안에서도 안정)
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: children,
+      primary: false,
+      shrinkWrap: true,
+      physics: const AlwaysScrollableScrollPhysics(),
     );
+  }
+
+  Future<void> _confirmAndDelete(HistoryRecord record, HistoryViewModel viewModel) async {
+    // 확인 다이얼로그
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('기록 삭제'),
+          content: const Text('정말 이 기록을 삭제하시겠습니까?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('취소', style: TextStyle(color: subtitleColor)),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            TextButton(
+              child: const Text('삭제', style: TextStyle(color: Colors.red)),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (ok != true) return;
+
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (token == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 토큰이 없습니다. 다시 로그인 해주세요.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _deletingIds.add(record.id);
+    });
+
+    final success = await viewModel.deleteRecordRemote(
+      inferenceId: record.id,
+      token: token,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _deletingIds.remove(record.id);
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('기록이 삭제되었습니다.')),
+      );
+      // ✅ 삭제 후 즉시 최신 목록 재조회
+      final userId = context.read<AuthViewModel>().currentUser?.registerId;
+      if (userId != null) {
+        await context.read<HistoryViewModel>().fetchRecords(userId);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(viewModel.error ?? '삭제 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
   String _getStatusText(HistoryRecord record) {
@@ -452,13 +533,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return results.isEmpty ? '정상' : results.join(', ');
   }
 
+  // ✅ 파일명 기반 timestamp 파싱을 조금 더 안전하게
   DateTime _extractDateTimeFromFilename(String imagePath) {
-    final filename = imagePath.split('/').last;
-    final parts = filename.split('_');
-    final timePart = parts[1];
-    return DateTime.parse(
-      '${timePart.substring(0, 4)}-${timePart.substring(4, 6)}-${timePart.substring(6, 8)}T${timePart.substring(8, 10)}:${timePart.substring(10, 12)}:${timePart.substring(12, 14)}',
-    );
+    try {
+      final filename = imagePath.split('/').last;          // e.g. user_20250818024719576496_web_image.png
+      final parts = filename.split('_');
+      if (parts.length < 2) return DateTime.fromMillisecondsSinceEpoch(0);
+      final timePart = parts[1];
+      if (timePart.length < 14) return DateTime.fromMillisecondsSinceEpoch(0);
+      return DateTime.parse(
+        '${timePart.substring(0, 4)}-'
+        '${timePart.substring(4, 6)}-'
+        '${timePart.substring(6, 8)}T'
+        '${timePart.substring(8, 10)}:'
+        '${timePart.substring(10, 12)}:'
+        '${timePart.substring(12, 14)}',
+      );
+    } catch (_) {
+      // 형식이 다른 파일명이라도 앱이 죽지 않도록 안전한 과거 날짜 반환
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
   }
 
   String getModelFilename(String path) {
