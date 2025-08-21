@@ -15,6 +15,21 @@ const kPrimary = Color(0xFF3869A8);
 const double kAnswerHeight = 44;
 const double kAnswerSideInset = 12;
 
+// ✅ 웹 폭 고정값
+const double kWebMaxWidth = 520;
+
+// ✅ 공통 폭 고정 래퍼: 웹이면 고정폭, 모바일은 그대로
+Widget _wrapWebFixedWidth(Widget child) {
+  return kIsWeb
+      ? Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+            child: child,
+          ),
+        )
+      : child;
+}
+
 // 알약(세그먼트) 스타일
 const double kSegHeight = 36; // 버튼 높이
 const double kSegHPad = 16; // 좌우 패딩
@@ -94,7 +109,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       // (치과)병력과 증상
       SurveyQuestion(
         category: '(치과)병력과 증상',
-        question: '최근 1년간 구강검진을 받거나 예방·관리 목적으로 치과병(의)원에 간 적이 있습니까?',
+        question:
+            '최근 1년간 구강검진을 받거나 예방·관리 목적으로 치과병(의)원에 간 적이 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
@@ -106,7 +122,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       ),
       SurveyQuestion(
         category: '(치과)병력과 증상',
-        question: '현재 심혈관건강문제를 겪고 계십니까? (예: 고혈압, 고지혈증, 동맥경화증 등)',
+        question:
+            '현재 심혈관건강문제를 겪고 계십니까? (예: 고혈압, 고지혈증, 동맥경화증 등)',
         type: SurveyType.yesNoDontKnow,
         options: const ['예', '아니요', '모르겠다'],
       ),
@@ -126,7 +143,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       // 구강건강 삶의 질과 인식
       SurveyQuestion(
         category: '구강건강 삶의 질과 인식',
-        question: '최근 3개월 동안, 치아나 입안의 문제로 혹은 틀니 때문에 음식을 씹는 데에 불편감을 느낀 적이 있습니까?',
+        question:
+            '최근 3개월 동안, 치아나 입안의 문제로 혹은 틀니 때문에 음식을 씹는 데에 불편감을 느낀 적이 있습니까?',
         type: SurveyType.yesNo,
         options: const ['예', '아니요'],
       ),
@@ -181,7 +199,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       ),
       SurveyQuestion(
         category: '식습관',
-        question: '하루에 과일주스나 당분이 첨가된 음료(탄산음료, 스포츠음료 등)를 얼마나 먹습니까?',
+        question:
+            '하루에 과일주스나 당분이 첨가된 음료(탄산음료, 스포츠음료 등)를 얼마나 먹습니까?',
         type: SurveyType.singleChoice,
         options: const ['4번이상', '3번', '2번', '1번', '0번'],
       ),
@@ -206,7 +225,6 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
   @override
   Widget build(BuildContext context) {
     // 하단 버튼 예상 높이(버튼 50 + 패딩 위아래 16 = 82 이지만, 여유 포함해서 66으로 통일 가능)
-    // 기존 구현과 동일하게 66.0을 기준으로 사용
     const double footerBaseHeight = 66.0;
 
     return Scaffold(
@@ -216,43 +234,46 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       appBar: AppBar(
         title: const Text(
           '치과 문진',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: kPrimary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
 
-      // 본문
+      // ✅ 본문 + 하단 고정 버튼(overlay)
       body: SafeArea(
-        child: kIsWeb
-            ? Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: _buildMainBody(footerBaseHeight),
+        child: Stack(
+          children: [
+            // 스크롤 본문
+            _wrapWebFixedWidth(_buildMainBody(footerBaseHeight)),
+            // 하단 고정 버튼
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _wrapWebFixedWidth(
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton(
+                    onPressed: _submitSurvey,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      '다음 페이지로 이동',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
-              )
-            : _buildMainBody(footerBaseHeight),
-      ),
-
-      // ✅ 하단 버튼: bottomNavigationBar로 분리(겹침 방지)
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton(
-            onPressed: _submitSurvey,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kPrimary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
-            child: const Text(
-              '다음 페이지로 이동',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -363,11 +384,15 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                     backgroundColor: kPrimary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(42),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: _loadingPrev
                       ? const SizedBox(
-                          width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.download_rounded),
                   label: const Text('예, 불러오기'),
                 ),
@@ -375,12 +400,14 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _loadingPrev ? null : () => setState(() => _showLoadPrompt = false),
+                  onPressed:
+                      _loadingPrev ? null : () => setState(() => _showLoadPrompt = false),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(42),
                     side: const BorderSide(color: kPrimary),
                     foregroundColor: kPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   child: const Text('아니요, 새로 작성'),
                 ),
@@ -457,7 +484,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     if (body['ok'] == true && body['data'] != null) {
       final data = Map<String, dynamic>.from(body['data']);
-      final answers = Map<String, dynamic>.from(data['answers'] as Map? ?? const {});
+      final answers =
+          Map<String, dynamic>.from(data['answers'] as Map? ?? const {});
       return answers.isEmpty ? null : answers;
     }
     return null;
@@ -539,7 +567,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       child: ExpansionTile(
         key: ValueKey('cat-$category'),
         initiallyExpanded: _isExpanded[category] ?? false,
-        onExpansionChanged: (isExpanded) => setState(() => _isExpanded[category] = isExpanded),
+        onExpansionChanged: (isExpanded) =>
+            setState(() => _isExpanded[category] = isExpanded),
         tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Icon(_getCategoryIcon(category), color: kPrimary, size: 30),
@@ -642,7 +671,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                       border: OutlineInputBorder(),
                       suffixText: '회',
                     ),
@@ -705,7 +735,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
         alignment: Alignment.centerLeft,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final maxTextW = items.isEmpty ? 0.0 : items.map(_measureTextWidth).reduce(math.max);
+            final maxTextW =
+                items.isEmpty ? 0.0 : items.map(_measureTextWidth).reduce(math.max);
             double pillW = maxTextW + kSegHPad * 2;
 
             final totalSeparatorsW = (items.length - 1) * kSegDivider;
@@ -746,9 +777,11 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                         height: kSegHeight,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: selected ? kPrimary.withOpacity(.08) : Colors.white,
+                          color:
+                              selected ? kPrimary.withOpacity(.08) : Colors.white,
                           borderRadius: BorderRadius.horizontal(
-                            left: i == 0 ? const Radius.circular(kSegRadius) : Radius.zero,
+                            left:
+                                i == 0 ? const Radius.circular(kSegRadius) : Radius.zero,
                             right: i == items.length - 1
                                 ? const Radius.circular(kSegRadius)
                                 : Radius.zero,
@@ -757,8 +790,10 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                         child: Text(
                           items[i],
                           style: baseStyle.copyWith(
-                            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                            color: selected ? kPrimary : const Color(0xFF333333),
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w500,
+                            color:
+                                selected ? kPrimary : const Color(0xFF333333),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -840,7 +875,9 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                             shape: BoxShape.circle,
                             color: isSelected ? color : Colors.white,
                             border: Border.all(
-                              color: isSelected ? color.darken(0.25) : color.withOpacity(0.35),
+                              color: isSelected
+                                  ? color.darken(0.25)
+                                  : color.withOpacity(0.35),
                               width: 1.8,
                             ),
                           ),
@@ -858,7 +895,10 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Flexible(child: Text(leftText, style: kScaleHint, overflow: TextOverflow.ellipsis)),
+                        Flexible(
+                            child: Text(leftText,
+                                style: kScaleHint,
+                                overflow: TextOverflow.ellipsis)),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
@@ -924,7 +964,8 @@ class _DentalSurveyScreenState extends State<DentalSurveyScreen> {
       surveyResponses[q.question] = value;
     }
 
-    context.push('/upload', extra: {'baseUrl': widget.baseUrl, 'survey': surveyResponses});
+    context.push('/upload',
+        extra: {'baseUrl': widget.baseUrl, 'survey': surveyResponses});
   }
 }
 
@@ -938,7 +979,8 @@ class _GradientLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..shader = const LinearGradient(colors: [Colors.amber, Colors.green])
-          .createShader(Rect.fromLTWH(inset, 0, size.width - inset * 2, 0))
+          .createShader(
+              Rect.fromLTWH(inset, 0, size.width - inset * 2, 0))
       ..strokeWidth = thickness
       ..strokeCap = StrokeCap.round;
 
@@ -956,7 +998,8 @@ class _GradientLinePainter extends CustomPainter {
 extension ColorUtils on Color {
   Color darken([double amount = .1]) {
     final hsl = HSLColor.fromColor(this);
-    final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
+    final hslDark =
+        hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
     return hslDark.toColor();
   }
 }

@@ -1,4 +1,4 @@
-// chatbot_screen.dart (통합 버전)
+// lib/presentation/screens/chatbot_screen.dart (통합/수정 버전)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -6,17 +6,17 @@ import '/presentation/viewmodel/chatbot_viewmodel.dart';
 import 'package:flutter/services.dart';
 import 'chat_bubble.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ⬅ 웹 폭 고정용
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // 🎨 통일 팔레트
 class _Palette {
-  static const primary       = Color(0xFF3869A8); // 기준색
+  static const primary       = Color(0xFF3869A8);
   static const primaryDark   = Color(0xFF2D4F84);
   static const primaryLight  = Color(0xFF6FA1D9);
-  static const bgSoft        = Color(0xFFEAF4FF); // 전체 배경/카드 배경 톤
+  static const bgSoft        = Color(0xFFEAF4FF);
   static const surface       = Colors.white;
 
-  // 말풍선/보더(밝은 블루 계열)
+  // 말풍선/보더
   static const bubbleUser    = Color.fromARGB(255, 146, 188, 240);
   static const bubbleBot     = Color(0xFFEFF5FC);
   static const borderUser    = Color.fromARGB(255, 36, 130, 230);
@@ -27,10 +27,8 @@ class _Palette {
   static const fieldBorder   = Color(0xFFCFE2F6);
   static const fieldFocus    = primaryLight;
 
-  // 스위치/버튼
+  // 버튼
   static const sendBtn       = primary;
-  static const chipSelected  = primary;
-  static const chipUnselect  = Color(0xFFE6EEF8);
 
   // 텍스트
   static const textPrimary   = Colors.black87;
@@ -51,7 +49,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   late Animation<double> _sendBtnScale;
 
   static const double profileImageSize = 40.0;
-  static const double kWebMaxWidth = 600; // ⬅ 웹 고정 폭
+  static const double kWebMaxWidth = 600; // ⬅ 웹 폭 고정
 
   // ✅ 알림 팝업 상태
   bool _isNotificationPopupVisible = false;
@@ -108,6 +106,13 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _scrollToBottom();
     await Provider.of<ChatbotViewModel>(context, listen: false).sendMessage(trimmed);
     _scrollToBottom();
+  }
+
+  // ✅ 간단한 마크다운 감지 (제목/리스트/강조/코드/인용/구분선)
+  bool _looksLikeMarkdown(String s) {
+    if (s.isEmpty) return false;
+    final md = RegExp(r'(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|[-*_]{3,})|[*_`~]{1,}');
+    return md.hasMatch(s);
   }
 
   Widget _buildProfileAvatar({required bool isUser}) {
@@ -231,13 +236,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         onTap: _closeNotificationPopup,
         child: Scaffold(
           backgroundColor: _Palette.surface,
-          // ✅ 키보드가 올라오면 본문을 줄여서 오버플로우 방지
           resizeToAvoidBottomInset: true,
           appBar: AppBar(
             flexibleSpace: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors:[_Palette.primaryDark, _Palette.primary], // ✅ 블루 그라데이션
+                  colors:[_Palette.primaryDark, _Palette.primary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -272,7 +276,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent, // 알림은 가독성 위해 유지
+                            color: Colors.redAccent,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1.5),
                           ),
@@ -293,10 +297,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               ),
             ],
           ),
-          // ✅ Stack: 본문(웹 폭 고정) + 알림 팝업 오버레이 + 하단 입력창 오버레이
+
+          // ✅ 본문 + 알림 팝업(오버레이)
           body: Stack(
             children: [
-              // 본문
               SafeArea(
                 child: kIsWeb
                     ? Center(
@@ -362,11 +366,11 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                     ),
                   ),
                 ),
-
-              // ✅ 하단 고정: 입력창 + 안내문구 (오버레이)
-              _buildBottomInputOverlay(),
             ],
           ),
+
+          // ✅ 하단 입력창: bottomNavigationBar로 이동 (겹침 방지 & 키보드 인셋 자동)
+          bottomNavigationBar: _buildBottomBar(),
         ),
       ),
     );
@@ -374,27 +378,14 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
   /// 본문(웹/모바일 공통) – 이미지 카드 폭은 [imageContainerWidth] 사용
   ///
-  /// ✅ 핵심: 입력창+안내문구는 Stack의 하단에 "오버레이"로 고정.
-  ///    메시지 리스트에는 그 높이(+키보드 높이)만큼 하단 패딩을 줘서 겹침/오버플로우를 원천 차단.
+  /// 리스트 하단 패딩은 간단히 두고, 입력창은 bottomNavigationBar가 차지하므로 겹치지 않음
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
-    final media = MediaQuery.of(context);
-
-    // 입력창·안내문구 예상 높이(기기별 편차 감안 여유 포함)
-    const double inputBarApprox = 60;    // TextField + 버튼
-    const double disclaimerApprox = 32;  // 안내문구 높이
-    const double spacing = 14;           // 입력창-안내문구-여백
-    final double overlayBase = inputBarApprox + disclaimerApprox + spacing;
-
-    // 키보드 높이까지 고려(키보드가 뜨면 오버레이는 위로 떠야 하므로)
-    final double keyboard = media.viewInsets.bottom;
-    final double listBottomPadding = overlayBase + keyboard + 12; // 여유 12
-
     return ListView.builder(
       controller: _scrollController,
-      padding: EdgeInsets.only(top: 8, bottom: listBottomPadding),
+      padding: const EdgeInsets.only(top: 8, bottom: 12), // ✅ 깔끔하게
       itemCount: isLoading ? messages.length + 1 : messages.length,
       itemBuilder: (_, idx) {
-        // ✅ 로딩 셀 (점 애니메이션)
+        // ✅ 로딩 셀
         if (idx == messages.length && isLoading) {
           return Padding(
             padding: const EdgeInsets.all(12.0),
@@ -420,6 +411,9 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
         final msg = messages[idx];
         final bool isUser = msg.role == 'user';
+
+        // ✅ 봇 메시지 마크다운 자동 적용
+        final bool renderMd = !isUser && _looksLikeMarkdown(msg.content);
 
         String? imageUrlToDisplay;
         if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
@@ -459,6 +453,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         fontSize: 15,
                         color: _Palette.textPrimary,
                       ),
+                      renderMarkdown: renderMd, // ✅ 여기서 마크다운 적용
                     ),
                   ),
                   if (isUser) const SizedBox(width: 8),
@@ -591,79 +586,72 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
-  // ✅ 하단 입력창+면책문구를 오버레이로 올려두는 위젯
-  Widget _buildBottomInputOverlay() {
-    final media = MediaQuery.of(context);
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: media.viewInsets.bottom, // 키보드 인셋만큼 위로
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: '메시지를 작성해주세요',
-                        hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
-                        filled: true,
-                        fillColor: _Palette.fieldFill,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide: BorderSide.none),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide:
-                                const BorderSide(color: _Palette.fieldBorder, width: 1)),
-                        focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide:
-                                const BorderSide(color: _Palette.fieldFocus, width: 2)),
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+  // ✅ 하단 입력창+면책문구: bottomNavigationBar로 이동 (겹침 방지, 키보드 인셋 자동)
+  Widget _buildBottomBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: '메시지를 작성해주세요',
+                      hintStyle: GoogleFonts.notoSansKr(color: _Palette.textSecondary),
+                      filled: true,
+                      fillColor: _Palette.fieldFill,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: BorderSide.none,
                       ),
-                      style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
-                      onSubmitted: (txt) {
-                        FocusScope.of(context).unfocus();
-                        _sendMessage(txt);
-                      },
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: const BorderSide(color: _Palette.fieldBorder, width: 1),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: const BorderSide(color: _Palette.fieldFocus, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTapDown: (_) => _sendBtnAnimCtr.forward(),
-                    onTapUp: (_) => _sendBtnAnimCtr.reverse(),
-                    onTapCancel: () => _sendBtnAnimCtr.reverse(),
-                    onTap: () {
+                    style: GoogleFonts.notoSansKr(fontSize: 16, color: _Palette.textPrimary),
+                    onSubmitted: (txt) {
                       FocusScope.of(context).unfocus();
-                      _sendMessage(_controller.text);
+                      _sendMessage(txt);
                     },
-                    child: ScaleTransition(
-                      scale: _sendBtnScale,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _Palette.sendBtn,
-                            boxShadow: [
-                              BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                            ]),
-                        padding: const EdgeInsets.all(12),
-                        child: const Icon(Icons.send, color: Colors.white, size: 24),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTapDown: (_) => _sendBtnAnimCtr.forward(),
+                  onTapUp: (_) => _sendBtnAnimCtr.reverse(),
+                  onTapCancel: () => _sendBtnAnimCtr.reverse(),
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    _sendMessage(_controller.text);
+                  },
+                  child: ScaleTransition(
+                    scale: _sendBtnScale,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _Palette.sendBtn,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
                       ),
+                      padding: const EdgeInsets.all(12),
+                      child: const Icon(Icons.send, color: Colors.white, size: 24),
                     ),
                   ),
-                ],
-              ),
-              _buildDisclaimerBottom(), // ⬅ 입력창 바로 아래
-            ],
-          ),
+                ),
+              ],
+            ),
+            _buildDisclaimerBottom(),
+          ],
         ),
       ),
     );

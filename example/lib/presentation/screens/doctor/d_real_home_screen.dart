@@ -679,6 +679,50 @@ String _prettyDateLabel({
     return '$mm/$dd ($w)';
 }
 
+/// ▼ 추가: 좁은 폭에서 사용되는 간략 포맷들
+String _shortDateLabel({
+  required int index,
+  required List<String> labels,        // 'MM-DD'
+  required List<String>? fulls,        // 'YYYY-MM-DD'
+}) {
+  DateTime? dt;
+  if (fulls != null && index >= 0 && index < fulls.length) {
+    final s = fulls[index];
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+  }
+  if (dt == null && index >= 0 && index < labels.length) {
+    final s = labels[index];
+    if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
+      final now = DateTime.now();
+      dt = DateTime.tryParse('${now.year}-$s');
+    }
+  }
+  if (dt == null) return '${labels[index]}';
+  return '${dt.month}/${dt.day}';
+}
+
+String _veryShortDateLabel({
+  required int index,
+  required List<String> labels,
+  required List<String>? fulls,
+}) {
+  DateTime? dt;
+  if (fulls != null && index >= 0 && index < fulls.length) {
+    final s = fulls[index];
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+  }
+  if (dt == null && index >= 0 && index < labels.length) {
+    final s = labels[index];
+    if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
+      final now = DateTime.now();
+      dt = DateTime.tryParse('${now.year}-$s');
+    }
+  }
+  if (dt == null) return '${labels[index]}';
+  final w = _weekdayKr(dt.weekday % 7);
+  return '${dt.day}($w)';
+}
+
 /// ===================== 최근 7일 라인차트 =====================
 class _Last7DaysLineChartFancy extends StatelessWidget {
   const _Last7DaysLineChartFancy({Key? key}) : super(key: key);
@@ -708,120 +752,168 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
     final avgY = counts.reduce((a, b) => a + b) / counts.length;
     final maxIndex = counts.indexOf(maxY.toInt());
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: (counts.length - 1).toDouble(),
-          minY: 0,
-          maxY: (maxY + 2).toDouble(),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (maxY <= 5 ? 1 : (maxY / 4).ceilToDouble()),
-            getDrawingHorizontalLine: (v) => FlLine(color: Colors.black12, strokeWidth: 1, dashArray: [4, 4]),
-          ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true, // 두 번째 코드 기준 유지 (라벨 표시)
-                reservedSize: 42,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+    // ▼ 카드 폭에 맞춰 라벨 형식/간격/높이를 자동 조정
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final width = cons.maxWidth;
+        final n = counts.length.clamp(1, 100);
+        final per = width / n; // 포인트당 가용 폭
 
-                  final text = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
+        // 기본값
+        int step = 1;                 // 라벨 표시 간격
+        double reserved = 42;         // 라벨 영역 높이
+        bool useChip = true;          // 칩 배경 사용 여부
+        String Function(int) fmt = (i) =>
+            _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
 
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: FittedBox(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          text,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          extraLinesData: ExtraLinesData(horizontalLines: [
-            HorizontalLine(
-              y: avgY,
-              color: const Color(0xFF9B51E0).withOpacity(0.6),
-              strokeWidth: 2,
-              dashArray: [6, 6],
-              label: HorizontalLineLabel(
+        // 폭이 좁아질수록 더 짧은 포맷/간격으로
+        if (per < 84 && per >= 56) {
+          // 중간 폭: 'M/D'
+          reserved = 32;
+          useChip = false;
+          fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
+        } else if (per < 56 && per >= 36) {
+          // 좁음: 2칸 간격 + 'M/D'
+          step = 2;
+          reserved = 28;
+          useChip = false;
+          fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
+        } else if (per < 36) {
+          // 아주 좁음: 3칸 간격 + 'D(목)'
+          step = 3;
+          reserved = 24;
+          useChip = false;
+          fmt = (i) => _veryShortDateLabel(index: i, labels: labels, fulls: fullDates);
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
+          child: LineChart(
+            LineChartData(
+              minX: 0,
+              maxX: (counts.length - 1).toDouble(),
+              minY: 0,
+              maxY: (maxY + 2).toDouble(),
+              gridData: FlGridData(
                 show: true,
-                alignment: Alignment.topRight,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF9B51E0), fontWeight: FontWeight.w700),
-                labelResolver: (_) => '평균 ${avgY.toStringAsFixed(1)}',
+                drawVerticalLine: false,
+                horizontalInterval: (maxY <= 5 ? 1 : (maxY / 4).ceilToDouble()),
+                getDrawingHorizontalLine: (v) =>
+                    FlLine(color: Colors.black12, strokeWidth: 1, dashArray: [4, 4]),
               ),
-            ),
-          ]),
-          lineTouchData: LineTouchData(
-            handleBuiltInTouches: true,
-            touchTooltipData: LineTouchTooltipData(
-              tooltipBgColor: Colors.black.withOpacity(0.78),
-              tooltipRoundedRadius: 10,
-              tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              getTooltipItems: (spots) => spots.map((s) {
-                final i = s.x.toInt();
-                final label = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
-                return LineTooltipItem(
-                  '$label\n${s.y.toInt()}건',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                );
-              }).toList(),
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              isCurved: true,
-              barWidth: 3.2,
-              gradient: const LinearGradient(colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)]),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF2F80ED).withOpacity(0.22), const Color(0xFF56CCF2).withOpacity(0.05)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true, // 두 번째 코드 기준 유지 (라벨 표시)
+                    reservedSize: reserved,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final i = value.toInt();
+                      if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+
+                      // 마지막 tick은 무조건 보이도록, 나머지는 step 간격에 맞춰 표시
+                      final isLast = i == labels.length - 1;
+                      if (!isLast && (i % step != 0)) return const SizedBox.shrink();
+
+                      final text = fmt(i);
+
+                      final label = Text(
+                        text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: (reserved <= 24) ? 9 : 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      );
+
+                      return Padding(
+                        padding: EdgeInsets.only(top: (reserved <= 28) ? 4 : 8),
+                        child: FittedBox(
+                          child: useChip
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.04),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: label,
+                                )
+                              : label,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, bar, index) {
-                  final highlight = index == maxIndex;
-                  return FlDotCirclePainter(
-                    radius: highlight ? 4.4 : 3.0,
-                    color: Colors.white,
-                    strokeWidth: highlight ? 2.6 : 2.2,
-                    strokeColor: const Color(0xFF2F80ED),
-                  );
-                },
+              extraLinesData: ExtraLinesData(horizontalLines: [
+                HorizontalLine(
+                  y: avgY,
+                  color: const Color(0xFF9B51E0).withOpacity(0.6),
+                  strokeWidth: 2,
+                  dashArray: [6, 6],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topRight,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF9B51E0), fontWeight: FontWeight.w700),
+                    labelResolver: (_) => '평균 ${avgY.toStringAsFixed(1)}',
+                  ),
+                ),
+              ]),
+              lineTouchData: LineTouchData(
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  tooltipBgColor: Colors.black.withOpacity(0.78),
+                  tooltipRoundedRadius: 10,
+                  tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  getTooltipItems: (spots) => spots.map((s) {
+                    final i = s.x.toInt();
+                    final label = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
+                    return LineTooltipItem(
+                      '$label\n${s.y.toInt()}건',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    );
+                  }).toList(),
+                ),
               ),
-              spots: [for (int i = 0; i < counts.length; i++) FlSpot(i.toDouble(), counts[i].toDouble())],
+              lineBarsData: [
+                LineChartBarData(
+                  isCurved: true,
+                  barWidth: 3.2,
+                  gradient: const LinearGradient(colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)]),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF2F80ED).withOpacity(0.22), const Color(0xFF56CCF2).withOpacity(0.05)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) {
+                      final highlight = index == maxIndex;
+                      return FlDotCirclePainter(
+                        radius: highlight ? 4.4 : 3.0,
+                        color: Colors.white,
+                        strokeWidth: highlight ? 2.6 : 2.2,
+                        strokeColor: const Color(0xFF2F80ED),
+                      );
+                    },
+                  ),
+                  spots: [
+                    for (int i = 0; i < counts.length; i++) FlSpot(i.toDouble(), counts[i].toDouble())
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
