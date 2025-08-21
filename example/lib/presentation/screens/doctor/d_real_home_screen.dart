@@ -729,7 +729,7 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
             leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
-                showTitles: true, // 두 번째 코드 기준 유지 (라벨 표시)
+                showTitles: false, 
                 reservedSize: 42,
                 interval: 1,
                 getTitlesWidget: (value, meta) {
