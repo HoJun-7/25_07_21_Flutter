@@ -1,8 +1,6 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
 name: ultralytics_yolo_example
 description: "Demonstrates how to use the ultralytics_yolo plugin."
-publish_to: "none" # Remove this line if you wish to publish to pub.dev
+publish_to: "none"
 
 environment:
   sdk: ^3.8.1
@@ -11,28 +9,38 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations: #추가
+    sdk: flutter  
   flutter_launcher_icons: ^0.14.4
+  flutter_animate: ^4.3.0
+  fl_chart: ^0.64.0
+  badges: ^3.1.2
   image_picker: ^1.1.2
   path_provider: ^2.0.0
   archive: ^4.0.7
   http: ^1.2.1
   go_router: ^16.0.0
+  provider: ^6.1.5
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
-  location: ^5.0.3 # 또는 사용 중인 버전에 맞게
-  cached_network_image: ^3.3.1  # ✅ 최신 버전 또는 안정 버전 명시
+  location: ^5.0.3
+  cached_network_image: ^3.3.1
   permission_handler: ^11.0.0
-  image_gallery_saver:
-    path: packages/image_gallery_saver
-  table_calendar: ^3.0.9  # ✅ 또는 최신 버전
-
+  flutter_secure_storage: ^9.0.0
+  table_calendar: ^3.0.9
+  google_fonts: ^6.2.1
   ultralytics_yolo:
     path: ../
-
   cupertino_icons: ^1.0.8
-  provider: ^6.1.5
-  google_fonts: ^6.2.1
-
+  image_gallery_saver:
+    path: packages/image_gallery_saver
+  smooth_page_indicator: ^1.1.0   # ✅ 추가
+  model_viewer_plus: ^1.9.3
+  flutter_html: ^3.0.0
+  intl: ^0.20.2 #추가
+  klc: ^0.1.0  #추가
+  lottie: ^3.3.1 #백그라운드 애니메이션 추가
+  
 dev_dependencies:
   integration_test:
     sdk: flutter
@@ -40,19 +48,24 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_native_splash: ^2.4.0
-
-
+  
 flutter:
   uses-material-design: true
 
   assets:
     - assets/
     - assets/models/
+    - assets/images/
     - assets/icon/cdss-icon_500.png
+    - assets/icon/app_icon_1024.png
     - assets/logo.png
     - assets/applogo.png
+    - assets/splash.png
     - assets/models/dental_best_float32.tflite
-    
+    - assets/web/model/open_mouth.glb
+    - assets/web/
+    - assets/web/model/
+    - assets/html/
 
 flutter_launcher_icons:
   android: true
@@ -60,7 +73,7 @@ flutter_launcher_icons:
   image_path: "assets/icon/app_icon_1024.png"
 
 flutter_native_splash:
-  color: "#ffffff" # 배경색
-  image: assets/splash.png # 로고 이미지 경로
+  color: "#ffffff"
+  image: assets/splash.png
   android: true
   ios: true
