@@ -1226,17 +1226,28 @@ class _ImageCardState extends State<_ImageCard> {
         ),
       );
     }
+      
+    // ---- 메타 텍스트(동적)
+    Widget buildMeta(DashboardImageItem? item) {
+      if (item == null) {
+        return const SizedBox.shrink();
+      }
 
-    // ---- 메타 텍스트(예시)
-    Widget buildMeta() {
-      return const Padding(
-        padding: EdgeInsets.only(top: 6),
+      final dateStr = item.requestDateTime != null
+          ? "${item.requestDateTime!.year}-${item.requestDateTime!.month.toString().padLeft(2, '0')}-${item.requestDateTime!.day.toString().padLeft(2, '0')}"
+          : "날짜 없음";
+
+      final desc = (item.imageType == 'xray') ? "치아 X-ray" : "치아 상태 점검";
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
         child: Text(
-          "촬영일: 2025-08-17 | 설명: 치아 상태 점검",
-          style: TextStyle(fontSize: 12, color: Colors.black54),
+          "환자: ${item.user_name} | 촬영일: $dateStr | 설명: $desc",
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
         ),
       );
     }
+
 
     // ---- 최종 레이아웃: 큰 이미지 + 썸네일 + 메타
     return Column(
@@ -1244,7 +1255,7 @@ class _ImageCardState extends State<_ImageCard> {
         Expanded(child: buildMainViewer()),
         const SizedBox(height: 8),
         buildThumbnails(),
-        buildMeta(),
+        buildMeta(items.isNotEmpty ? items[_caseIndex] : null), // ✅ 선택된 이미지 메타 표시
       ],
     );
   }

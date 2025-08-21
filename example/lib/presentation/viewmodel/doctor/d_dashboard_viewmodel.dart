@@ -419,6 +419,7 @@ class DoctorDashboardViewModel extends ChangeNotifier {
 class DashboardImageItem {
   final int? id;
   final String userId;
+  final String? user_name;
   final String originalUrl;
   final String? imageType; // 'normal' | 'xray' | null
   final Map<String, String> overlays; // {'model1': url, 'xmodel1': url, ...}
@@ -426,12 +427,13 @@ class DashboardImageItem {
   final bool isReplied;
 
   DashboardImageItem({
-    required this.id,
+    this.id,
     required this.userId,
+    this.user_name, // ✅ required 빼기
     required this.originalUrl,
-    required this.imageType,
+    this.imageType,
     required this.overlays,
-    required this.requestDateTime,
+    this.requestDateTime,
     required this.isReplied,
   });
 }
