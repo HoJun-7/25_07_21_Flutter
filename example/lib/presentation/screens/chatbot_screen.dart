@@ -1,4 +1,4 @@
-// lib/presentation/screens/chatbot_screen.dart (통합/수정 버전)
+// lib/presentation/screens/chatbot_screen.dart (중첩 Scaffold 대응 + 고정폭 정렬)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -108,7 +108,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _scrollToBottom();
   }
 
-  // ✅ 간단한 마크다운 감지 (제목/리스트/강조/코드/인용/구분선)
+  // ✅ 간단한 마크다운 감지
   bool _looksLikeMarkdown(String s) {
     if (s.isEmpty) return false;
     final md = RegExp(r'(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|[-*_]{3,})|[*_`~]{1,}');
@@ -302,14 +302,21 @@ class _ChatbotScreenState extends State<ChatbotScreen>
           body: Stack(
             children: [
               SafeArea(
-                child: kIsWeb
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+                    child: Column(
+                      children: [
+                        // ⬇ 메시지 리스트 (남는 높이 모두 차지)
+                        Expanded(
                           child: _buildChatBody(messages, isLoading, imageContainerWidth),
                         ),
-                      )
-                    : _buildChatBody(messages, isLoading, imageContainerWidth),
+                        // ⬇ 입력창 (body 안에 포함: 탭바와 중첩되지 않음)
+                        _buildInputArea(),
+                      ],
+                    ),
+                  ),
+                ),
               ),
 
               // ✅ 알림 팝업 (상단-오른쪽)
@@ -368,21 +375,16 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                 ),
             ],
           ),
-
-          // ✅ 하단 입력창: bottomNavigationBar로 이동 (겹침 방지 & 키보드 인셋 자동)
-          bottomNavigationBar: _buildBottomBar(),
         ),
       ),
     );
   }
 
   /// 본문(웹/모바일 공통) – 이미지 카드 폭은 [imageContainerWidth] 사용
-  ///
-  /// 리스트 하단 패딩은 간단히 두고, 입력창은 bottomNavigationBar가 차지하므로 겹치지 않음
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 8, bottom: 12), // ✅ 깔끔하게
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
       itemCount: isLoading ? messages.length + 1 : messages.length,
       itemBuilder: (_, idx) {
         // ✅ 로딩 셀
@@ -411,8 +413,6 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
         final msg = messages[idx];
         final bool isUser = msg.role == 'user';
-
-        // ✅ 봇 메시지 마크다운 자동 적용
         final bool renderMd = !isUser && _looksLikeMarkdown(msg.content);
 
         String? imageUrlToDisplay;
@@ -453,7 +453,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         fontSize: 15,
                         color: _Palette.textPrimary,
                       ),
-                      renderMarkdown: renderMd, // ✅ 여기서 마크다운 적용
+                      renderMarkdown: renderMd,
                     ),
                   ),
                   if (isUser) const SizedBox(width: 8),
@@ -586,8 +586,8 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
-  // ✅ 하단 입력창+면책문구: bottomNavigationBar로 이동 (겹침 방지, 키보드 인셋 자동)
-  Widget _buildBottomBar() {
+  // ✅ 입력창: body 안에 배치(부모 탭바와 충돌 방지), 웹에서도 고정 폭 정렬 유지
+  Widget _buildInputArea() {
     return SafeArea(
       top: false,
       child: Padding(
@@ -657,3 +657,4 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 }
+
