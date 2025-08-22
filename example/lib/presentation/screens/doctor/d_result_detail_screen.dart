@@ -3,7 +3,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -304,13 +304,21 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     }
   }
 
+  // Helper function to show a snackbar
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _submitDoctorOpinion() async {
     setState(() => _isSubmittingOpinion = true);
 
     final opinionText = _doctorOpinionController.text.trim();
     if (opinionText.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('의견을 입력해주세요.')));
+      _showSnack('의견을 입력해주세요.');
       setState(() => _isSubmittingOpinion = false);
       return;
     }
@@ -320,7 +328,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       final token = await auth.getAccessToken();
       if (token == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+        _showSnack('로그인이 필요합니다.');
         setState(() => _isSubmittingOpinion = false);
         return;
       }
@@ -349,7 +357,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
 
       if (reqId == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('요청 ID를 찾을 수 없습니다.')));
+        _showSnack('요청 ID를 찾을 수 없습니다.');
         setState(() => _isSubmittingOpinion = false);
         return;
       }
@@ -370,31 +378,23 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           _doctorCommentFromDb = opinionText;
           _doctorOpinionController.text = opinionText;
         });
-
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('제출 완료'),
-            content: const Text('의사 의견이 저장되었습니다.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.pop(true); // 목록 새로고침 신호
-                },
-                child: const Text('확인'),
-              ),
-            ],
-          ),
-        );
+        
+        // 수정: 답변 저장 성공 시 SnackBar를 띄우고 이전 화면으로 돌아가며 true 반환
+        if (kDebugMode) {
+          print('✅ 의사 답변 저장 완료');
+        }
+        _showSnack('답변이 저장되었습니다.');
+        
+        // Ensure the context is still valid before popping
+        if (context.mounted && context.canPop()) {
+            context.pop(true);
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장 실패: ${res.statusCode} ${res.body}')),
-        );
+        _showSnack('저장 실패: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('오류: $e')));
+      _showSnack('오류: $e');
     } finally {
       if (!mounted) return;
       setState(() => _isSubmittingOpinion = false);
@@ -787,3 +787,4 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     );
   }
 }
+
