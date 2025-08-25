@@ -16,9 +16,9 @@ import '/presentation/screens/camera_inference_screen.dart';
 import '/presentation/screens/web_placeholder_screen.dart';
 import '/presentation/screens/consult_result.dart';
 import '/presentation/screens/upload_result_detail_screen.dart';
-import '/presentation/screens/upload_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/upload_xray_result_detail_screen.dart';
 import '/presentation/screens/history_result_detail_screen.dart';
-import '/presentation/screens/history_xray_result_detail_screen.dart'; // ✅ 추가
+import '/presentation/screens/history_xray_result_detail_screen.dart';
 import '/presentation/screens/multimodal_response_screen.dart';
 import '/presentation/screens/chatbot_screen.dart';
 import '/presentation/screens/mypage_screen.dart';
@@ -76,7 +76,7 @@ GoRouter createRouter(String baseUrl) {
         path: '/find_password',
         builder: (context, state) => FindPasswordScreen(baseUrl: baseUrl),
       ),
-            GoRoute(
+      GoRoute(
         path: '/find-password-result',
         builder: (context, state) => const FindPasswordResultScreen(),
       ),
@@ -126,7 +126,6 @@ GoRouter createRouter(String baseUrl) {
             path: '/d_calendar',
             builder: (context, state) {
               final passedBaseUrl = state.extra as String? ?? baseUrl;
-              // ⬇️ 이제 여기서는 화면만 리턴(Scaffold 제거)
               return DCalendarScreen(baseUrl: passedBaseUrl);
             },
           ),
@@ -142,7 +141,7 @@ GoRouter createRouter(String baseUrl) {
             },
           ),
           GoRoute(
-            path: '/d_result_detail', // ✅ 이름 없이 path만 사용
+            path: '/d_result_detail',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
 
@@ -185,7 +184,7 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot', 
+          GoRoute(path: '/chatbot',
           builder: (context, state) => const ChatbotScreen()
           ),
           GoRoute(
@@ -193,7 +192,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
               final responseText = extra?['responseText'] ?? '응답이 없습니다.';
-              return MultimodalResponseScreen(responseText: responseText);  // ✅ 이 부분만 multimodal로
+              return MultimodalResponseScreen(responseText: responseText);
             },
           ),
           GoRoute(
@@ -207,8 +206,8 @@ GoRouter createRouter(String baseUrl) {
           GoRoute(
             path: '/dental_viewer',
             builder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?; 
-              final glbUrl = extra?['glbUrl'] 
+              final extra = state.extra as Map<String, dynamic>?;
+              final glbUrl = extra?['glbUrl']
                   ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
               return DentalViewerScreen(glbUrl: glbUrl);
             },
@@ -250,11 +249,8 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final baseUrl = extra['baseUrl'] as String? ?? '';
-
-              // 중요: dynamic으로 안전 캐스팅
               final survey = (extra['survey'] as Map?)?.cast<String, dynamic>()
-                            ?? const <String, dynamic>{};
-
+                                ?? const <String, dynamic>{};
               return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
@@ -308,6 +304,7 @@ GoRouter createRouter(String baseUrl) {
                 userId: extra['userId'],
                 inferenceResultId: extra['inferenceResultId'],
                 baseUrl: extra['baseUrl'],
+                matchedResults: extra['matchedResults'] ?? [],
               );
             },
           ),
@@ -358,7 +355,6 @@ GoRouter createRouter(String baseUrl) {
                 (key, value) => MapEntry(int.parse(key.toString()), Map<String, dynamic>.from(value)),
               );
 
-              // ✅ 문자열로 명확히 변환
               final String isRequested = (extra['isRequested'] ?? 'N').toString();
               final String isReplied = (extra['isReplied'] ?? 'N').toString();
 

@@ -174,6 +174,7 @@ class _UploadScreenState extends State<UploadScreen> {
             'userId': registerId,
             'inferenceResultId': inferenceResultId,
             'baseUrl': widget.baseUrl,
+            'matchedResults': responseData['matched_results'], // ✅ 이 라인 추가
           });
         }
       } else {

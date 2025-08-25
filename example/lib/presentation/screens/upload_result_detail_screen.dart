@@ -15,6 +15,7 @@ class UploadResultDetailScreen extends StatefulWidget {
   final String userId;
   final String inferenceResultId;
   final String baseUrl;
+  final List<dynamic> matchedResults;
 
   const UploadResultDetailScreen({
     super.key,
@@ -24,6 +25,7 @@ class UploadResultDetailScreen extends StatefulWidget {
     required this.userId,
     required this.inferenceResultId,
     required this.baseUrl,
+    required this.matchedResults,
   });
 
   @override
@@ -157,22 +159,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       return;
     }
 
-    final model1 = widget.modelInfos[1];
-    final model2 = widget.modelInfos[2];
-    final model3 = widget.modelInfos[3];
-
-    final List<String> model2DetectedLabels =
-        (model2?['detected_labels'] as List? ?? [])
-            .whereType<String>()
-            .map((e) => e.trim())
-            .toList();
-    
-    // ✅ 추가된 부분: model1에서 label만 추출
-    final List<String> model1DetectedLabels = 
-        (model1?['detected_labels'] as List? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map((e) => (e['label'] as String).trim())
-            .toList();
+    final List<Map<String, dynamic>> resultsToSend = widget.matchedResults.map((e) => e as Map<String, dynamic>).toList();
 
     try {
       final response = await http.post(
@@ -184,18 +171,12 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
         body: jsonEncode({
           'image_url': widget.originalImageUrl,
           'inference_result_id': widget.inferenceResultId,
-          // ✅ 수정된 부분: model1Label 대신 model1DetectedLabels를 사용
-          'model1Labels': model1DetectedLabels,
-          'model1Confidence': model1?['confidence'] ?? 0.0,
-          'model2Labels': model2DetectedLabels,
-          'model2Confidence': model2?['confidence'] ?? 0.0,
-          'model3ToothNumber': model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
-          'model3Confidence': model3?['confidence'] ?? 0.0,
+          'matchedResults': resultsToSend,
         }),
       );
 
       if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
+        final result = jsonDecode(utf8.decode(response.bodyBytes));
         final message = result['message'] ?? 'AI 소견을 불러오지 못했습니다';
         setState(() {
           _geminiOpinion = message;
@@ -223,18 +204,6 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     final currentUser = context.read<AuthViewModel>().currentUser;
     final textTheme = Theme.of(context).textTheme;
 
-    final model1 = widget.modelInfos[1];
-    final model2 = widget.modelInfos[2];
-    final model3 = widget.modelInfos[3];
-    
-    // ✅ 수정된 부분: model1DetectedLabels를 객체 리스트로 받음
-    final List<dynamic> model1DetectedLabels = model1?['detected_labels'] ?? [];
-
-    final List<String> model2DetectedLabels =
-        (model2?['detected_labels'] as List? ?? [])
-            .map((e) => e.toString().trim())
-            .toList();
-
     return Scaffold(
       backgroundColor: const Color(0xFFE7F0FF),
       appBar: AppBar(
@@ -254,15 +223,7 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
                 const SizedBox(height: 16),
                 _buildImageCard(),
                 const SizedBox(height: 16),
-                _buildSummaryCard(
-                  model1DetectedLabels: model1DetectedLabels,
-                  model2DetectedLabels: model2DetectedLabels,
-                  textTheme: textTheme,
-                  model2Label: model2?['label'] ?? '감지되지 않음',
-                  model2Confidence: model2?['confidence'] ?? 0.0,
-                  model3ToothNumber: model3?['tooth_number_fdi']?.toString() ?? 'Unknown',
-                  model3Confidence: model3?['confidence'] ?? 0.0,
-                ),
+                _buildSummaryCard(textTheme: textTheme),
                 const SizedBox(height: 16),
                 _buildGeminiOpinionCard(),
                 const SizedBox(height: 24),
@@ -316,23 +277,23 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
   }
 
   Widget _buildToggleCard(Color toggleBg) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _buildStyledToggle('질병', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
-            _buildStyledToggle('위생', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
-            _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
-          ],
-        ),
-      );
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3869A8), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('인공지능 분석 결과', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _buildStyledToggle('질병', _showDisease, (val) => setState(() => _showDisease = val), toggleBg),
+          _buildStyledToggle('위생', _showHygiene, (val) => setState(() => _showHygiene = val), toggleBg),
+          _buildStyledToggle('치아번호', _showToothNumber, (val) => setState(() => _showToothNumber = val), toggleBg),
+        ],
+      ),
+    );
 
   Widget _buildStyledToggle(String label, bool value, ValueChanged<bool> onChanged, Color bgColor) {
     return Container(
@@ -346,79 +307,26 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
     );
   }
 
-  final Map<String, Color> diseaseColorMap = {
-    '충치 초기': const Color.fromARGB(255, 255, 255, 0), // 노랑
-    '충치 중기': const Color.fromARGB(255, 255, 165, 0), // 주황
-    '충치 말기': const Color.fromARGB(255, 255, 0, 0), // 빨강
-    '잇몸 염증 초기': const Color.fromARGB(255, 255, 0, 255), // 마젠타
-    '잇몸 염증 중기': const Color.fromARGB(255, 165, 0, 255), // 보라빛
-    '잇몸 염증 말기': const Color.fromARGB(255, 0, 0, 255), // 파랑
-    '치주질환 초기': const Color.fromARGB(255, 0, 255, 255), // 시안
-    '치주질환 중기': const Color.fromARGB(255, 0, 255, 165), // 연두빛
-    '치주질환 말기': const Color.fromARGB(255, 0, 255, 0), // 초록
-  };
+  Widget _buildSummaryCard({required TextTheme textTheme}) {
+    final Map<String, List<dynamic>> diseaseResults = {};
+    final Map<String, List<dynamic>> hygieneResults = {};
 
-  // hygieneColorMap: 백엔드 YOLO_CLASS_MAP과 동일한 키로 통일
-  final Map<String, Color> hygieneColorMap = {
-    "교정장치": const Color.fromARGB(255, 138, 43, 226),
-    "금니 (골드 크라운)": const Color.fromARGB(255, 192, 192, 192),
-    "은니 (메탈 크라운)": const Color.fromARGB(255, 255, 215, 0),
-    "도자기소재 치아 덮개(세라믹 크라운)": const Color.fromARGB(255, 0, 0, 0),
-    "아말감 충전재": const Color.fromARGB(255, 0, 0, 255),
-    "도자기소재 치아 덮개(지르코니아 크라운)": const Color.fromARGB(255, 0, 255, 0),
-    "치석 1 단계": const Color.fromARGB(255, 255, 255, 0),
-    "치석 2 단계": const Color.fromARGB(255, 255, 165, 0),
-    "치석 3 단계": const Color.fromARGB(255, 255, 0, 0),
-  };
-
-  String _normalizeHygiene(String raw) {
-    final s = raw.trim().toLowerCase();
-    if (s.contains('골드') || s.contains('gcr')) return '금니 (골드 크라운)';
-    if (s.contains('메탈') || s.contains('mcr')) return '은니 (메탈 크라운)';
-    if (s.contains('세라믹') || s.contains('ccr')) return '도자기소재 치아 덮개(세라믹 크라운)';
-    if (s.contains('아말감')) return '아말감 충전재';
-    if (s.contains('지르코니아')) return '도자기소재 치아 덮개(지르코니아 크라운)';
-    if (s.contains('치석') && s.contains('1')) return '치석 1 단계';
-    if (s.contains('치석') && s.contains('2')) return '치석 2 단계';
-    if (s.contains('치석') && s.contains('3')) return '치석 3 단계';
-    if (s.contains('교정')) return '교정장치';
-    return raw.trim();
-  }
-
-  Widget _buildSummaryCard({
-    required List<dynamic> model1DetectedLabels,
-    required List<dynamic> model2DetectedLabels,
-    required String model2Label,
-    required double model2Confidence,
-    required String model3ToothNumber,
-    required double model3Confidence,
-    required TextTheme textTheme,
-  }) {
-    // ✅ 수정된 부분: model1DetectedLabels에서 'label' 값을 추출하여 집계용 리스트 생성
-    final List<String> diseaseLabels = _showDisease
-        ? (model1DetectedLabels as List<dynamic>)
-            .whereType<Map<String, dynamic>>()
-            .map((item) => item['label'] as String)
-            .toList()
-        : <String>[];
-        
-    final List<String> hygieneLabels = _showHygiene
-        ? (model2DetectedLabels.whereType<String>())
-            .map(_normalizeHygiene)
-            .where((l) => hygieneColorMap.containsKey(l))
-            .toSet()
-            .toList()
-        : <String>[];
-
-    final Map<String, int> diseaseCounts = <String, int>{};
-    final Map<String, int> firstSeenIndex = <String, int>{};
-    for (var i = 0; i < diseaseLabels.length; i++) {
-      final lbl = diseaseLabels[i];
-      diseaseCounts[lbl] = (diseaseCounts[lbl] ?? 0) + 1;
-      firstSeenIndex.putIfAbsent(lbl, () => i);
+    for (var result in widget.matchedResults) {
+      final toothNumber = result['tooth_number'];
+      if (toothNumber != null) {
+        if (result['category'] == 'disease') {
+          if (!diseaseResults.containsKey(toothNumber)) {
+            diseaseResults[toothNumber] = [];
+          }
+          diseaseResults[toothNumber]!.add(result);
+        } else if (result['category'] == 'hygiene') {
+          if (!hygieneResults.containsKey(toothNumber)) {
+            hygieneResults[toothNumber] = [];
+          }
+          hygieneResults[toothNumber]!.add(result);
+        }
+      }
     }
-    final diseaseEntries = diseaseCounts.entries.toList()
-      ..sort((a, b) => firstSeenIndex[a.key]!.compareTo(firstSeenIndex[b.key]!));
 
     return Container(
       decoration: BoxDecoration(
@@ -430,52 +338,47 @@ class _UploadResultDetailScreenState extends State<UploadResultDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (diseaseEntries.isNotEmpty) ...[
-            const Text('질병', style: TextStyle(fontWeight: FontWeight.w600)),
-            ...diseaseEntries.map((e) {
-              final Color dotColor = diseaseColorMap[e.key] ?? Colors.grey;
+          const Text('치아별 상세 분석', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          if (diseaseResults.isNotEmpty) ...[
+            Text('질병(Disease):', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...diseaseResults.keys.map((toothNumber) {
+              final results = diseaseResults[toothNumber]!;
+              final resultText = results.map((r) {
+                final label = r['label'];
+                final confidence = (r['confidence'] * 100).toStringAsFixed(2);
+                return '$label (확신도: $confidence%)';
+              }).join(', ');
               return Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('${e.key} ${e.value}건', style: textTheme.bodyMedium),
-                  ],
-                ),
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('$toothNumber번 치아: $resultText', style: textTheme.bodyMedium),
               );
             }).toList(),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
           ],
-          if (_showHygiene) ...[
-            const Text('치석/크라운/충전재', style: TextStyle(fontWeight: FontWeight.w600)),
-            if (hygieneLabels.isNotEmpty)
-              ...hygieneLabels.map((l) {
-                final Color dot = hygieneColorMap[l] ?? Colors.grey;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Row(
-                    children: [
-                      Container(width: 12, height: 12,
-                        decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(l, style: textTheme.bodyMedium),
-                    ],
-                  ),
-                );
-              }).toList()
-            else
-              Text('감지되지 않음', style: textTheme.bodyMedium),
+          if (hygieneResults.isNotEmpty) ...[
+            Text('치석/크라운/충전재(Hygiene):', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
+            ...hygieneResults.keys.map((toothNumber) {
+              final results = hygieneResults[toothNumber]!;
+              final resultText = results.map((r) {
+                final label = r['label'];
+                final confidence = (r['confidence'] * 100).toStringAsFixed(2);
+                return '$label (확신도: $confidence%)';
+              }).join(', ');
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('$toothNumber번 치아: $resultText', style: textTheme.bodyMedium),
+              );
+            }).toList(),
+            const SizedBox(height: 16),
           ],
+          if (diseaseResults.isEmpty && hygieneResults.isEmpty) ...[
+            Text('특이사항 없습니다.', style: textTheme.bodyMedium),
+          ]
         ],
       ),
     );
