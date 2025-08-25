@@ -1,3 +1,4 @@
+// 그대로 두셔도 됩니다. 아래는 참고용으로 전체 붙여둡니다.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -35,7 +36,6 @@ import '/presentation/screens/find_password_screen.dart';
 import '/presentation/screens/find_password_result.dart';
 import '/presentation/screens/dental_viewer_screen.dart';
 import '/presentation/screens/agreement_screen.dart';
-
 
 // ViewModels
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -184,8 +184,9 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot',
-          builder: (context, state) => const ChatbotScreen()
+          GoRoute(
+            path: '/chatbot',
+            builder: (context, state) => const ChatbotScreen(),
           ),
           GoRoute(
             path: '/multimodal_result',
@@ -207,8 +208,7 @@ GoRouter createRouter(String baseUrl) {
             path: '/dental_viewer',
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
-              final glbUrl = extra?['glbUrl']
-                  ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
+              final glbUrl = extra?['glbUrl'] ?? 'http://192.168.0.19:8000/model/open_mouth.glb';
               return DentalViewerScreen(glbUrl: glbUrl);
             },
           ),
@@ -249,8 +249,7 @@ GoRouter createRouter(String baseUrl) {
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>? ?? {};
               final baseUrl = extra['baseUrl'] as String? ?? '';
-              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>()
-                                ?? const <String, dynamic>{};
+              final survey = (extra['survey'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
               return UploadScreen(baseUrl: baseUrl, survey: survey);
             },
           ),
@@ -336,6 +335,7 @@ GoRouter createRouter(String baseUrl) {
                 baseUrl: extra['baseUrl'],
                 isRequested: extra['isRequested'],
                 isReplied: extra['isReplied'],
+                matchedResults: extra['matchedResults'] ?? [],
               );
             },
           ),

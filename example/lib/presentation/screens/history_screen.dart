@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ 웹 화면 고정용
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -9,8 +9,6 @@ import 'package:http/http.dart' as http;
 import '/presentation/viewmodel/history_viewmodel.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
 import '/presentation/model/history.dart';
-import 'history_result_detail_screen.dart';
-import 'history_xray_result_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String baseUrl;
@@ -23,7 +21,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final List<String> statuses = ['ALL', '신청 안함', '응답 대기중', '응답 완료'];
-  
+
   final _dateFmt = DateFormat('yyyy-MM-dd');
   final _timeFmt = DateFormat('HH:mm');
 
@@ -68,7 +66,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           foregroundColor: Colors.white,
         ),
         backgroundColor: const Color(0xFFDCE7F6),
-        // ✅ 웹이면 폭 고정 + 가운데 정렬
         body: SafeArea(
           child: kIsWeb
               ? Center(
@@ -83,7 +80,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // ✅ 본문을 분리 (웹/모바일 공용)
   Widget _buildMainBody(HistoryViewModel viewModel, dynamic currentUser) {
     final imageBaseUrl = widget.baseUrl.replaceAll('/api', '');
 
@@ -205,14 +201,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildRecordList(List<HistoryRecord> records, String imageBaseUrl) {
-    // 1) 최신순 정렬 (파일명 안의 타임스탬프 기준)
     final sorted = [...records]..sort((a, b) {
       final at = _extractDateTimeFromFilename(a.originalImagePath);
       final bt = _extractDateTimeFromFilename(b.originalImagePath);
-      return bt.compareTo(at); // desc
+      return bt.compareTo(at);
     });
 
-    // 2) 날짜 헤더 + 아이템을 순서대로 플랫하게 만든다
     final List<Widget> children = [];
     String? currentDate;
 
@@ -221,7 +215,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final dateStr = _dateFmt.format(dt);
       final timeStr = _timeFmt.format(dt);
 
-      // 날짜가 바뀌면 헤더 추가
       if (currentDate != dateStr) {
         currentDate = dateStr;
         children.add(
@@ -261,7 +254,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               3: record.model3InferenceResult ?? {},
             };
 
-      // 3) 더 단순하고 보기 편하게 수정된 목록 항목
+      // 참고용으로 matchedResults도 넘김(상세 화면에서 bbox 매칭 폴백 있음)
+      final List<dynamic> matchedResults = [];
+      if (record.model1InferenceResult != null) {
+        matchedResults.addAll(record.model1InferenceResult!['detected_labels'] as List? ?? []);
+      }
+      if (record.model2InferenceResult != null) {
+        matchedResults.addAll(record.model2InferenceResult!['detected_labels'] as List? ?? []);
+      }
+
       children.add(
         InkWell(
           onTap: () {
@@ -276,6 +277,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 'baseUrl': widget.baseUrl,
                 'isRequested': record.isRequested == 'Y' ? 'Y' : 'N',
                 'isReplied': record.isReplied == 'Y' ? 'Y' : 'N',
+                'matchedResults': matchedResults,
               },
             );
           },
@@ -290,7 +292,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 시간
                 SizedBox(
                   width: 50,
                   child: Text(
@@ -299,11 +300,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // 썸네일(원본)
                 _AuthThumb(
                   url: '$imageBaseUrl${record.originalImagePath}',
                   baseUrl: widget.baseUrl,
-                  size: 64, // 썸네일 크기 조정
+                  size: 64,
                 ),
                 const Spacer(),
                 const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
@@ -335,8 +335,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _AuthThumb extends StatefulWidget {
-  final String url; // 절대 URL (imageBaseUrl + path)
-  final String baseUrl; // api base
+  final String url;
+  final String baseUrl;
   final double size;
 
   const _AuthThumb({
@@ -408,7 +408,13 @@ class _AuthThumbState extends State<_AuthThumb> {
       ),
       clipBehavior: Clip.antiAlias,
       child: _loading
-          ? const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+          ? const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           : (_bytes != null
               ? Image.memory(_bytes!, fit: BoxFit.cover)
               : const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
