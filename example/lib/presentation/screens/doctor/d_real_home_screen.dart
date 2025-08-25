@@ -25,6 +25,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  // ✅ 주기적 새로고침 타이머
+  Timer? _refreshTimer;
+
   // 예시 이벤트
   final Map<DateTime, List<dynamic>> _events = {
     DateTime.utc(2025, 8, 10): ['Event A', 'Event B'],
@@ -56,15 +59,28 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     super.initState();
     _selectedDay = _focusedDay;
 
+    // 최초 1회 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vm = context.read<DoctorDashboardViewModel>();
-      vm.loadDashboardData(widget.baseUrl);
-      vm.loadRecent7DaysData(widget.baseUrl);
-      vm.loadAgeDistributionData(widget.baseUrl);
-      vm.loadHourlyStats(widget.baseUrl, day: _focusedDay);
-      vm.loadImagesByDate(widget.baseUrl, day: _focusedDay, limit: 9);
-      vm.loadVideoTypeRatio(widget.baseUrl, day: _focusedDay);
+      _loadAll(vm);
     });
+
+    // ✅ 1분 주기 자동 새로고침
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (!mounted) return;
+      final vm = context.read<DoctorDashboardViewModel>();
+      _loadAll(vm);
+    });
+  }
+
+  // ✅ 모든 카드/차트 데이터 로드 헬퍼
+  void _loadAll(DoctorDashboardViewModel vm) {
+    vm.loadDashboardData(widget.baseUrl);
+    vm.loadRecent7DaysData(widget.baseUrl);
+    vm.loadAgeDistributionData(widget.baseUrl);
+    vm.loadHourlyStats(widget.baseUrl, day: _focusedDay);
+    vm.loadImagesByDate(widget.baseUrl, day: _focusedDay, limit: 9);
+    vm.loadVideoTypeRatio(widget.baseUrl, day: _focusedDay);
   }
 
   /// 모바일 여부 (웹은 무조건 false로 둬서 웹 레이아웃 그대로 유지)
@@ -115,6 +131,13 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
   }
 
   @override
+  void dispose() {
+    // ✅ 타이머 정리
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isMobile = _isMobile(context);
 
@@ -131,11 +154,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              // 상단 KPI 카드 3개 (한 줄에 꽉 차면 줄바꿈)
               _KpiWrap(onGo: (tab) => context.push('/d_telemedicine_application', extra: {'initialTab': tab})),
               const SizedBox(height: 12),
-
-              // 가운데 상태 카드
               _MobileCard(
                 child: SizedBox(
                   height: 100,
@@ -158,45 +178,33 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // 최근 7일
               _MobileCard(
                 title: const _SubChartTitle(text: "최근 7일 신청 건수", color: Color(0xFFEB5757)),
                 child: const SizedBox(height: 220, child: _Last7DaysLineChartFancy()),
               ),
               const SizedBox(height: 12),
-
-              // 시간대별
               _MobileCard(
                 title: const _SubChartTitle(text: "시간대별 건수", color: Color(0xFF2F80ED)),
                 child: const SizedBox(height: 200, child: _HourlyLineChartFancy()),
               ),
               const SizedBox(height: 12),
-
-              // 사진(원본+오버레이 순환) — 썸네일/메타 포함
               _MobileCard(
-                titleText: "사진",
+                title: const _SubChartTitle(text: "사진", color: Colors.orange),
                 child: const SizedBox(height: 280, child: _ImageCard()),
               ),
               const SizedBox(height: 12),
-
-              // 성별/연령
               _MobileCard(
-                titleText: "성별 · 연령대",
+                title: const _SubChartTitle(text: "성별 · 연령대", color: Colors.green),
                 child: const SizedBox(height: 220, child: _DemographicsSplitPanel()),
               ),
               const SizedBox(height: 12),
-
-              // 영상 타입 비율
               _MobileCard(
-                titleText: "영상 타입 비율",
+                title: const _SubChartTitle(text: "영상 타입 비율", color: Colors.purple),
                 child: const SizedBox(height: 260, child: _VideoTypePieChart()),
               ),
               const SizedBox(height: 12),
-
-              // 알림 + 캘린더
               _MobileCard(
-                titleText: "읽지 않은 알림",
+                title: const _SubChartTitle(text: "읽지 않은 알림", color: Colors.red),
                 child: Column(
                   children: [
                     SizedBox(
@@ -217,7 +225,17 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(height: 340, child: _buildCalendar()),
+                    SizedBox(
+                      height: 340,
+                      child: _CalendarCore(
+                        focusedDay: _focusedDay,
+                        selectedDay: _selectedDay,
+                        calendarFormat: _calendarFormat,
+                        onFormatChanged: (f) => setState(() => _calendarFormat = f),
+                        onDaySelected: _onDaySelected,
+                        getEventsForDay: _getEventsForDay,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -227,7 +245,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       );
     }
 
-    // ───────────── 웹: 기존 레이아웃 유지 ─────────────
+    // ───────────── 웹: 기존 레이아웃 유지 + 우측(알림/캘린더) 분리 ─────────────
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       drawer: DoctorDrawer(baseUrl: widget.baseUrl),
@@ -244,9 +262,20 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
+                          // 좌: 차트 영역 (2행)
                           Expanded(flex: 2, child: _buildChartsArea()),
                           const SizedBox(width: 16),
-                          Expanded(flex: 1, child: _buildAlertsPanel()),
+                          // 우: 알림(상단) + 캘린더(하단) 동일 높이
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              children: [
+                                Expanded(child: _alertsCard()),
+                                const SizedBox(height: 16),
+                                Expanded(child: _calendarCard()),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -435,7 +464,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             children: [
               Expanded(child: _combinedLineChartsCard()),
               const SizedBox(width: 16),
-              Expanded(child: _chartCard("사진", Colors.orange, const _ImageCard())),
+              Expanded(child: _chartCard(const _SubChartTitle(text: "사진", color: Colors.orange), const _ImageCard())),
             ],
           ),
         ),
@@ -443,9 +472,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         Expanded(
           child: Row(
             children: [
-              Expanded(child: _chartCard("성별 · 연령대", Colors.green, const _DemographicsSplitPanel())),
+              Expanded(child: _chartCard(const _SubChartTitle(text: "성별 · 연령대", color: Colors.green), const _DemographicsSplitPanel())),
               const SizedBox(width: 16),
-              Expanded(child: _chartCard("영상 타입 비율", Colors.purple, const _VideoTypePieChart())),
+              Expanded(child: _chartCard(const _SubChartTitle(text: "영상 타입 비율", color: Colors.purple), const _VideoTypePieChart())),
             ],
           ),
         ),
@@ -476,7 +505,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  Widget _chartCard(String title, Color color, Widget chart) {
+  // 공통 카드: 타이틀(칩 스타일) + 본문
+  Widget _chartCard(Widget title, Widget body) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -487,16 +517,16 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          title,
           const SizedBox(height: 8),
-          Expanded(child: chart),
+          Expanded(child: body),
         ],
       ),
     );
   }
 
-  // ===================== 우측 알림 패널 (웹) =====================
-  Widget _buildAlertsPanel() {
+  // ===================== 우측 알림 카드 =====================
+  Widget _alertsCard() {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -507,7 +537,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("읽지 않은 알림", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const _SubChartTitle(text: "읽지 않은 알림", color: Colors.red),
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
@@ -525,34 +555,36 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
               },
             ),
           ),
-          const SizedBox(height: 16),
-          _buildCalendar(),
         ],
       ),
     );
   }
 
-  Widget _buildCalendar() {
-    return TableCalendar(
-      locale: 'ko_KR',
-      firstDay: DateTime.utc(2020, 1, 1),
-      lastDay: DateTime.utc(2030, 12, 31),
-      focusedDay: _focusedDay,
-      calendarFormat: _calendarFormat,
-      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-      onDaySelected: _onDaySelected,
-      eventLoader: _getEventsForDay,
-      headerStyle: const HeaderStyle(
-        formatButtonVisible: false,
-        titleCentered: true,
-        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.blue),
-        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.blue),
+  // ===================== 우측 캘린더 카드 (동일 높이) =====================
+  Widget _calendarCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
-      calendarStyle: CalendarStyle(
-        markersMaxCount: 1,
-        todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.5), shape: BoxShape.circle),
-        selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-        markerDecoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SubChartTitle(text: "캘린더", color: Color(0xFF2F80ED)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _CalendarCore(
+              focusedDay: _focusedDay,
+              selectedDay: _selectedDay,
+              calendarFormat: _calendarFormat,
+              onFormatChanged: (f) => setState(() => _calendarFormat = f),
+              onDaySelected: _onDaySelected,
+              getEventsForDay: _getEventsForDay,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -652,6 +684,55 @@ class _SubChartTitle extends StatelessWidget {
   }
 }
 
+// ---- 캘린더 코어 위젯(웹/모바일 공용) ----
+class _CalendarCore extends StatelessWidget {
+  final DateTime focusedDay;
+  final DateTime? selectedDay;
+  final CalendarFormat calendarFormat;
+  final ValueChanged<CalendarFormat> onFormatChanged;
+  final void Function(DateTime, DateTime) onDaySelected;
+  final List<dynamic> Function(DateTime) getEventsForDay;
+
+  const _CalendarCore({
+    Key? key,
+    required this.focusedDay,
+    required this.selectedDay,
+    required this.calendarFormat,
+    required this.onFormatChanged,
+    required this.onDaySelected,
+    required this.getEventsForDay,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return TableCalendar(
+      locale: 'ko_KR',
+      firstDay: DateTime.utc(2020, 1, 1),
+      lastDay: DateTime.utc(2030, 12, 31),
+      focusedDay: focusedDay,
+      calendarFormat: calendarFormat,
+      onFormatChanged: onFormatChanged,
+      selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+      onDaySelected: onDaySelected,
+      eventLoader: getEventsForDay,
+      daysOfWeekHeight: 22,
+      rowHeight: 34, // 컴팩트하게
+      headerStyle: const HeaderStyle(
+        formatButtonVisible: false,
+        titleCentered: true,
+        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.blue),
+        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.blue),
+      ),
+      calendarStyle: CalendarStyle(
+        markersMaxCount: 1,
+        todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.5), shape: BoxShape.circle),
+        selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+        markerDecoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+      ),
+    );
+  }
+}
+
 /// ===================== 유틸: 날짜 라벨 포맷 =====================
 String _weekdayKr(int w) => const ['일', '월', '화', '수', '목', '금', '토'][w % 7];
 
@@ -660,23 +741,23 @@ String _prettyDateLabel({
   required List<String> labels,        // 보통 'MM-DD'
   required List<String>? fulls,        // 가능하면 'YYYY-MM-DD'
 }) {
-    DateTime? dt;
-    if (fulls != null && index >= 0 && index < fulls.length) {
-      final s = fulls[index];
-      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+  DateTime? dt;
+  if (fulls != null && index >= 0 && index < fulls.length) {
+    final s = fulls[index];
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+  }
+  if (dt == null && index >= 0 && index < labels.length) {
+    final s = labels[index];
+    if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
+      final now = DateTime.now();
+      dt = DateTime.tryParse('${now.year}-$s');
     }
-    if (dt == null && index >= 0 && index < labels.length) {
-      final s = labels[index];
-      if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
-        final now = DateTime.now();
-        dt = DateTime.tryParse('${now.year}-$s');
-      }
-    }
-    if (dt == null) return '${labels[index]}';
-    final mm = dt.month.toString().padLeft(2, '0');
-    final dd = dt.day.toString().padLeft(2, '0');
-    final w = _weekdayKr(dt.weekday % 7);
-    return '$mm/$dd ($w)';
+  }
+  if (dt == null) return '${labels[index]}';
+  final mm = dt.month.toString().padLeft(2, '0');
+  final dd = dt.day.toString().padLeft(2, '0');
+  final w = _weekdayKr(dt.weekday % 7);
+  return '$mm/$dd ($w)';
 }
 
 /// ▼ 추가: 좁은 폭에서 사용되는 간략 포맷들
@@ -752,34 +833,28 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
     final avgY = counts.reduce((a, b) => a + b) / counts.length;
     final maxIndex = counts.indexOf(maxY.toInt());
 
-    // ▼ 카드 폭에 맞춰 라벨 형식/간격/높이를 자동 조정
     return LayoutBuilder(
       builder: (context, cons) {
         final width = cons.maxWidth;
         final n = counts.length.clamp(1, 100);
-        final per = width / n; // 포인트당 가용 폭
+        final per = width / n;
 
-        // 기본값
-        int step = 1;                 // 라벨 표시 간격
-        double reserved = 42;         // 라벨 영역 높이
-        bool useChip = true;          // 칩 배경 사용 여부
+        int step = 1;
+        double reserved = 42;
+        bool useChip = true;
         String Function(int) fmt = (i) =>
             _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
 
-        // 폭이 좁아질수록 더 짧은 포맷/간격으로
         if (per < 84 && per >= 56) {
-          // 중간 폭: 'M/D'
           reserved = 32;
           useChip = false;
           fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
         } else if (per < 56 && per >= 36) {
-          // 좁음: 2칸 간격 + 'M/D'
           step = 2;
           reserved = 28;
           useChip = false;
           fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
         } else if (per < 36) {
-          // 아주 좁음: 3칸 간격 + 'D(목)'
           step = 3;
           reserved = 24;
           useChip = false;
@@ -808,14 +883,13 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
-                    showTitles: true, // 두 번째 코드 기준 유지 (라벨 표시)
+                    showTitles: true,
                     reservedSize: reserved,
                     interval: 1,
                     getTitlesWidget: (value, meta) {
                       final i = value.toInt();
                       if (i < 0 || i >= labels.length) return const SizedBox.shrink();
 
-                      // 마지막 tick은 무조건 보이도록, 나머지는 step 간격에 맞춰 표시
                       final isLast = i == labels.length - 1;
                       if (!isLast && (i % step != 0)) return const SizedBox.shrink();
 
@@ -1038,7 +1112,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진 카드(원본 + 오버레이 순환 + 썸네일/설명) =====================
+/// ===================== 사진 카드(원본 + 오버레이 순환 + 썸네일/설명 + 토글) =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -1046,11 +1120,44 @@ class _ImageCard extends StatefulWidget {
   State<_ImageCard> createState() => _ImageCardState();
 }
 
-class _ImageCardState extends State<_ImageCard> {
+class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
   int _caseIndex = 0;
-  int _layerIndex = 0;
+  int _layerIndex = 0; // overlay 인덱스(원본 제외)
   Timer? _auto;
   DateTime? _pausedUntil;
+
+  // ▼ 상세(썸네일+메타) 표시 여부
+  bool _showDetails = true;             // 기본: 보이기
+  final double _thumbBarHeight = 60.0;  // 썸네일 바 높이
+
+  // ▼ 원본 natural size (정합을 위해 단일 스케일 적용)
+  double? _imgW;
+  double? _imgH;
+  String? _lastOriginalUrl;
+
+  void _ensureOriginalSize(String url) {
+    if (_lastOriginalUrl == url && _imgW != null && _imgH != null) return;
+
+    _lastOriginalUrl = url;
+    _imgW = null;
+    _imgH = null;
+
+    final stream = Image.network(url).image.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener((ImageInfo info, bool _) {
+      _imgW = info.image.width.toDouble();
+      _imgH = info.image.height.toDouble();
+      setState(() {});
+      stream.removeListener(listener);
+    }, onError: (_, __) {
+      // 실패 시 4:3 임시값
+      _imgW = 1200;
+      _imgH = 900;
+      setState(() {});
+      stream.removeListener(listener);
+    });
+    stream.addListener(listener);
+  }
 
   @override
   void initState() {
@@ -1071,21 +1178,25 @@ class _ImageCardState extends State<_ImageCard> {
 
       final vm = context.read<DoctorDashboardViewModel>();
       final items = vm.imageItems;
-
       if (items.isEmpty) return;
 
       final current = items[_caseIndex.clamp(0, items.length - 1)];
-      final layers = vm.layerKeysFor(current);
-      if (layers.isEmpty || layers.length == 1) return;
+      final overlays = vm.layerKeysFor(current).where((k) => k != 'original').toList();
+      if (overlays.length <= 1) return;
 
       setState(() {
-        _layerIndex = (_layerIndex + 1) % layers.length;
+        _layerIndex = (_layerIndex + 1) % overlays.length;
       });
     });
   }
 
   void _pauseAuto({int seconds = 6}) {
     _pausedUntil = DateTime.now().add(Duration(seconds: seconds));
+  }
+
+  void _toggleDetails() {
+    _pauseAuto(seconds: 2);
+    setState(() => _showDetails = !_showDetails);
   }
 
   void _showFullscreen(BuildContext context, String url) {
@@ -1144,24 +1255,29 @@ class _ImageCardState extends State<_ImageCard> {
     final vm = Provider.of<DoctorDashboardViewModel>(context);
 
     final items = vm.imageItems;
-    String currentUrl;
+
+    // 선택된 케이스의 원본/오버레이 URL 계산
+    String originalUrl;
+    String? overlayUrl;
     int casesCount;
-    int layersCountForCurrent = 1;
+    List<String> overlayKeys = const [];
 
     if (items.isNotEmpty) {
       _caseIndex = _caseIndex.clamp(0, items.length - 1);
       final item = items[_caseIndex];
 
-      final layers = vm.layerKeysFor(item);
-      if (layers.isEmpty) {
-        layersCountForCurrent = 1;
-        _layerIndex = 0;
-        currentUrl = vm.resolveUrl(item, 'original');
+      // 항상 원본 고정
+      originalUrl = vm.resolveUrl(item, 'original');
+
+      // 오버레이 = original 제외
+      overlayKeys = vm.layerKeysFor(item).where((k) => k != 'original').toList();
+
+      if (overlayKeys.isNotEmpty) {
+        _layerIndex = _layerIndex.clamp(0, overlayKeys.length - 1);
+        overlayUrl = vm.resolveUrl(item, overlayKeys[_layerIndex]);
       } else {
-        layersCountForCurrent = layers.length;
-        _layerIndex = _layerIndex.clamp(0, layers.length - 1);
-        final layerKey = layers[_layerIndex];
-        currentUrl = vm.resolveUrl(item, layerKey);
+        _layerIndex = 0;
+        overlayUrl = null;
       }
       casesCount = items.length;
     } else {
@@ -1169,9 +1285,8 @@ class _ImageCardState extends State<_ImageCard> {
           ? vm.imageUrls
           : <String>['https://picsum.photos/seed/dash0/1200/800'];
       _caseIndex = _caseIndex.clamp(0, urls.length - 1);
-      _layerIndex = 0;
-      layersCountForCurrent = 1;
-      currentUrl = urls[_caseIndex];
+      originalUrl = urls[_caseIndex];
+      overlayUrl = null;
       casesCount = urls.length;
     }
 
@@ -1193,81 +1308,122 @@ class _ImageCardState extends State<_ImageCard> {
       });
     }
 
-    void openFull() => _showFullscreen(context, currentUrl);
+    void openFull() => _showFullscreen(context, originalUrl);
 
-    // ---- 메인 뷰어(큰 이미지 + 3분할 탭 + 인덱스 배지)
+    // ---- 메인 뷰어(한 번만 스케일 → 픽셀 박스 안에서 겹치기)
     Widget buildMainViewer() {
+      _ensureOriginalSize(originalUrl); // natural size 확보
+
+      final hasSize = _imgW != null && _imgH != null;
+
       return ClipRRect(
         borderRadius: BorderRadius.circular(kImageRadius),
         child: Stack(
-          fit: StackFit.expand,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 420),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, anim) =>
-                  FadeTransition(opacity: anim, child: child),
-              child: KeyedSubtree(
-                key: ValueKey<String>(
-                    'case$_caseIndex-layer$_layerIndex-$currentUrl'),
-                child: Image.network(
-                  currentUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey.shade200,
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.broken_image,
-                        color: Colors.grey, size: 48),
+            // (A) 컨테이너 전체를 FittedBox로 한 번만 스케일
+            Positioned.fill(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: hasSize ? _imgW! : 1200,
+                  height: hasSize ? _imgH! : 900,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 1) 원본: 픽셀 박스를 그대로 채움
+                      Image.network(
+                        originalUrl,
+                        width: _imgW,
+                        height: _imgH,
+                        fit: BoxFit.fill, // 스케일은 FittedBox가 담당
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade200,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.broken_image,
+                              color: Colors.grey, size: 48),
+                        ),
+                      ),
+                      // 2) 마스크: 동일한 픽셀 크기로 정확히 겹침
+                      if (overlayUrl != null)
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: KeyedSubtree(
+                            key: ValueKey<String>('overlay-$_caseIndex-$_layerIndex-$overlayUrl'),
+                            child: Image.network(
+                              overlayUrl!,
+                              width: _imgW,
+                              height: _imgH,
+                              fit: BoxFit.fill, // 동일
+                              gaplessPlayback: true,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
 
-            // 좌/중앙/우 탭
+            // (B) 좌/중앙/우 탭
             Positioned.fill(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _OverlayTapZone(
-                      onTap: prevCase,
-                      child: const SizedBox.shrink(),
-                      align: Alignment.centerLeft,
-                      flex: 1),
-                  _OverlayTapZone(
-                      onTap: openFull,
-                      child: const SizedBox.shrink(),
-                      align: Alignment.center,
-                      flex: 2),
-                  _OverlayTapZone(
-                      onTap: nextCase,
-                      child: const SizedBox.shrink(),
-                      align: Alignment.centerRight,
-                      flex: 1),
+                  _OverlayTapZone(onTap: prevCase, child: const SizedBox.shrink(), align: Alignment.centerLeft, flex: 1),
+                  _OverlayTapZone(onTap: openFull, child: const SizedBox.shrink(), align: Alignment.center, flex: 2),
+                  _OverlayTapZone(onTap: nextCase, child: const SizedBox.shrink(), align: Alignment.centerRight, flex: 1),
                 ],
               ),
             ),
 
-            // 하단 인덱스
+            // (C) 하단 인덱스
             Positioned(
               left: 8,
               right: 8,
               bottom: 8,
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.35),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '${_caseIndex + 1} / $casesCount'
-                    '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12),
+                    '${overlayKeys.length > 1 ? ' • layer ${_layerIndex + 1}/${overlayKeys.length}' : ''}',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+
+            // (D) 상세영역 토글 버튼 — 오른쪽 상단으로 이동
+            Positioned(
+              right: 8,
+              top: 8, // 👈 변경: 상단 고정
+              child: GestureDetector(
+                onTap: _toggleDetails,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_showDetails ? Icons.expand_less : Icons.expand_more,
+                          size: 18, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(_showDetails ? '접기' : '펼치기',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                    ],
                   ),
                 ),
               ),
@@ -1280,7 +1436,7 @@ class _ImageCardState extends State<_ImageCard> {
     // ---- 썸네일 스트립
     Widget buildThumbnails() {
       return SizedBox(
-        height: 60,
+        height: _thumbBarHeight,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: casesCount,
@@ -1301,12 +1457,12 @@ class _ImageCardState extends State<_ImageCard> {
                 borderRadius: BorderRadius.circular(6),
                 child: Image.network(
                   thumbUrl,
-                  width: 60,
-                  height: 60,
+                  width: _thumbBarHeight,
+                  height: _thumbBarHeight,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    width: 60,
-                    height: 60,
+                    width: _thumbBarHeight,
+                    height: _thumbBarHeight,
                     color: Colors.grey.shade200,
                     child: const Icon(Icons.broken_image,
                         size: 24, color: Colors.grey),
@@ -1330,13 +1486,26 @@ class _ImageCardState extends State<_ImageCard> {
       );
     }
 
-    // ---- 최종 레이아웃: 큰 이미지 + 썸네일 + 메타
+    // ---- 최종 레이아웃: 큰 이미지 + (옵션)썸네일 + 메타
     return Column(
       children: [
-        Expanded(child: buildMainViewer()),
+        // 상세가 접히면 메인이 더 커지도록 flex 증가
+        Expanded(flex: _showDetails ? 9 : 12, child: buildMainViewer()),
         const SizedBox(height: 8),
-        buildThumbnails(),
-        buildMeta(),
+        // 아래 영역은 애니메이션으로 접고 펴기
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          child: _showDetails
+              ? Column(
+                  children: [
+                    buildThumbnails(),
+                    buildMeta(),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
