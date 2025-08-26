@@ -173,10 +173,10 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 사진(원본+오버레이 순환)
+              // 사진(원본+오버레이 순환) — 썸네일/메타 포함
               _MobileCard(
                 titleText: "사진",
-                child: const SizedBox(height: 220, child: _ImageCard()),
+                child: const SizedBox(height: 280, child: _ImageCard()),
               ),
               const SizedBox(height: 12),
 
@@ -204,11 +204,14 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       child: ListView.builder(
                         itemCount: 5,
                         itemBuilder: (context, index) {
-                          return const ListTile(
-                            leading: Icon(Icons.warning, color: Colors.red),
-                            title: Text("위험 알림"),
-                            subtitle: Text("상세 내용 표시"),
+                          return ListTile(
+                            leading: const Icon(Icons.warning, color: Colors.red),
+                            title: Text("위험 알림 ${index + 1}"),
+                            subtitle: const Text("상세 내용 표시"),
                             dense: true,
+                            onTap: () {
+                              context.push('/d_telemedicine_application', extra: {'initialTab': 1});
+                            },
                           );
                         },
                       ),
@@ -275,7 +278,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           const SizedBox(height: 20),
           _sideMenuItem(Icons.dashboard, "통합 대시보드", () => context.go('/d_home')),
           _sideMenuItem(Icons.history, "진료 현황", () => context.go('/d_dashboard')),
-          _sideMenuItem(Icons.notifications, "알림", () {}),
+          _sideMenuItem(Icons.notifications, "알림", () {
+            context.push('/d_telemedicine_application', extra: {'initialTab': 1});
+          }),
           _sideMenuItem(Icons.logout, "로그아웃", () => context.go('/login')),
         ],
       ),
@@ -369,7 +374,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("2025. 8. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    Text("2025. 8. 21  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -377,11 +382,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("서울시 서대문구", style: TextStyle(color: Colors.white, fontSize: 12)),
+                            Text("대전광역시 서구", style: TextStyle(color: Colors.white, fontSize: 12)),
                             Text("미세먼지 보통", style: TextStyle(color: Colors.white70, fontSize: 10)),
                           ],
                         ),
-                        Text("20°C",
+                        Text("30°C",
                             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
                     )
@@ -513,6 +518,9 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                   title: Text("위험 알림 ${index + 1}"),
                   subtitle: const Text("상세 내용 표시"),
                   dense: true,
+                  onTap: () {
+                    context.push('/d_telemedicine_application', extra: {'initialTab': 1});
+                  },
                 );
               },
             ),
@@ -652,6 +660,31 @@ String _prettyDateLabel({
   required List<String> labels,        // 보통 'MM-DD'
   required List<String>? fulls,        // 가능하면 'YYYY-MM-DD'
 }) {
+    DateTime? dt;
+    if (fulls != null && index >= 0 && index < fulls.length) {
+      final s = fulls[index];
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+    }
+    if (dt == null && index >= 0 && index < labels.length) {
+      final s = labels[index];
+      if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
+        final now = DateTime.now();
+        dt = DateTime.tryParse('${now.year}-$s');
+      }
+    }
+    if (dt == null) return '${labels[index]}';
+    final mm = dt.month.toString().padLeft(2, '0');
+    final dd = dt.day.toString().padLeft(2, '0');
+    final w = _weekdayKr(dt.weekday % 7);
+    return '$mm/$dd ($w)';
+}
+
+/// ▼ 추가: 좁은 폭에서 사용되는 간략 포맷들
+String _shortDateLabel({
+  required int index,
+  required List<String> labels,        // 'MM-DD'
+  required List<String>? fulls,        // 'YYYY-MM-DD'
+}) {
   DateTime? dt;
   if (fulls != null && index >= 0 && index < fulls.length) {
     final s = fulls[index];
@@ -665,10 +698,29 @@ String _prettyDateLabel({
     }
   }
   if (dt == null) return '${labels[index]}';
-  final mm = dt.month.toString().padLeft(2, '0');
-  final dd = dt.day.toString().padLeft(2, '0');
+  return '${dt.month}/${dt.day}';
+}
+
+String _veryShortDateLabel({
+  required int index,
+  required List<String> labels,
+  required List<String>? fulls,
+}) {
+  DateTime? dt;
+  if (fulls != null && index >= 0 && index < fulls.length) {
+    final s = fulls[index];
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(s)) dt = DateTime.tryParse(s);
+  }
+  if (dt == null && index >= 0 && index < labels.length) {
+    final s = labels[index];
+    if (RegExp(r'^\d{2}-\d{2}$').hasMatch(s)) {
+      final now = DateTime.now();
+      dt = DateTime.tryParse('${now.year}-$s');
+    }
+  }
+  if (dt == null) return '${labels[index]}';
   final w = _weekdayKr(dt.weekday % 7);
-  return '$mm/$dd ($w)';
+  return '${dt.day}($w)';
 }
 
 /// ===================== 최근 7일 라인차트 =====================
@@ -700,120 +752,168 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
     final avgY = counts.reduce((a, b) => a + b) / counts.length;
     final maxIndex = counts.indexOf(maxY.toInt());
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: (counts.length - 1).toDouble(),
-          minY: 0,
-          maxY: (maxY + 2).toDouble(),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (maxY <= 5 ? 1 : (maxY / 4).ceilToDouble()),
-            getDrawingHorizontalLine: (v) => FlLine(color: Colors.black12, strokeWidth: 1, dashArray: [4, 4]),
-          ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 42,
-                interval: 1,
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+    // ▼ 카드 폭에 맞춰 라벨 형식/간격/높이를 자동 조정
+    return LayoutBuilder(
+      builder: (context, cons) {
+        final width = cons.maxWidth;
+        final n = counts.length.clamp(1, 100);
+        final per = width / n; // 포인트당 가용 폭
 
-                  final text = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
+        // 기본값
+        int step = 1;                 // 라벨 표시 간격
+        double reserved = 42;         // 라벨 영역 높이
+        bool useChip = true;          // 칩 배경 사용 여부
+        String Function(int) fmt = (i) =>
+            _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
 
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: FittedBox(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          text,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          extraLinesData: ExtraLinesData(horizontalLines: [
-            HorizontalLine(
-              y: avgY,
-              color: const Color(0xFF9B51E0).withOpacity(0.6),
-              strokeWidth: 2,
-              dashArray: [6, 6],
-              label: HorizontalLineLabel(
+        // 폭이 좁아질수록 더 짧은 포맷/간격으로
+        if (per < 84 && per >= 56) {
+          // 중간 폭: 'M/D'
+          reserved = 32;
+          useChip = false;
+          fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
+        } else if (per < 56 && per >= 36) {
+          // 좁음: 2칸 간격 + 'M/D'
+          step = 2;
+          reserved = 28;
+          useChip = false;
+          fmt = (i) => _shortDateLabel(index: i, labels: labels, fulls: fullDates);
+        } else if (per < 36) {
+          // 아주 좁음: 3칸 간격 + 'D(목)'
+          step = 3;
+          reserved = 24;
+          useChip = false;
+          fmt = (i) => _veryShortDateLabel(index: i, labels: labels, fulls: fullDates);
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
+          child: LineChart(
+            LineChartData(
+              minX: 0,
+              maxX: (counts.length - 1).toDouble(),
+              minY: 0,
+              maxY: (maxY + 2).toDouble(),
+              gridData: FlGridData(
                 show: true,
-                alignment: Alignment.topRight,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF9B51E0), fontWeight: FontWeight.w700),
-                labelResolver: (_) => '평균 ${avgY.toStringAsFixed(1)}',
+                drawVerticalLine: false,
+                horizontalInterval: (maxY <= 5 ? 1 : (maxY / 4).ceilToDouble()),
+                getDrawingHorizontalLine: (v) =>
+                    FlLine(color: Colors.black12, strokeWidth: 1, dashArray: [4, 4]),
               ),
-            ),
-          ]),
-          lineTouchData: LineTouchData(
-            handleBuiltInTouches: true,
-            touchTooltipData: LineTouchTooltipData(
-              tooltipBgColor: Colors.black.withOpacity(0.78),
-              tooltipRoundedRadius: 10,
-              tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              getTooltipItems: (spots) => spots.map((s) {
-                final i = s.x.toInt();
-                final label = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
-                return LineTooltipItem(
-                  '$label\n${s.y.toInt()}건',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                );
-              }).toList(),
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              isCurved: true,
-              barWidth: 3.2,
-              gradient: const LinearGradient(colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)]),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [const Color(0xFF2F80ED).withOpacity(0.22), const Color(0xFF56CCF2).withOpacity(0.05)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true, // 두 번째 코드 기준 유지 (라벨 표시)
+                    reservedSize: reserved,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final i = value.toInt();
+                      if (i < 0 || i >= labels.length) return const SizedBox.shrink();
+
+                      // 마지막 tick은 무조건 보이도록, 나머지는 step 간격에 맞춰 표시
+                      final isLast = i == labels.length - 1;
+                      if (!isLast && (i % step != 0)) return const SizedBox.shrink();
+
+                      final text = fmt(i);
+
+                      final label = Text(
+                        text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: (reserved <= 24) ? 9 : 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      );
+
+                      return Padding(
+                        padding: EdgeInsets.only(top: (reserved <= 28) ? 4 : 8),
+                        child: FittedBox(
+                          child: useChip
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.04),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: label,
+                                )
+                              : label,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, bar, index) {
-                  final highlight = index == maxIndex;
-                  return FlDotCirclePainter(
-                    radius: highlight ? 4.4 : 3.0,
-                    color: Colors.white,
-                    strokeWidth: highlight ? 2.6 : 2.2,
-                    strokeColor: const Color(0xFF2F80ED),
-                  );
-                },
+              extraLinesData: ExtraLinesData(horizontalLines: [
+                HorizontalLine(
+                  y: avgY,
+                  color: const Color(0xFF9B51E0).withOpacity(0.6),
+                  strokeWidth: 2,
+                  dashArray: [6, 6],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topRight,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF9B51E0), fontWeight: FontWeight.w700),
+                    labelResolver: (_) => '평균 ${avgY.toStringAsFixed(1)}',
+                  ),
+                ),
+              ]),
+              lineTouchData: LineTouchData(
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  tooltipBgColor: Colors.black.withOpacity(0.78),
+                  tooltipRoundedRadius: 10,
+                  tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  getTooltipItems: (spots) => spots.map((s) {
+                    final i = s.x.toInt();
+                    final label = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
+                    return LineTooltipItem(
+                      '$label\n${s.y.toInt()}건',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    );
+                  }).toList(),
+                ),
               ),
-              spots: [for (int i = 0; i < counts.length; i++) FlSpot(i.toDouble(), counts[i].toDouble())],
+              lineBarsData: [
+                LineChartBarData(
+                  isCurved: true,
+                  barWidth: 3.2,
+                  gradient: const LinearGradient(colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)]),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF2F80ED).withOpacity(0.22), const Color(0xFF56CCF2).withOpacity(0.05)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) {
+                      final highlight = index == maxIndex;
+                      return FlDotCirclePainter(
+                        radius: highlight ? 4.4 : 3.0,
+                        color: Colors.white,
+                        strokeWidth: highlight ? 2.6 : 2.2,
+                        strokeColor: const Color(0xFF2F80ED),
+                      );
+                    },
+                  ),
+                  spots: [
+                    for (int i = 0; i < counts.length; i++) FlSpot(i.toDouble(), counts[i].toDouble())
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -938,7 +1038,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진 카드(원본 + 오버레이 순환) =====================
+/// ===================== 사진 카드(원본 + 오버레이 순환 + 썸네일/설명) =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -1020,7 +1120,8 @@ class _ImageCardState extends State<_ImageCard> {
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.grey.shade200,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                    child: const Icon(Icons.broken_image,
+                        color: Colors.grey, size: 48),
                   ),
                 ),
               ),
@@ -1028,8 +1129,13 @@ class _ImageCardState extends State<_ImageCard> {
           ),
         );
       },
-      transitionBuilder: (_, anim, __, child) =>
-          FadeTransition(opacity: anim, child: ScaleTransition(scale: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic), child: child)),
+      transitionBuilder: (_, anim, __, child) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+          child: child,
+        ),
+      ),
     );
   }
 
@@ -1089,69 +1195,165 @@ class _ImageCardState extends State<_ImageCard> {
 
     void openFull() => _showFullscreen(context, currentUrl);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kImageRadius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 420),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, anim) =>
-                FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(
-              key: ValueKey<String>('case$_caseIndex-layer$_layerIndex-$currentUrl'),
-              child: Image.network(
-                currentUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 48),
+    // ---- 메인 뷰어(큰 이미지 + 3분할 탭 + 인덱스 배지)
+    Widget buildMainViewer() {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(kImageRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 420),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: KeyedSubtree(
+                key: ValueKey<String>(
+                    'case$_caseIndex-layer$_layerIndex-$currentUrl'),
+                child: Image.network(
+                  currentUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey.shade200,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.broken_image,
+                        color: Colors.grey, size: 48),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // 3분할 탭
-          Positioned.fill(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _OverlayTapZone(onTap: prevCase, child: const SizedBox.shrink(), align: Alignment.centerLeft, flex: 1),
-                _OverlayTapZone(onTap: openFull, child: const SizedBox.shrink(), align: Alignment.center, flex: 2),
-                _OverlayTapZone(onTap: nextCase, child: const SizedBox.shrink(), align: Alignment.centerRight, flex: 1),
-              ],
+            // 좌/중앙/우 탭
+            Positioned.fill(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _OverlayTapZone(
+                      onTap: prevCase,
+                      child: const SizedBox.shrink(),
+                      align: Alignment.centerLeft,
+                      flex: 1),
+                  _OverlayTapZone(
+                      onTap: openFull,
+                      child: const SizedBox.shrink(),
+                      align: Alignment.center,
+                      flex: 2),
+                  _OverlayTapZone(
+                      onTap: nextCase,
+                      child: const SizedBox.shrink(),
+                      align: Alignment.centerRight,
+                      flex: 1),
+                ],
+              ),
             ),
-          ),
 
-          // 하단 인덱스
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${_caseIndex + 1} / $casesCount'
-                  '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+            // 하단 인덱스
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_caseIndex + 1} / $casesCount'
+                    '${layersCountForCurrent > 1 ? ' • layer ${_layerIndex + 1}/$layersCountForCurrent' : ''}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      );
+    }
+
+    // ---- 썸네일 스트립
+    Widget buildThumbnails() {
+      return SizedBox(
+        height: 60,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: casesCount,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, i) {
+            final thumbUrl = (items.isNotEmpty)
+                ? vm.resolveUrl(items[i], 'original')
+                : vm.imageUrls[i];
+            return GestureDetector(
+              onTap: () {
+                _pauseAuto();
+                setState(() {
+                  _caseIndex = i;
+                  _layerIndex = 0;
+                });
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  thumbUrl,
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 60,
+                    height: 60,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.broken_image,
+                        size: 24, color: Colors.grey),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+   // ---- 메타 텍스트(동적)
+    Widget buildMeta(DashboardImageItem? item) {
+      if (item == null) {
+        return const SizedBox.shrink();
+      }
+
+      final dateStr = item.requestDateTime != null
+          ? "${item.requestDateTime!.year}-${item.requestDateTime!.month.toString().padLeft(2, '0')}-${item.requestDateTime!.day.toString().padLeft(2, '0')}"
+          : "날짜 없음";
+
+      final desc = (item.imageType == 'xray') ? "치아 X-ray" : "치아 상태 점검";
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          "환자: ${item.userId} | 촬영일: $dateStr | 설명: $desc",
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      );
+    }
+
+
+    // ---- 최종 레이아웃: 큰 이미지 + 썸네일 + 메타
+    return Column(
+      children: [
+        Expanded(child: buildMainViewer()),
+        const SizedBox(height: 8),
+        buildThumbnails(),
+        buildMeta(items.isNotEmpty ? items[_caseIndex] : null), // ✅ 선택된 이미지 메타 표시
+      ],
     );
   }
 }
 
+/// ===================== Overlay Tap Zone =====================
 class _OverlayTapZone extends StatefulWidget {
   final VoidCallback onTap;
   final Widget child;
