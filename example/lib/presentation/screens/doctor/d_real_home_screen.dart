@@ -9,6 +9,9 @@ import 'package:table_calendar/table_calendar.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 
+// ▼▼▼ 추가: 실시간 전국 날씨 카드 위젯 ▼▼▼
+import '../../widgets/national_weather_card.dart';
+
 const double kImageRadius = 10; // 카드/전체화면 공통 모서리 반경
 
 class DRealHomeScreen extends StatefulWidget {
@@ -361,38 +364,13 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                height: 80,
+
+              // ▼▼▼ 여기: 기존 날씨 컨테이너 → 실시간 전국 날씨 카드로 교체 ▼▼▼
+              SizedBox(
                 width: 200,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("2025. 8. 21  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
-                    SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("대전광역시 서구", style: TextStyle(color: Colors.white, fontSize: 12)),
-                            Text("미세먼지 보통", style: TextStyle(color: Colors.white70, fontSize: 10)),
-                          ],
-                        ),
-                        Text("30°C",
-                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      ],
-                    )
-                  ],
-                ),
+                child: const NationalWeatherCard(height: 80),
               ),
+              // ▲▲▲ 교체 끝 ▲▲▲
             ],
           );
         },
