@@ -94,13 +94,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickBirthDate() async {
-    DateTime initial = DateTime.tryParse(_birthController.text) ?? DateTime(1995, 1, 1);
     final now = DateTime.now();
+    final cutoff = DateTime(now.year - 110, now.month, now.day);
+
+    final parsed = DateTime.tryParse(_birthController.text) ?? DateTime(1995, 1, 1);
+    final initial = parsed.isBefore(cutoff)
+        ? cutoff
+        : (parsed.isAfter(now) ? now : parsed);
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial.isAfter(now) ? DateTime(1995, 1, 1) : initial,
-      firstDate: DateTime(1900),
-      lastDate: now,
+      initialDate: initial,
+      firstDate: cutoff, // ✅ 오늘 기준 110년 이전 선택 불가
+      lastDate: now,     // ✅ 미래 선택 불가
       helpText: '생년월일 선택',
       confirmText: '확인',
       cancelText: '취소',
@@ -148,17 +154,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         borderRadius: BorderRadius.circular(cardRadius),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05), // ⚙️ withOpacity -> withValues
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      // 🔧 핵심: 내부도 Column만 두지 말고, 필요시 또 스크롤 가능
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // 프로필 아바타 + 이름 라벨
                           Row(
                             children: [
                               const CircleAvatar(
@@ -204,7 +208,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               '생년월일 (YYYY-MM-DD)',
                               maxLength: 10,
                               keyboardType: TextInputType.datetime,
-                              inputFormatters: [DateInputFormatter()],
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(10),
+                                const DateHyphenFormatter(), // ⚙️ 리스트에서 const 삭제, 생성자는 const 아님 → 여기 const 제거해도 OK
+                              ],
                               suffix: IconButton(
                                 icon: const Icon(Icons.calendar_today_outlined),
                                 onPressed: _pickBirthDate,
@@ -238,7 +245,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primary,
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: primary.withOpacity(0.5),
+                                disabledBackgroundColor: primary.withValues(alpha: 0.5), // ⚙️ withOpacity -> withValues
                                 disabledForegroundColor: Colors.white70,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
@@ -317,6 +324,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       validator: (value) {
         final v = value?.trim() ?? '';
+
+        // ✅ 생년월일은 전용 검증기 사용
+        if (label.contains('생년월일')) {
+          return DobValidator.validate(v);
+        }
+
         if ((v.isEmpty) && !isPassword) return '$label을 입력해주세요';
         if (isPassword && v.isNotEmpty && minLength != null && v.length < minLength) {
           return '$label은 ${minLength}자 이상이어야 합니다';
@@ -327,16 +340,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (label == '전화번호' && !RegExp(r'^\d{3}-\d{3,4}-\d{4}$').hasMatch(v)) {
           return '전화번호 형식이 올바르지 않습니다';
         }
-        if (label.contains('생년월일')) {
-          final RegExp dateRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
-          if (!dateRegex.hasMatch(v)) return 'YYYY-MM-DD 형식으로 입력해주세요';
-          try {
-            final DateTime date = DateTime.parse(v);
-            if (date.isAfter(DateTime.now())) return '생년월일은 미래일 수 없습니다';
-          } catch (_) {
-            return '유효하지 않은 날짜입니다';
-          }
-        }
         return null;
       },
     );
@@ -346,7 +349,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     const maleColor = Color(0xFF3F8CD4);
     const femaleColor = Color(0xFFE53935);
     const unselectedBg = Color(0xFFE9EDF3);
-
 
     Widget genderChip(String label, String value, Color activeColor) {
       final selected = _selectedGender == value;
@@ -382,29 +384,170 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return Row(
       children: [
-        genderChip('남', 'M',maleColor),
+        genderChip('남', 'M', maleColor),
         const SizedBox(width: 12),
-        genderChip('여', 'F',femaleColor),
+        genderChip('여', 'F', femaleColor),
       ],
     );
   }
 }
 
-/// 생년월일 자동 포맷터 (YYYY-MM-DD)
-class DateInputFormatter extends TextInputFormatter {
+/// ✅ 생년월일 자동 포맷터 (YYYY-MM-DD)
+/// - 숫자만 허용 후 하이픈 자동 삽입
+/// - 하이픈 위치에서 백스페이스 정상 동작 (커서 보정)
+/// - 월을 01..12로 자동 보정
+/// - 일을 해당 달 마지막 날로 자동 보정(윤년 포함)
+class DateHyphenFormatter extends TextInputFormatter {
+  const DateHyphenFormatter();
+
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final text = newValue.text.replaceAll('-', '');
-    if (text.length > 8) return oldValue;
-    final buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      if (i == 3 || i == 5) buffer.write('-');
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // 새 값에서 커서 앞까지의 숫자 개수
+    final digitCursor = _countDigitsBefore(newValue.text, newValue.selection.baseOffset);
+
+    // 숫자만 추출
+    final digits = StringBuffer();
+    for (int i = 0; i < newValue.text.length; i++) {
+      final c = newValue.text[i];
+      if (c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57) {
+        digits.write(c);
+      }
     }
-    return newValue.copyWith(
-      text: buffer.toString(),
-      selection: TextSelection.collapsed(offset: buffer.length),
+    var d = digits.toString();
+
+    // 월 보정
+    if (d.length >= 6) {
+      final year = int.tryParse(d.substring(0, 4)) ?? 0;
+      var month = int.tryParse(d.substring(4, 6)) ?? 0;
+      if (month <= 0) month = 1;
+      if (month > 12) month = 12;
+      d = d.replaceRange(4, 6, month.toString().padLeft(2, '0'));
+
+      // 일 보정
+      if (d.length >= 8) {
+        var day = int.tryParse(d.substring(6, 8)) ?? 0;
+        final maxDay = _daysInMonth(year, month);
+        if (day <= 0) day = 1;
+        if (day > maxDay) day = maxDay;
+        d = d.replaceRange(6, 8, day.toString().padLeft(2, '0'));
+      }
+    }
+
+    // 하이픈 삽입: YYYY-MM-DD
+    final buf = StringBuffer();
+    var writtenDigits = 0;
+    for (int i = 0; i < d.length && i < 8; i++) {
+      buf.write(d[i]);
+      writtenDigits++;
+      if (writtenDigits == 4 || writtenDigits == 6) {
+        buf.write('-');
+      }
+    }
+    var formatted = buf.toString();
+    if (formatted.endsWith('-')) {
+      formatted = formatted.substring(0, formatted.length - 1);
+    }
+
+    // 커서 위치 복원
+    final caret = _caretOffsetFromDigitIndex(formatted, digitCursor);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: caret),
+      composing: TextRange.empty,
     );
+  }
+
+  int _countDigitsBefore(String text, int rawIndex) {
+    var cnt = 0;
+    final idx = rawIndex.clamp(0, text.length);
+    for (int i = 0; i < idx; i++) {
+      final c = text[i];
+      if (c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57) cnt++;
+    }
+    return cnt;
+  }
+
+  int _caretOffsetFromDigitIndex(String formatted, int digitIdx) {
+    if (digitIdx <= 0) return 0;
+    var count = 0;
+    for (int i = 0; i < formatted.length; i++) {
+      final c = formatted[i];
+      if (c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57) {
+        count++;
+        if (count == digitIdx) {
+          return i + 1;
+        }
+      }
+    }
+    return formatted.length;
+  }
+
+  int _daysInMonth(int year, int month) {
+    if (month < 1 || month > 12) return 31;
+    final last = DateTime(year, month + 1, 0); // 다음 달 0일 = 해당 달 마지막 날
+    return last.day;
+  }
+}
+
+/// ✅ 생년월일 검증기
+/// - 형식: YYYY-MM-DD
+/// - 월: 1..12
+/// - 일: 1..해당 달 마지막 날(윤년 반영)
+/// - 오늘 기준 110년 이전 금지
+/// - 미래 날짜 금지
+class DobValidator {
+  static String? validate(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return '생년월일을 입력해 주세요 (예: 1990-03-15)';
+    }
+    final s = value.trim();
+    final regex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+    if (!regex.hasMatch(s)) {
+      return '생년월일을 YYYY-MM-DD 형식으로 입력하세요';
+    }
+
+    final year = int.tryParse(s.substring(0, 4));
+    final month = int.tryParse(s.substring(5, 7));
+    final day = int.tryParse(s.substring(8, 10));
+
+    if (year == null || month == null || day == null) {
+      return '올바른 생년월일이 아닙니다';
+    }
+    if (month < 1 || month > 12) {
+      return '달은 1~12 사이여야 합니다';
+    }
+
+    final maxDay = _daysInMonth(year, month);
+    if (day < 1 || day > maxDay) {
+      return '해당 달의 마지막 날(${maxDay}일)을 초과했습니다';
+    }
+
+    DateTime dob;
+    try {
+      dob = DateTime(year, month, day);
+    } catch (_) {
+      return '올바른 생년월일이 아닙니다';
+    }
+
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year - 110, now.month, now.day);
+    if (dob.isBefore(cutoff)) {
+      return '오늘 기준 110년 이전 생년월일은 등록할 수 없습니다';
+    }
+    if (dob.isAfter(now)) {
+      return '미래 날짜는 등록할 수 없습니다';
+    }
+
+    return null;
+  }
+
+  static int _daysInMonth(int year, int month) {
+    final last = DateTime(year, month + 1, 0);
+    return last.day;
   }
 }
 

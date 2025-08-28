@@ -43,7 +43,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const Color unselectedCardColor = Color(0xFFE0E0E0);
 
   static const double _itemHeight = 48;
-  static const double _menuMaxHeight = 260;
 
   @override
   void dispose() {
@@ -85,10 +84,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     String? _validateBirth() {
-      if (_selectedYear == null || _selectedMonth == null || _selectedDay == null) {
+      if (_selectedYear == null ||
+          _selectedMonth == null ||
+          _selectedDay == null) {
         return '생년월일을 모두 선택해주세요';
       }
-      final birthDate = DateTime(_selectedYear!, _selectedMonth!, _selectedDay!);
+      final birthDate =
+          DateTime(_selectedYear!, _selectedMonth!, _selectedDay!);
       final now = DateTime.now();
       final oldest = DateTime(now.year - 125, now.month, now.day);
       if (birthDate.isBefore(oldest) || birthDate.isAfter(now)) {
@@ -134,11 +136,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  // === 생년월일: 항상 가로 3분할 ===
+  Widget _buildBirthSection() {
+    return Row(
+      children: [
+        Expanded(child: _buildYearDropdown()),
+        const SizedBox(width: 10),
+        Expanded(child: _buildMonthDropdown()),
+        const SizedBox(width: 10),
+        Expanded(child: _buildDayDropdown()),
+      ],
+    );
+  }
+
+  // 공통 데코레이션
+  InputDecoration _ddDecoration(String label) => InputDecoration(
+        labelText: label,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        border: const OutlineInputBorder(),
+      );
+
   Widget _buildYearDropdown() {
+    final menuHeight =
+        (MediaQuery.of(context).size.height * 0.45).clamp(180.0, 280.0);
     return Theme(
       data: Theme.of(context).copyWith(useMaterial3: false),
       child: DropdownButtonFormField<int>(
@@ -146,16 +170,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         isExpanded: true,
         isDense: true,
         itemHeight: _itemHeight,
-        menuMaxHeight: _menuMaxHeight,
-        icon: const Icon(Icons.arrow_drop_down),
-        decoration: const InputDecoration(
-          labelText: '연도',
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          border: OutlineInputBorder(),
-        ),
-        style: const TextStyle(fontSize: 14),
+        menuMaxHeight: menuHeight,
+        dropdownColor: Colors.white,
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+        decoration: _ddDecoration('연도'),
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
         items: _yearList
-            .map((y) => DropdownMenuItem<int>(value: y, child: Text('$y')))
+            .map((y) => DropdownMenuItem<int>(
+                  value: y,
+                  child:
+                      Text('$y', style: const TextStyle(color: Colors.black87)),
+                ))
             .toList(),
         onChanged: (v) => setState(() => _selectedYear = v),
         validator: (v) => v == null ? '연도를 선택해주세요' : null,
@@ -164,6 +189,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildMonthDropdown() {
+    final menuHeight =
+        (MediaQuery.of(context).size.height * 0.45).clamp(180.0, 280.0);
     return Theme(
       data: Theme.of(context).copyWith(useMaterial3: false),
       child: DropdownButtonFormField<int>(
@@ -171,16 +198,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         isExpanded: true,
         isDense: true,
         itemHeight: _itemHeight,
-        menuMaxHeight: _menuMaxHeight,
-        icon: const Icon(Icons.arrow_drop_down),
-        decoration: const InputDecoration(
-          labelText: '월',
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          border: OutlineInputBorder(),
-        ),
-        style: const TextStyle(fontSize: 14),
+        menuMaxHeight: menuHeight,
+        dropdownColor: Colors.white,
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+        decoration: _ddDecoration('월'),
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
         items: _monthList
-            .map((m) => DropdownMenuItem<int>(value: m, child: Text('$m')))
+            .map((m) => DropdownMenuItem<int>(
+                  value: m,
+                  child: Text('$m',
+                      style: const TextStyle(color: Colors.black87)),
+                ))
             .toList(),
         onChanged: (v) {
           setState(() {
@@ -198,7 +226,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_selectedYear != null && _selectedMonth != null) {
       maxDay = DateTime(_selectedYear!, _selectedMonth! + 1, 0).day;
     }
-    final days = List.generate(maxDay, (index) => index + 1);
+    final days = List.generate(maxDay, (i) => i + 1);
+    final menuHeight =
+        (MediaQuery.of(context).size.height * 0.45).clamp(180.0, 280.0);
 
     return Theme(
       data: Theme.of(context).copyWith(useMaterial3: false),
@@ -207,16 +237,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         isExpanded: true,
         isDense: true,
         itemHeight: _itemHeight,
-        menuMaxHeight: _menuMaxHeight,
-        icon: const Icon(Icons.arrow_drop_down),
-        decoration: const InputDecoration(
-          labelText: '일',
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          border: OutlineInputBorder(),
-        ),
-        style: const TextStyle(fontSize: 14),
+        menuMaxHeight: menuHeight,
+        dropdownColor: Colors.white,
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+        decoration: _ddDecoration('일'),
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
         items: days
-            .map((d) => DropdownMenuItem<int>(value: d, child: Text('$d')))
+            .map((d) => DropdownMenuItem<int>(
+                  value: d,
+                  child: Text('$d',
+                      style: const TextStyle(color: Colors.black87)),
+                ))
             .toList(),
         onChanged: (v) => setState(() => _selectedDay = v),
         validator: (v) => v == null ? '일을 선택해주세요' : null,
@@ -277,7 +308,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 _roleSelectionCard('환자', 'P', Icons.personal_injury_outlined),
                 const SizedBox(width: 15),
-                _roleSelectionCard('의사', 'D', Icons.medical_information_outlined),
+                _roleSelectionCard(
+                    '의사', 'D', Icons.medical_information_outlined),
               ],
             ),
             const SizedBox(height: 20),
@@ -288,15 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 10),
             _buildGenderSelectionButtons(),
-            Row(
-              children: [
-                Expanded(child: _buildYearDropdown()),
-                const SizedBox(width: 10),
-                Expanded(child: _buildMonthDropdown()),
-                const SizedBox(width: 10),
-                Expanded(child: _buildDayDropdown()),
-              ],
-            ),
+            _buildBirthSection(), // ← 항상 가로 3분할
             _buildTextField(
               _phoneController,
               '전화번호',
@@ -322,18 +346,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                     errorText: authViewModel.duplicateCheckErrorMessage,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z0-9]')),
                       LengthLimitingTextInputFormatter(20),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: authViewModel.isCheckingUserId ? null : _checkDuplicateId,
+                  onPressed: authViewModel.isCheckingUserId
+                      ? null
+                      : _checkDuplicateId,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white, // ✅ 글씨 흰색
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
@@ -370,7 +398,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
-                  foregroundColor: Colors.white, // ✅ 글씨 흰색
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -418,11 +446,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         ),
         validator: (value) {
-          if (value == null || value.trim().isEmpty) return '$label을 입력해주세요';
-          if (label == '비밀번호 확인' && value != _passwordController.text) {
+          if (value == null || value.trim().isEmpty) {
+            return '$label을 입력해주세요';
+          }
+          if (label == '비밀번호 확인' &&
+              value != _passwordController.text) {
             return '비밀번호가 일치하지 않습니다';
           }
-          if (label == '이름 (한글만)' && !RegExp(r'^[가-힣]+$').hasMatch(value)) {
+          if (label == '이름 (한글만)' &&
+              !RegExp(r'^[가-힣]+$').hasMatch(value)) {
             return '이름은 한글만 입력해주세요';
           }
           return null;
@@ -433,11 +465,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _roleSelectionCard(String label, String roleValue, IconData icon) {
     final isSelected = _selectedRole == roleValue;
-
     Color cardBackgroundColor = isSelected
         ? (roleValue == 'P' ? patientRoleColor : doctorRoleColor)
         : unselectedCardColor;
-
     Color iconAndTextColor = isSelected ? Colors.white : Colors.grey[700]!;
 
     return Expanded(
@@ -523,7 +553,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (isSelected) const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),

@@ -16,7 +16,7 @@ const double kAnswerHeight = 44;
 const double kAnswerSideInset = 12;
 
 // ✅ 웹 폭 고정값
-const double kWebMaxWidth = 520;
+const double kWebMaxWidth = 600;
 
 // ✅ 공통 폭 고정 래퍼: 웹이면 고정폭, 모바일은 그대로
 Widget _wrapWebFixedWidth(Widget child) {

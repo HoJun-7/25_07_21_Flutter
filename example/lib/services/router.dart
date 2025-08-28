@@ -206,7 +206,21 @@ GoRouter createRouter(String baseUrl) {
           currentLocation: state.uri.toString(),
         ),
         routes: [
-          GoRoute(path: '/chatbot', builder: (context, state) => const ChatbotScreen()),
+          GoRoute(
+            path: '/chatbot',
+            builder: (context, state) {
+              // extra 사용 방식 두 가지를 모두 커버: String 혹은 {'baseUrl': ...}
+              String? fromExtra;
+              if (state.extra is String) {
+                fromExtra = state.extra as String;
+              } else if (state.extra is Map<String, dynamic>) {
+                fromExtra = (state.extra as Map<String, dynamic>)['baseUrl'] as String?;
+              }
+              final passedBaseUrl = fromExtra ?? baseUrl;
+
+              return ChatbotScreen(baseUrl: passedBaseUrl);
+            },
+          ),
           GoRoute(
             path: '/multimodal_result',
             builder: (context, state) {

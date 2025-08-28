@@ -1,4 +1,9 @@
-// lib/presentation/screens/chatbot_screen.dart (통합/수정 버전)
+// lib/presentation/screens/chatbot_screen.dart
+// (중첩 Scaffold 대응 + 고정폭 정렬, 원본 + 마스크 레이어링)
+
+import 'dart:typed_data';                          // ✅ 추가: 바이트 렌더링
+import 'package:http/http.dart' as http;           // ✅ 추가: 직접 다운로드용
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/presentation/viewmodel/auth_viewmodel.dart';
@@ -36,7 +41,11 @@ class _Palette {
 }
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({super.key});
+  // ✅ 추가: baseUrl을 화면에서 직접 받음
+  final String baseUrl;
+
+  const ChatbotScreen({super.key, required this.baseUrl});
+
   @override
   _ChatbotScreenState createState() => _ChatbotScreenState();
 }
@@ -108,7 +117,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _scrollToBottom();
   }
 
-  // ✅ 간단한 마크다운 감지 (제목/리스트/강조/코드/인용/구분선)
+  // ✅ 간단한 마크다운 감지
   bool _looksLikeMarkdown(String s) {
     if (s.isEmpty) return false;
     final md = RegExp(r'(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|[-*_]{3,})|[*_`~]{1,}');
@@ -149,7 +158,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                   ),
                 )
               : Image.asset(
-                  'images/dentibot.png',
+                  'assets/images/dentibot.png',
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   width: profileImageSize * .8,
@@ -302,14 +311,21 @@ class _ChatbotScreenState extends State<ChatbotScreen>
           body: Stack(
             children: [
               SafeArea(
-                child: kIsWeb
-                    ? Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: kWebMaxWidth),
+                    child: Column(
+                      children: [
+                        // ⬇ 메시지 리스트 (남는 높이 모두 차지)
+                        Expanded(
                           child: _buildChatBody(messages, isLoading, imageContainerWidth),
                         ),
-                      )
-                    : _buildChatBody(messages, isLoading, imageContainerWidth),
+                        // ⬇ 입력창 (body 안에 포함: 탭바와 중첩되지 않음)
+                        _buildInputArea(),
+                      ],
+                    ),
+                  ),
+                ),
               ),
 
               // ✅ 알림 팝업 (상단-오른쪽)
@@ -368,21 +384,16 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                 ),
             ],
           ),
-
-          // ✅ 하단 입력창: bottomNavigationBar로 이동 (겹침 방지 & 키보드 인셋 자동)
-          bottomNavigationBar: _buildBottomBar(),
         ),
       ),
     );
   }
 
   /// 본문(웹/모바일 공통) – 이미지 카드 폭은 [imageContainerWidth] 사용
-  ///
-  /// 리스트 하단 패딩은 간단히 두고, 입력창은 bottomNavigationBar가 차지하므로 겹치지 않음
   Widget _buildChatBody(List messages, bool isLoading, double imageContainerWidth) {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 8, bottom: 12), // ✅ 깔끔하게
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
       itemCount: isLoading ? messages.length + 1 : messages.length,
       itemBuilder: (_, idx) {
         // ✅ 로딩 셀
@@ -411,22 +422,17 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
         final msg = messages[idx];
         final bool isUser = msg.role == 'user';
-
-        // ✅ 봇 메시지 마크다운 자동 적용
         final bool renderMd = !isUser && _looksLikeMarkdown(msg.content);
 
-        String? imageUrlToDisplay;
-        if (msg.imageUrls != null && msg.imageUrls!.isNotEmpty) {
-          if (_currentMaskSettings['충치/치아/위생 관련'] == true) {
-            imageUrlToDisplay = msg.imageUrls!['model1'];
-          } else if (_currentMaskSettings['치석/보철물'] == true) {
-            imageUrlToDisplay = msg.imageUrls!['model2'];
-          } else if (_currentMaskSettings['치아번호'] == true) {
-            imageUrlToDisplay = msg.imageUrls!['model3'];
-          }
-          imageUrlToDisplay ??= msg.imageUrls!['original'];
-          imageUrlToDisplay ??= msg.imageUrls!.values.first;
-        }
+        // ▼ 보내온 이미지 URL들
+        Map<String, String>? urls = msg.imageUrls;
+        final originalUrl = urls?['original'];
+        final diseaseUrl  = urls?['model1'] ?? urls?['xmodel1'];
+        final hygieneUrl  = urls?['model2'] ?? urls?['xmodel2'];
+        final toothUrl    = urls?['model3']; // X-ray엔 보통 없음
+
+        final hasAnyImage = originalUrl != null ||
+            diseaseUrl != null || hygieneUrl != null || toothUrl != null;
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -453,14 +459,16 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         fontSize: 15,
                         color: _Palette.textPrimary,
                       ),
-                      renderMarkdown: renderMd, // ✅ 여기서 마크다운 적용
+                      renderMarkdown: renderMd,
                     ),
                   ),
                   if (isUser) const SizedBox(width: 8),
                   if (isUser) _buildProfileAvatar(isUser: true),
                 ],
               ),
-              if (imageUrlToDisplay != null)
+
+              // ▼ 이미지 카드: 원본 + 마스크 레이어링
+              if (hasAnyImage)
                 Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
@@ -492,41 +500,24 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                               fontSize: 13, color: _Palette.textSecondary),
                         ),
                         const SizedBox(height: 10),
+
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            imageUrlToDisplay,
+                          child: _LayeredNetImages(
+                            originalUrl: originalUrl,
+                            model1Url: diseaseUrl,
+                            model2Url: hygieneUrl,
+                            model3Url: toothUrl,
+                            showModel1: _currentMaskSettings['충치/치아/위생 관련'] ?? false,
+                            showModel2: _currentMaskSettings['치석/보철물'] ?? false,
+                            showModel3: _currentMaskSettings['치아번호'] ?? false,
                             width: imageContainerWidth - 24,
-                            height: imageContainerWidth - 24, // 1:1
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return SizedBox(
-                                width: imageContainerWidth - 24,
-                                height: imageContainerWidth - 24,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: _Palette.primary,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return SizedBox(
-                                width: imageContainerWidth - 24,
-                                height: imageContainerWidth - 24,
-                                child: Center(
-                                  child: Icon(Icons.broken_image,
-                                      color: Colors.grey[400], size: 50),
-                                ),
-                              );
-                            },
+                            height: imageContainerWidth - 24, // 정사각 카드
+                            // ✅ 추가: baseUrl 전달
+                            baseUrl: widget.baseUrl,
                           ),
                         ),
+
                         const SizedBox(height: 15),
                         Text(
                           '마스크 설정',
@@ -586,8 +577,8 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
   }
 
-  // ✅ 하단 입력창+면책문구: bottomNavigationBar로 이동 (겹침 방지, 키보드 인셋 자동)
-  Widget _buildBottomBar() {
+  // ✅ 입력창: body 안에 배치(부모 탭바와 충돌 방지), 웹에서도 고정 폭 정렬 유지
+  Widget _buildInputArea() {
     return SafeArea(
       top: false,
       child: Padding(
@@ -653,6 +644,156 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             _buildDisclaimerBottom(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────
+/// 레이어링 이미지 위젯: 원본을 바닥에 깔고 마스크를 Stack으로 ON/OFF
+/// 인증이 필요한 이미지도 보이도록 Authorization 헤더 사용
+/// ✅ 모바일 이슈 해결: 상대경로 보정 + 바이트 로딩 + 리다이렉트 추적
+/// ─────────────────────────────────────────────────────────
+class _LayeredNetImages extends StatefulWidget {
+  final String? originalUrl;
+  final String? model1Url;
+  final String? model2Url;
+  final String? model3Url;
+  final bool showModel1;
+  final bool showModel2;
+  final bool showModel3;
+  final double width;
+  final double height;
+  // ✅ 추가: baseUrl을 직접 전달받음
+  final String baseUrl;
+
+  const _LayeredNetImages({
+    super.key,
+    required this.originalUrl,
+    required this.model1Url,
+    required this.model2Url,
+    required this.model3Url,
+    required this.showModel1,
+    required this.showModel2,
+    required this.showModel3,
+    required this.width,
+    required this.height,
+    required this.baseUrl,
+  });
+
+  @override
+  State<_LayeredNetImages> createState() => _LayeredNetImagesState();
+}
+
+class _LayeredNetImagesState extends State<_LayeredNetImages> {
+  Map<String, String>? _headers;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadToken();
+  }
+
+  Future<void> _loadToken() async {
+    final token = await context.read<AuthViewModel>().getAccessToken();
+    if (!mounted) return;
+    setState(() {
+      _headers = token != null ? {'Authorization': 'Bearer $token'} : null;
+    });
+  }
+
+  /// ⬇ 상대경로('/images/...')를 baseUrl과 합쳐 절대 URL로 보정
+  /// baseUrl이 http://host/api 라면 정적 파일은 http://host 로 접근하도록 /api 제거
+  String _absUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    final staticBase = widget.baseUrl.replaceAll('/api', '');
+    if (url.startsWith('/')) return '$staticBase$url';
+    return '$staticBase/$url';
+  }
+
+  // ✅ 리다이렉트가 있어도 Authorization을 계속 붙여서 추적
+  Future<Uint8List> _loadBytesWithAuth(String startUrl, Map<String, String> headers) async {
+    Uri current = Uri.parse(startUrl);
+    for (int i = 0; i < 5; i++) {
+      final res = await http.get(current, headers: headers);
+
+      if (res.statusCode == 200) {
+        return res.bodyBytes;
+      }
+      if (res.statusCode >= 300 && res.statusCode < 400) {
+        final loc = res.headers['location'];
+        if (loc == null) break;
+        current = Uri.parse(loc).isAbsolute ? Uri.parse(loc) : current.resolve(loc);
+        continue;
+      }
+      throw Exception('Image fetch failed ${res.statusCode} for $current');
+    }
+    throw Exception('Too many redirects for $startUrl');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_headers == null) {
+      return SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final headers = _headers!;
+
+    Widget net(String? raw, {bool visible = true}) {
+      if (raw == null || raw.isEmpty) return const SizedBox.shrink();
+      final url = _absUrl(raw);
+      final cacheBustKey = '${url}_${headers['Authorization'] ?? ''}';
+
+      return Visibility(
+        visible: visible,
+        child: FutureBuilder<Uint8List>(
+          key: ValueKey(cacheBustKey),
+          future: _loadBytesWithAuth(url, headers),
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return SizedBox(
+                width: widget.width, height: widget.height,
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snap.hasError || !snap.hasData) {
+              return SizedBox(
+                width: widget.width, height: widget.height,
+                child: const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey)),
+              );
+            }
+            return Image.memory(
+              snap.data!,
+              width: widget.width,
+              height: widget.height,
+              fit: BoxFit.contain, // 원본 비율 유지
+            );
+          },
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ✅ 바닥에 원본 고정
+          net(widget.originalUrl, visible: true),
+
+          // ✅ 마스크(알파 PNG여야 원본이 비친다)
+          if (widget.model1Url != null)
+            net(widget.model1Url, visible: widget.showModel1),
+          if (widget.model2Url != null)
+            net(widget.model2Url, visible: widget.showModel2),
+          if (widget.model3Url != null)
+            net(widget.model3Url, visible: widget.showModel3),
+        ],
       ),
     );
   }
