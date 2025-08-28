@@ -27,6 +27,12 @@ import 'package:intl/date_symbol_data_local.dart'; // ✅ initializeDateFormatti
 import 'package:google_fonts/google_fonts.dart';
 // ============================================================================
 
+// ▼▼▼ 전국 날씨 HUD: 필요한 임포트 추가 ▼▼▼
+import 'services/city_specs.dart';
+import 'services/national_weather_service.dart';
+import 'presentation/widgets/national_weather_ticker_hud.dart';
+// ▲▲▲ 전국 날씨 HUD: 필요한 임포트 추가 ▲▲▲
+
 Future<void> main() async {
   // --------------------- ▼ intl 로케일 초기화 (에러 원인 해결) ---------------------
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +48,7 @@ Future<void> main() async {
   //const String globalBaseUrl = "http://127.0.0.1:5000/api";
   //const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //A100 서버
   // const String globalBaseUrl = "https://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; //flutter build Web 할때
-  // const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; 
+  //const String globalBaseUrl = "http://ayjsdtzsnbrsrgfj.tunnel.elice.io/api"; 
   // const String globalBaseUrl = "http://192.168.0.19:5000/api"; // 학원pc
   //const String globalBaseUrl = "http://192.168.0.19:5000/api"; //JH_computer 기준 학원 주소 
   const String globalBaseUrl = "http://192.168.0.48:5000/api"; //HJ_computer 기준 학원 주소
@@ -92,6 +98,16 @@ Future<void> main() async {
                 );
           },
         ),
+
+        // ▼▼▼ 전국 날씨 HUD: Provider 추가 (기존 코드 삭제 없음) ▼▼▼
+        ChangeNotifierProvider(
+          create: (_) => NationalWeatherService(
+            cities: kKoreaMajorCities,
+            rotateEvery: const Duration(seconds: 8),
+            refreshEvery: const Duration(minutes: 15),
+          ),
+        ),
+        // ▲▲▲ 전국 날씨 HUD: Provider 추가 ▲▲▲
       ],
       child: YOLOExampleApp(baseUrl: globalBaseUrl),
     ),
@@ -290,6 +306,30 @@ class _YOLOExampleAppState extends State<YOLOExampleApp> {
       title: 'MediTooth',
       debugShowCheckedModeBanner: false,
       routerConfig: createRouter(widget.baseUrl),
+
+      // ▼▼▼ 전국 날씨 HUD: 닥터 리얼 스크린 상단 우측 카드 위치에 겹쳐 표시 ▼▼▼
+      builder: (context, child) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 1000;
+            final insets = isDesktop
+                ? const EdgeInsets.only(left: 256, right: 16, top: 8) // 사이드바240+패딩16
+                : const EdgeInsets.only(left: 12, right: 12, top: 8);
+
+            return Stack(
+              children: [
+                if (child != null) child, // 기존 라우팅 화면
+                NationalWeatherTickerHUD(
+                  contentInsets: insets,
+                  desktopOnly: true, // 모바일에서 숨김 (모바일도 노출하려면 false)
+                ),
+              ],
+            );
+          },
+        );
+      },
+      // ▲▲▲ 전국 날씨 HUD: 오버레이 추가 끝 ▲▲▲
+
       // ▼ 전역 테마를 유지하면서 배경색만 #F7F9F9로 통일
       theme: AppTheme.lightTheme.copyWith(
         scaffoldBackgroundColor: const Color(0xFFF7F9F9),
@@ -308,5 +348,5 @@ class _YOLOExampleAppState extends State<YOLOExampleApp> {
       ],
       // =========================================================================================
     );
-  }
+  }  
 }

@@ -24,17 +24,30 @@ class AuthViewModel with ChangeNotifier {
     return await _secureStorage.read(key: 'access_token');
   }
 
-  // ✅ 아이디 중복 확인
+  // ✅ 아이디 중복 확인 (username → register_id 로 수정)
   Future<bool?> checkUserIdDuplicate(String userId, String role) async {
     isCheckingUserId = true;
     duplicateCheckErrorMessage = null;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/auth/check-username?username=$userId&role=$role'));
+      final uri = Uri.parse('$_baseUrl/auth/check-username').replace(
+        queryParameters: {
+          'register_id': userId, // 🔧 핵심 수정
+          'role': role,          // 백엔드에서 사용하지 않아도 무방
+        },
+      );
+
+      final res = await http.get(uri);
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['exists'] == true;
+        // exists == true 면 중복
+        final exists = data['exists'] == true;
+        duplicateCheckErrorMessage = data['message']?.toString();
+        notifyListeners();
+        return exists;
       } else {
         String message = '서버 응답 오류 (Status: ${res.statusCode})';
         try {
@@ -44,11 +57,13 @@ class AuthViewModel with ChangeNotifier {
           }
         } catch (_) {}
         _errorMessage = '아이디 중복검사 오류: $message';
+        duplicateCheckErrorMessage = message;
         notifyListeners();
         return null;
       }
     } catch (e) {
       _errorMessage = '아이디 중복검사 네트워크 오류: ${e.toString()}';
+      duplicateCheckErrorMessage = _errorMessage;
       notifyListeners();
       return null;
     } finally {
@@ -195,14 +210,18 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  // ✅ 회원 탈퇴
+  // ✅ 회원 탈퇴 (username → register_id 로 수정)
   Future<String?> deleteUser(String registerId, String password, String? role) async {
     _errorMessage = null;
     try {
       final res = await http.delete(
         Uri.parse('$_baseUrl/auth/delete_account'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': registerId, 'password': password, 'role': role}),
+        body: jsonEncode({
+          'register_id': registerId, // 🔧 핵심 수정
+          'password': password,
+          'role': role,
+        }),
       );
 
       if (res.statusCode == 200) {

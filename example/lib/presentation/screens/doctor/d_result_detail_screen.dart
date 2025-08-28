@@ -304,7 +304,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
     }
   }
 
-  Future<void> _submitDoctorOpinion() async {
+Future<void> _submitDoctorOpinion() async {
     setState(() => _isSubmittingOpinion = true);
 
     final opinionText = _doctorOpinionController.text.trim();
@@ -325,7 +325,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
         return;
       }
 
-      // requestId 확보(없으면 상태 API에서 재조회)
+      // requestId 확보
       int? reqId = widget.requestId;
       if (reqId == null) {
         final cleanBase = widget.baseUrl.replaceAll('/api', '');
@@ -364,6 +364,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       );
 
       if (!mounted) return;
+
       if (res.statusCode == 200) {
         setState(() {
           _isReplied = true;
@@ -371,16 +372,18 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
           _doctorOpinionController.text = opinionText;
         });
 
+        // ✅ 컨텍스트 분리: 다이얼로그 닫기 vs 페이지 pop(true)
+        final rootContext = context;
         showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
+          context: rootContext,
+          builder: (dialogCtx) => AlertDialog(
             title: const Text('제출 완료'),
             content: const Text('의사 의견이 저장되었습니다.'),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
-                  context.pop(true); // 목록 새로고침 신호
+                  Navigator.of(dialogCtx).pop();               // 다이얼로그만 닫기
+                  if (mounted) GoRouter.of(rootContext).pop(true); // 상위 페이지로 true 반환
                 },
                 child: const Text('확인'),
               ),
@@ -400,6 +403,7 @@ class _DResultDetailScreenState extends State<DResultDetailScreen> {
       setState(() => _isSubmittingOpinion = false);
     }
   }
+
 
   // ─────────────────────────────
   // UI 위젯

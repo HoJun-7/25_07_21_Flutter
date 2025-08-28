@@ -153,11 +153,18 @@ class DoctorDashboardViewModel extends ChangeNotifier {
     }
   }
 
-  /// 성별·연령 분포
-  /// GET /consult/demographics
-  Future<void> loadAgeDistributionData(String baseUrl) async {
+  /// 성별·연령 분포 (선택일/오늘 기준)
+  /// GET /consult/demographics?date=YYYY-MM-DD
+  Future<void> loadAgeDistributionData(String baseUrl, {DateTime? day}) async {
+    final d = day ?? DateTime.now();
+    final ymdDash =
+        "${d.year.toString().padLeft(4, '0')}-"
+        "${d.month.toString().padLeft(2, '0')}-"
+        "${d.day.toString().padLeft(2, '0')}";
+
     try {
-      final response = await http.get(Uri.parse('$baseUrl/consult/demographics'));
+      final response =
+          await http.get(Uri.parse('$baseUrl/consult/demographics?date=$ymdDash'));
       if (response.statusCode == 200) {
         final jsonBody = jsonDecode(response.body);
         final data = (jsonBody['data'] ?? {}) as Map<String, dynamic>;
@@ -174,6 +181,9 @@ class DoctorDashboardViewModel extends ChangeNotifier {
         });
       } else {
         debugPrint("❌ 연령/성별 로딩 실패: ${response.statusCode}");
+        ageDistributionData = {};
+        maleCount = 0;
+        femaleCount = 0;
       }
       notifyListeners();
     } catch (e) {

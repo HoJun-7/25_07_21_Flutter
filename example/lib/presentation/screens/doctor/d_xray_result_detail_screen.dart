@@ -367,7 +367,7 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
         final statusUri = Uri.parse(
           '${widget.baseUrl}/consult/status'
           '?user_id=${Uri.encodeComponent(widget.userId)}'
-          '&image_path=${Uri.encodeComponent(_relativeImagePath)}', // ✅ 상대 경로
+          '&image_path=${Uri.encodeComponent(_relativeImagePath)}',
         );
         final statusRes = await http.get(statusUri, headers: {'Authorization': 'Bearer $token'});
         if (statusRes.statusCode == 200) {
@@ -393,6 +393,7 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       );
 
       if (!mounted) return;
+
       if (res.statusCode == 200) {
         setState(() {
           _isReplied = true;
@@ -400,16 +401,18 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
           _doctorOpinionController.text = opinionText;
         });
 
+        // ✅ 컨텍스트 분리: 다이얼로그 닫기 vs 페이지 pop(true)
+        final rootContext = context; // 페이지 컨텍스트 캡처
         showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
+          context: rootContext,
+          builder: (dialogCtx) => AlertDialog(
             title: const Text('제출 완료'),
             content: const Text('의사 의견이 저장되었습니다.'),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context); // close dialog
-                  context.pop(true);      // 목록 새로고침 신호
+                  Navigator.of(dialogCtx).pop();                 // 1) 다이얼로그만 닫기
+                  if (mounted) GoRouter.of(rootContext).pop(true); // 2) 부모로 true 반환
                 },
                 child: const Text('확인'),
               ),
@@ -429,6 +432,7 @@ class _DXrayResultDetailScreenState extends State<DXrayResultDetailScreen> {
       setState(() => _isSubmittingOpinion = false);
     }
   }
+
 
   // ─────────────────────────────
   // UI

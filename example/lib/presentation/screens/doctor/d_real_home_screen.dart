@@ -9,6 +9,9 @@ import 'package:table_calendar/table_calendar.dart';
 import '/presentation/viewmodel/doctor/d_dashboard_viewmodel.dart';
 import '/presentation/screens/doctor/doctor_drawer.dart';
 
+// ▼ 추가: 전국 날씨 카드
+import '../../widgets/national_weather_card.dart';
+
 const double kImageRadius = 10; // 카드/전체화면 공통 모서리 반경
 
 class DRealHomeScreen extends StatefulWidget {
@@ -51,6 +54,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       vm.loadHourlyStats(widget.baseUrl, day: selectedDay);
       vm.loadImagesByDate(widget.baseUrl, day: selectedDay, limit: 9);
       vm.loadVideoTypeRatio(widget.baseUrl, day: selectedDay);
+      vm.loadAgeDistributionData(widget.baseUrl, day: selectedDay);
     }
   }
 
@@ -59,35 +63,30 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     super.initState();
     _selectedDay = _focusedDay;
 
-    // 최초 1회 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vm = context.read<DoctorDashboardViewModel>();
       _loadAll(vm);
     });
 
-    // ✅ 1분 주기 자동 새로고침
-    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted) return;
       final vm = context.read<DoctorDashboardViewModel>();
       _loadAll(vm);
     });
   }
 
-  // ✅ 모든 카드/차트 데이터 로드 헬퍼
   void _loadAll(DoctorDashboardViewModel vm) {
     vm.loadDashboardData(widget.baseUrl);
     vm.loadRecent7DaysData(widget.baseUrl);
-    vm.loadAgeDistributionData(widget.baseUrl);
+    vm.loadAgeDistributionData(widget.baseUrl, day: _focusedDay);
     vm.loadHourlyStats(widget.baseUrl, day: _focusedDay);
     vm.loadImagesByDate(widget.baseUrl, day: _focusedDay, limit: 9);
     vm.loadVideoTypeRatio(widget.baseUrl, day: _focusedDay);
   }
 
-  /// 모바일 여부 (웹은 무조건 false로 둬서 웹 레이아웃 그대로 유지)
   bool _isMobile(BuildContext context) =>
       !kIsWeb && MediaQuery.of(context).size.width < 600;
 
-  /// ✅ 웹에서만 콘텐츠 최소 (너비/높이) 보장: 작아지면 해당 축으로 스크롤 생성
   Widget _minSizeOnWeb(Widget child, {double minWidth = 1000, double minHeight = 720}) {
     if (!kIsWeb) return child;
 
@@ -132,7 +131,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
 
   @override
   void dispose() {
-    // ✅ 타이머 정리
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -141,7 +139,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
   Widget build(BuildContext context) {
     final isMobile = _isMobile(context);
 
-    // ───────────── 모바일 전용: 앱바 + 드로어 + 세로 스택 ─────────────
+    // ───────────── 모바일 ─────────────
     if (isMobile) {
       return Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
@@ -156,27 +154,46 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
             children: [
               _KpiWrap(onGo: (tab) => context.push('/d_telemedicine_application', extra: {'initialTab': tab})),
               const SizedBox(height: 12),
+
+              // ▼ 변경된 4개 지표 (등록의사/전체 응답/알림/달력)
               _MobileCard(
                 child: SizedBox(
                   height: 100,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildIconStat(Icons.cloud, "단체", 13680, Colors.blue),
-                      _buildIconStat(Icons.check_circle, "정상", 10470, Colors.green),
-                      Consumer<DoctorDashboardViewModel>(
-                        builder: (_, vm, __) => _buildIconStat(
-                          Icons.warning,
-                          "위험",
-                          vm.unreadNotifications.clamp(0, 9999).toInt(),
-                          Colors.red,
-                        ),
-                      ),
-                      _buildIconStat(Icons.remove_circle_outline, "의사 수", 3208, Colors.orange),
-                    ],
+                  child: Consumer<DoctorDashboardViewModel>(
+                    builder: (_, vm, __) {
+                      final int registeredDoctors = (() {
+                        try {
+                          final d = vm as dynamic;
+                          if (d.registeredDoctors is int) return d.registeredDoctors as int;
+                        } catch (_) {}
+                        return 3208;
+                      })();
+
+                      final int totalAnswers = (() {
+                        try {
+                          final d = vm as dynamic;
+                          if (d.totalAnswers is int) return d.totalAnswers as int;
+                        } catch (_) {}
+                        return vm.answeredToday;
+                      })();
+
+                      final int alerts = vm.unreadNotifications.clamp(0, 9999).toInt();
+                      final int todaysEvents = _getEventsForDay(_focusedDay).length;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildIconStat(Icons.medical_services_outlined, "등록의사", registeredDoctors, Colors.blue),
+                          _buildIconStat(Icons.mark_chat_read_outlined, "전체 응답", totalAnswers, Colors.green),
+                          _buildIconStat(Icons.notifications_active_outlined, "알림", alerts, Colors.red),
+                          _buildIconStat(Icons.calendar_month_outlined, "달력", todaysEvents, Colors.orange),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
+
               const SizedBox(height: 12),
               _MobileCard(
                 title: const _SubChartTitle(text: "최근 7일 신청 건수", color: Color(0xFFEB5757)),
@@ -213,7 +230,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         itemCount: 5,
                         itemBuilder: (context, index) {
                           return ListTile(
-                            leading: const Icon(Icons.warning, color: Colors.red),
+                            leading: const Icon(
+                              Icons.notifications_active_outlined, // ← KPI와 동일
+                              color: Colors.red,
+                              size: 22,
+                            ),
                             title: Text("위험 알림 ${index + 1}"),
                             subtitle: const Text("상세 내용 표시"),
                             dense: true,
@@ -245,7 +266,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
       );
     }
 
-    // ───────────── 웹: 기존 레이아웃 유지 + 우측(알림/캘린더) 분리 ─────────────
+    // ───────────── 웹 ─────────────
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       drawer: DoctorDrawer(baseUrl: widget.baseUrl),
@@ -262,10 +283,8 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          // 좌: 차트 영역 (2행)
                           Expanded(flex: 2, child: _buildChartsArea()),
                           const SizedBox(width: 16),
-                          // 우: 알림(상단) + 캘린더(하단) 동일 높이
                           Expanded(
                             flex: 1,
                             child: Column(
@@ -324,6 +343,25 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
+  // ===================== 공통: 라벨 칩 =====================
+  Widget _chipLabel(String text, {bool onDark = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: onDark ? Colors.white.withOpacity(0.18) : Colors.black.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: onDark ? Colors.white : Colors.black87,
+        ),
+      ),
+    );
+  }
+
   // ===================== 상단 상태바 (웹) =====================
   Widget _buildTopBar() {
     return Container(
@@ -333,6 +371,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         builder: (context, vm, _) {
           return Row(
             children: [
+              // 좌측 KPI (오늘의 진료/진단 대기/진단 완료) — 칩 스타일 라벨 onDark 적용
               Expanded(
                 flex: 2,
                 child: Container(
@@ -351,24 +390,29 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                         vm.requestsToday,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 0}),
+                        onDark: true,
                       ),
                       _buildClickableNumber(
                         "진단 대기",
                         vm.unreadNotifications,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 1}),
+                        onDark: true,
                       ),
                       _buildClickableNumber(
                         "진단 완료",
                         vm.answeredToday,
                         Colors.white,
                         () => context.push('/d_telemedicine_application', extra: {'initialTab': 2}),
+                        onDark: true,
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
+
+              // ▼ 등록의사/전체 응답/알림/달력 — 칩 스타일 라벨 (라이트)
               Expanded(
                 flex: 3,
                 child: Container(
@@ -378,49 +422,46 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildIconStat(Icons.cloud, "단체", 13680, Colors.blue),
-                      _buildIconStat(Icons.check_circle, "정상", 10470, Colors.green),
-                      _buildIconStat(Icons.warning, "위험", vm.unreadNotifications.clamp(0, 9999).toInt(), Colors.red),
-                      _buildIconStat(Icons.remove_circle_outline, "의사 수", 3208, Colors.orange),
-                    ],
+                  child: Consumer<DoctorDashboardViewModel>(
+                    builder: (_, vm, __) {
+                      final int registeredDoctors = (() {
+                        try {
+                          final d = vm as dynamic;
+                          if (d.registeredDoctors is int) return d.registeredDoctors as int;
+                        } catch (_) {}
+                        return 3208;
+                      })();
+
+                      final int totalAnswers = (() {
+                        try {
+                          final d = vm as dynamic;
+                          if (d.totalAnswers is int) return d.totalAnswers as int;
+                        } catch (_) {}
+                        return vm.answeredToday;
+                      })();
+
+                      final int alerts = vm.unreadNotifications.clamp(0, 9999).toInt();
+                      final int todaysEvents = _getEventsForDay(_focusedDay).length;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildIconStat(Icons.medical_services_outlined, "등록의사", registeredDoctors, Colors.blue),
+                          _buildIconStat(Icons.mark_chat_read_outlined, "전체 응답", totalAnswers, Colors.green),
+                          _buildIconStat(Icons.notifications_active_outlined, "알림", alerts, Colors.red),
+                          _buildIconStat(Icons.calendar_month_outlined, "달력", todaysEvents, Colors.orange),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                height: 80,
+
+              // 실시간 전국 날씨 카드
+              SizedBox(
                 width: 200,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("2025. 8. 17  AM 10:23", style: TextStyle(color: Colors.white, fontSize: 12)),
-                    SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("서울시 서대문구", style: TextStyle(color: Colors.white, fontSize: 12)),
-                            Text("미세먼지 보통", style: TextStyle(color: Colors.white70, fontSize: 10)),
-                          ],
-                        ),
-                        Text("20°C",
-                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      ],
-                    )
-                  ],
-                ),
+                child: const NationalWeatherCard(height: 80),
               ),
             ],
           );
@@ -429,7 +470,13 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  Widget _buildClickableNumber(String label, int value, Color color, VoidCallback onTap) {
+  Widget _buildClickableNumber(
+    String label,
+    int value,
+    Color color,
+    VoidCallback onTap, {
+    bool onDark = false,
+  }) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -437,20 +484,23 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text("$value", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: TextStyle(fontSize: 12, color: color.withOpacity(0.9))),
+          const SizedBox(height: 4),
+          _chipLabel(label, onDark: onDark), // ← 칩 스타일 라벨
         ],
       ),
     );
   }
 
+  // ▼ 글씨/아이콘 크기 통일 + 라벨 칩 적용
   Widget _buildIconStat(IconData icon, String label, int value, Color color) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: color, size: 20),
+        Icon(icon, color: color, size: 22),
         const SizedBox(height: 2),
-        Text("$value", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+        Text("$value", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        _chipLabel(label), // ← 칩 스타일 라벨
       ],
     );
   }
@@ -490,9 +540,10 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 12, offset: Offset(0, 6))],
       ),
-      child: Column(
+      clipBehavior: Clip.hardEdge,
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           _SubChartTitle(text: "최근 7일 신청 건수", color: Color(0xFFEB5757)),
           SizedBox(height: 4),
           Expanded(flex: 11, child: _Last7DaysLineChartFancy()),
@@ -505,7 +556,6 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // 공통 카드: 타이틀(칩 스타일) + 본문
   Widget _chartCard(Widget title, Widget body) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -514,6 +564,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
+      clipBehavior: Clip.hardEdge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -544,7 +595,11 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
               itemCount: 5,
               itemBuilder: (context, index) {
                 return ListTile(
-                  leading: const Icon(Icons.warning, color: Colors.red),
+                  leading: const Icon(
+                    Icons.notifications_active_outlined, // ← KPI와 동일
+                    color: Colors.red,
+                    size: 22,
+                  ),
                   title: Text("위험 알림 ${index + 1}"),
                   subtitle: const Text("상세 내용 표시"),
                   dense: true,
@@ -560,7 +615,7 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
     );
   }
 
-  // ===================== 우측 캘린더 카드 (동일 높이) =====================
+  // ===================== 우측 캘린더 카드 =====================
   Widget _calendarCard() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -575,13 +630,20 @@ class _DRealHomeScreenState extends State<DRealHomeScreen> {
           const _SubChartTitle(text: "캘린더", color: Color(0xFF2F80ED)),
           const SizedBox(height: 8),
           Expanded(
-            child: _CalendarCore(
-              focusedDay: _focusedDay,
-              selectedDay: _selectedDay,
-              calendarFormat: _calendarFormat,
-              onFormatChanged: (f) => setState(() => _calendarFormat = f),
-              onDaySelected: _onDaySelected,
-              getEventsForDay: _getEventsForDay,
+            child: LayoutBuilder(
+              builder: (context, c) {
+                // 가용 공간이 작으면 컴팩트 모드(2주 보기)로
+                final compact = c.maxHeight < 320;
+                return _CalendarCore(
+                  focusedDay: _focusedDay,
+                  selectedDay: _selectedDay,
+                  calendarFormat: _calendarFormat,
+                  onFormatChanged: (f) => setState(() => _calendarFormat = f),
+                  onDaySelected: _onDaySelected,
+                  getEventsForDay: _getEventsForDay,
+                  compact: compact, // ★ 추가
+                );
+              },
             ),
           ),
         ],
@@ -642,7 +704,7 @@ class _KpiWrap extends StatelessWidget {
             return GestureDetector(
               onTap: () => onGo(e.$3),
               child: Container(
-                width: (MediaQuery.of(context).size.width - 12 * 2 - 8 * 2) / 3, // 3칸 균등
+                width: (MediaQuery.of(context).size.width - 12 * 2 - 8 * 2) / 3,
                 constraints: const BoxConstraints(minWidth: 100, maxWidth: 200, minHeight: 72),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF00B4DB), Color(0xFF0083B0)]),
@@ -653,6 +715,9 @@ class _KpiWrap extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('${e.$2}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    // 모바일 KPI는 가독성 위해 기본 텍스트 유지
+                    const SizedBox.shrink(),
                     Text(e.$1, style: const TextStyle(color: Colors.white)),
                   ],
                 ),
@@ -692,6 +757,7 @@ class _CalendarCore extends StatelessWidget {
   final ValueChanged<CalendarFormat> onFormatChanged;
   final void Function(DateTime, DateTime) onDaySelected;
   final List<dynamic> Function(DateTime) getEventsForDay;
+  final bool compact; // ★ 추가
 
   const _CalendarCore({
     Key? key,
@@ -701,34 +767,59 @@ class _CalendarCore extends StatelessWidget {
     required this.onFormatChanged,
     required this.onDaySelected,
     required this.getEventsForDay,
+    this.compact = false, // 기본 false
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return TableCalendar(
-      locale: 'ko_KR',
-      firstDay: DateTime.utc(2020, 1, 1),
-      lastDay: DateTime.utc(2030, 12, 31),
-      focusedDay: focusedDay,
-      calendarFormat: calendarFormat,
-      onFormatChanged: onFormatChanged,
-      selectedDayPredicate: (day) => isSameDay(selectedDay, day),
-      onDaySelected: onDaySelected,
-      eventLoader: getEventsForDay,
-      daysOfWeekHeight: 22,
-      rowHeight: 34, // 컴팩트하게
-      headerStyle: const HeaderStyle(
-        formatButtonVisible: false,
-        titleCentered: true,
-        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.blue),
-        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.blue),
-      ),
-      calendarStyle: CalendarStyle(
-        markersMaxCount: 1,
-        todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.5), shape: BoxShape.circle),
-        selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-        markerDecoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-      ),
+    return LayoutBuilder(
+      builder: (context, cons) {
+        // 가용 높이에 따라 포맷/행 높이 자동 조정
+        final effectiveFormat = compact && calendarFormat == CalendarFormat.month
+            ? CalendarFormat.twoWeeks
+            : calendarFormat;
+
+        // 헤더/요일영역/여백 반영 후 rowHeight 계산
+        const headerH = 52.0;
+        final dowH = compact ? 18.0 : 22.0;
+        final weeks = (effectiveFormat == CalendarFormat.month) ? 6 : 2;
+        final usable = (cons.maxHeight - headerH - dowH - 16).clamp(120.0, 1000.0);
+        final rowH = (usable / weeks).clamp(22.0, compact ? 30.0 : 44.0);
+
+        return TableCalendar(
+          locale: 'ko_KR',
+          firstDay: DateTime.utc(2020, 1, 1),
+          lastDay: DateTime.utc(2030, 12, 31),
+          focusedDay: focusedDay,
+          calendarFormat: effectiveFormat,
+          onFormatChanged: onFormatChanged,
+          selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+          onDaySelected: onDaySelected,
+          eventLoader: getEventsForDay,
+
+          // 동적 높이
+          daysOfWeekHeight: dowH,
+          rowHeight: rowH,
+
+          headerStyle: HeaderStyle(
+            formatButtonVisible: false,
+            titleCentered: true,
+            titleTextStyle: TextStyle(
+              fontSize: compact ? 13 : 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+            leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.blue),
+            rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.blue),
+          ),
+          calendarStyle: CalendarStyle(
+            markersMaxCount: 1,
+            todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.5), shape: BoxShape.circle),
+            selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+            markerDecoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+          ),
+        );
+      },
     );
   }
 }
@@ -738,8 +829,8 @@ String _weekdayKr(int w) => const ['일', '월', '화', '수', '목', '금', '�
 
 String _prettyDateLabel({
   required int index,
-  required List<String> labels,        // 보통 'MM-DD'
-  required List<String>? fulls,        // 가능하면 'YYYY-MM-DD'
+  required List<String> labels,
+  required List<String>? fulls,
 }) {
   DateTime? dt;
   if (fulls != null && index >= 0 && index < fulls.length) {
@@ -760,11 +851,10 @@ String _prettyDateLabel({
   return '$mm/$dd ($w)';
 }
 
-/// ▼ 추가: 좁은 폭에서 사용되는 간략 포맷들
 String _shortDateLabel({
   required int index,
-  required List<String> labels,        // 'MM-DD'
-  required List<String>? fulls,        // 'YYYY-MM-DD'
+  required List<String> labels,
+  required List<String>? fulls,
 }) {
   DateTime? dt;
   if (fulls != null && index >= 0 && index < fulls.length) {
@@ -944,6 +1034,9 @@ class _Last7DaysLineChartFancy extends StatelessWidget {
                   tooltipBgColor: Colors.black.withOpacity(0.78),
                   tooltipRoundedRadius: 10,
                   tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  tooltipMargin: 8,
                   getTooltipItems: (spots) => spots.map((s) {
                     final i = s.x.toInt();
                     final label = _prettyDateLabel(index: i, labels: labels, fulls: fullDates);
@@ -1075,6 +1168,9 @@ class _HourlyLineChartFancy extends StatelessWidget {
               tooltipBgColor: Colors.black.withOpacity(0.78),
               tooltipRoundedRadius: 10,
               tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              tooltipMargin: 8,
               getTooltipItems: (spots) => spots.map((s) {
                 final i = s.x.toInt();
                 final hour = (i >= 0 && i < labels.length) ? labels[i] : i.toString();
@@ -1112,7 +1208,7 @@ class _HourlyLineChartFancy extends StatelessWidget {
   }
 }
 
-/// ===================== 사진 카드(원본 + 오버레이 순환 + 썸네일/설명 + 토글) =====================
+/// ===================== 사진 카드 =====================
 class _ImageCard extends StatefulWidget {
   const _ImageCard({Key? key}) : super(key: key);
 
@@ -1122,15 +1218,13 @@ class _ImageCard extends StatefulWidget {
 
 class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
   int _caseIndex = 0;
-  int _layerIndex = 0; // overlay 인덱스(원본 제외)
+  int _layerIndex = 0;
   Timer? _auto;
   DateTime? _pausedUntil;
 
-  // ▼ 상세(썸네일+메타) 표시 여부
-  bool _showDetails = true;             // 기본: 보이기
-  final double _thumbBarHeight = 60.0;  // 썸네일 바 높이
+  bool _showDetails = true;
+  final double _thumbBarHeight = 60.0;
 
-  // ▼ 원본 natural size (정합을 위해 단일 스케일 적용)
   double? _imgW;
   double? _imgH;
   String? _lastOriginalUrl;
@@ -1150,7 +1244,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       setState(() {});
       stream.removeListener(listener);
     }, onError: (_, __) {
-      // 실패 시 4:3 임시값
       _imgW = 1200;
       _imgH = 900;
       setState(() {});
@@ -1199,45 +1292,19 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
     setState(() => _showDetails = !_showDetails);
   }
 
-  void _showFullscreen(BuildContext context, String url) {
+  void _showFullscreen(BuildContext context) {
     _pauseAuto(seconds: 8);
 
+    final vm = context.read<DoctorDashboardViewModel>();
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'fullscreen',
       barrierColor: Colors.black.withOpacity(0.65),
       pageBuilder: (_, __, ___) {
-        final size = MediaQuery.of(context).size;
-        final w = size.width;
-        final h = size.height;
-        final maxWidthByHeight = h * (4 / 3);
-        final boxWidth = w < maxWidthByHeight ? w : maxWidthByHeight;
-        final boxHeight = boxWidth * (3 / 4);
-
-        return Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(kImageRadius),
-            child: Container(
-              width: boxWidth,
-              height: boxHeight,
-              color: Colors.black,
-              child: InteractiveViewer(
-                minScale: 1.0,
-                maxScale: 4.0,
-                child: Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey.shade200,
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.broken_image,
-                        color: Colors.grey, size: 48),
-                  ),
-                ),
-              ),
-            ),
-          ),
+        return _FullscreenSlideViewer(
+          vm: vm,
+          initialIndex: _caseIndex,
         );
       },
       transitionBuilder: (_, anim, __, child) => FadeTransition(
@@ -1256,7 +1323,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
 
     final items = vm.imageItems;
 
-    // 선택된 케이스의 원본/오버레이 URL 계산
     String originalUrl;
     String? overlayUrl;
     int casesCount;
@@ -1266,10 +1332,8 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       _caseIndex = _caseIndex.clamp(0, items.length - 1);
       final item = items[_caseIndex];
 
-      // 항상 원본 고정
       originalUrl = vm.resolveUrl(item, 'original');
 
-      // 오버레이 = original 제외
       overlayKeys = vm.layerKeysFor(item).where((k) => k != 'original').toList();
 
       if (overlayKeys.isNotEmpty) {
@@ -1308,11 +1372,10 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       });
     }
 
-    void openFull() => _showFullscreen(context, originalUrl);
+    void openFull() => _showFullscreen(context);
 
-    // ---- 메인 뷰어(한 번만 스케일 → 픽셀 박스 안에서 겹치기)
     Widget buildMainViewer() {
-      _ensureOriginalSize(originalUrl); // natural size 확보
+      _ensureOriginalSize(originalUrl);
 
       final hasSize = _imgW != null && _imgH != null;
 
@@ -1320,7 +1383,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(kImageRadius),
         child: Stack(
           children: [
-            // (A) 컨테이너 전체를 FittedBox로 한 번만 스케일
             Positioned.fill(
               child: FittedBox(
                 fit: BoxFit.contain,
@@ -1331,12 +1393,11 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // 1) 원본: 픽셀 박스를 그대로 채움
                       Image.network(
                         originalUrl,
                         width: _imgW,
                         height: _imgH,
-                        fit: BoxFit.fill, // 스케일은 FittedBox가 담당
+                        fit: BoxFit.fill,
                         gaplessPlayback: true,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.grey.shade200,
@@ -1345,7 +1406,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
                               color: Colors.grey, size: 48),
                         ),
                       ),
-                      // 2) 마스크: 동일한 픽셀 크기로 정확히 겹침
                       if (overlayUrl != null)
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
@@ -1357,7 +1417,7 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
                               overlayUrl!,
                               width: _imgW,
                               height: _imgH,
-                              fit: BoxFit.fill, // 동일
+                              fit: BoxFit.fill,
                               gaplessPlayback: true,
                               errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                             ),
@@ -1369,7 +1429,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
               ),
             ),
 
-            // (B) 좌/중앙/우 탭
             Positioned.fill(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1381,7 +1440,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
               ),
             ),
 
-            // (C) 하단 인덱스
             Positioned(
               left: 8,
               right: 8,
@@ -1402,10 +1460,9 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
               ),
             ),
 
-            // (D) 상세영역 토글 버튼 — 오른쪽 상단으로 이동
             Positioned(
               right: 8,
-              top: 8, // 👈 변경: 상단 고정
+              top: 8,
               child: GestureDetector(
                 onTap: _toggleDetails,
                 child: Container(
@@ -1433,7 +1490,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       );
     }
 
-    // ---- 썸네일 스트립
     Widget buildThumbnails() {
       return SizedBox(
         height: _thumbBarHeight,
@@ -1475,7 +1531,6 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       );
     }
 
-    // ---- 메타 텍스트(예시)
     Widget buildMeta() {
       return const Padding(
         padding: EdgeInsets.only(top: 6),
@@ -1486,13 +1541,10 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
       );
     }
 
-    // ---- 최종 레이아웃: 큰 이미지 + (옵션)썸네일 + 메타
     return Column(
       children: [
-        // 상세가 접히면 메인이 더 커지도록 flex 증가
         Expanded(flex: _showDetails ? 9 : 12, child: buildMainViewer()),
         const SizedBox(height: 8),
-        // 아래 영역은 애니메이션으로 접고 펴기
         AnimatedSize(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOutCubic,
@@ -1507,6 +1559,223 @@ class _ImageCardState extends State<_ImageCard> with TickerProviderStateMixin {
               : const SizedBox.shrink(),
         ),
       ],
+    );
+  }
+}
+
+/// ===================== 풀스크린 뷰어 =====================
+class _FullscreenSlideViewer extends StatefulWidget {
+  final DoctorDashboardViewModel vm;
+  final int initialIndex;
+  const _FullscreenSlideViewer({Key? key, required this.vm, required this.initialIndex}) : super(key: key);
+
+  @override
+  State<_FullscreenSlideViewer> createState() => _FullscreenSlideViewerState();
+}
+
+class _FullscreenSlideViewerState extends State<_FullscreenSlideViewer> {
+  late int _caseIndex;
+  int _layerIndex = 0;
+  Timer? _auto;
+  DateTime? _pausedUntil;
+
+  @override
+  void initState() {
+    super.initState();
+    _caseIndex = widget.initialIndex;
+    _startAuto();
+  }
+
+  @override
+  void dispose() {
+    _auto?.cancel();
+    super.dispose();
+  }
+
+  void _startAuto() {
+    _auto?.cancel();
+    _auto = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_pausedUntil != null && DateTime.now().isBefore(_pausedUntil!)) return;
+
+      final items = widget.vm.imageItems;
+      if (items.isEmpty) return;
+
+      final current = items[_caseIndex.clamp(0, items.length - 1)];
+      final overlays = widget.vm.layerKeysFor(current).where((k) => k != 'original').toList();
+      if (overlays.length <= 1) return;
+
+      setState(() {
+        _layerIndex = (_layerIndex + 1) % overlays.length;
+      });
+    });
+  }
+
+  void _pauseAuto({int seconds = 6}) {
+    _pausedUntil = DateTime.now().add(Duration(seconds: seconds));
+  }
+
+  void _prev() {
+    final items = widget.vm.imageItems;
+    if (items.isEmpty) return;
+    _pauseAuto();
+    setState(() {
+      _caseIndex = (_caseIndex - 1 + items.length) % items.length;
+      _layerIndex = 0;
+    });
+  }
+
+  void _next() {
+    final items = widget.vm.imageItems;
+    if (items.isEmpty) return;
+    _pauseAuto();
+    setState(() {
+      _caseIndex = (_caseIndex + 1) % items.length;
+      _layerIndex = 0;
+    });
+  }
+
+  void _nextLayer() {
+    final items = widget.vm.imageItems;
+    if (items.isEmpty) return;
+    final current = items[_caseIndex];
+    final overlays = widget.vm.layerKeysFor(current).where((k) => k != 'original').toList();
+    if (overlays.isEmpty) return;
+    _pauseAuto();
+    setState(() {
+      _layerIndex = (_layerIndex + 1) % overlays.length;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.vm.imageItems;
+    String originalUrl;
+    String? overlayUrl;
+    List<String> overlayKeys = const [];
+
+    if (items.isNotEmpty) {
+      _caseIndex = _caseIndex.clamp(0, items.length - 1);
+      final item = items[_caseIndex];
+      originalUrl = widget.vm.resolveUrl(item, 'original');
+      overlayKeys = widget.vm.layerKeysFor(item).where((k) => k != 'original').toList();
+      if (overlayKeys.isNotEmpty) {
+        _layerIndex = _layerIndex.clamp(0, overlayKeys.length - 1);
+        overlayUrl = widget.vm.resolveUrl(item, overlayKeys[_layerIndex]);
+      } else {
+        overlayUrl = null;
+        _layerIndex = 0;
+      }
+    } else {
+      originalUrl = (widget.vm.imageUrls.isNotEmpty)
+          ? widget.vm.imageUrls.first
+          : 'https://picsum.photos/seed/dash0/1200/800';
+      overlayUrl = null;
+    }
+
+    final size = MediaQuery.of(context).size;
+    final w = size.width;
+    final h = size.height;
+    final maxWidthByHeight = h * (4 / 3);
+    final boxWidth = w < maxWidthByHeight ? w : maxWidthByHeight;
+    final boxHeight = boxWidth * (3 / 4);
+
+    return Center(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(kImageRadius),
+                child: Container(
+                  width: boxWidth,
+                  height: boxHeight,
+                  color: Colors.black,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: InteractiveViewer(
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                originalUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                                ),
+                              ),
+                              if (overlayUrl != null)
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  child: KeyedSubtree(
+                                    key: ValueKey<String>('fs-overlay-$_caseIndex-$_layerIndex-$overlayUrl'),
+                                    child: Image.network(
+                                      overlayUrl!,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      Positioned.fill(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _OverlayTapZone(onTap: _prev, child: const SizedBox.shrink(), align: Alignment.centerLeft, flex: 1),
+                            _OverlayTapZone(onTap: _nextLayer, child: const SizedBox.shrink(), align: Alignment.center, flex: 2),
+                            _OverlayTapZone(onTap: _next, child: const SizedBox.shrink(), align: Alignment.centerRight, flex: 1),
+                          ],
+                        ),
+                      ),
+
+                      Positioned(
+                        left: 8,
+                        right: 8,
+                        bottom: 8,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.35),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${items.isEmpty ? 0 : (_caseIndex + 1)} / ${items.isEmpty ? 0 : items.length}'
+                              '${overlayKeys.length > 1 ? ' • layer ${_layerIndex + 1}/${overlayKeys.length}' : ''}',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            Positioned(
+              right: 24,
+              top: 24,
+              child: IconButton(
+                iconSize: 28,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+                splashRadius: 24,
+                tooltip: '닫기',
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
